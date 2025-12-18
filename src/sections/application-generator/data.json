@@ -1,0 +1,388 @@
+{
+  "_meta": {
+    "models": {
+      "generatedApplications": "AI-generated application materials (resume and cover letter) tailored for specific job postings, with multiple variants and edit tracking."
+    },
+    "relationships": [
+      "Each GeneratedApplication is created for one specific Job",
+      "Each GeneratedApplication contains multiple Variants (2-3 AI-generated versions)",
+      "Each Variant includes a tailored Resume and CoverLetter",
+      "Applications track edit history showing user modifications from AI original"
+    ]
+  },
+  "generatedApplications": [
+    {
+      "id": "app-001",
+      "jobId": "job-001",
+      "jobTitle": "Senior Product Manager",
+      "company": "TechFlow Inc",
+      "status": "submitted",
+      "createdAt": "2024-02-15T14:30:00Z",
+      "submittedAt": "2024-02-15T16:45:00Z",
+      "selectedVariantId": "var-001-1",
+      "variants": [
+        {
+          "id": "var-001-1",
+          "name": "Impact-Focused",
+          "resume": {
+            "summary": "Results-driven Senior Product Manager with 8+ years of experience launching and scaling B2B SaaS products from 0 to $10M ARR. Led AI-powered analytics platform serving 500+ enterprise customers at TechFlow, driving 45% increase in user engagement and $3M in new revenue. Expertise in cross-functional leadership, data-driven decision making, and product strategy.",
+            "experience": [
+              {
+                "title": "Senior Product Manager",
+                "company": "TechFlow Inc",
+                "location": "San Francisco, CA",
+                "startDate": "Feb 2021",
+                "endDate": "Present",
+                "bullets": [
+                  "Launched AI-driven insights feature that increased user engagement by 45% and drove $3M in new revenue within first year",
+                  "Led cross-functional team of 12 engineers, designers, and data scientists through complete product redesign, reducing time-to-market by 30%",
+                  "Grew product from $2M to $10M ARR in 2 years through strategic feature prioritization and customer-centric roadmapping",
+                  "Established data-driven product development process with A/B testing framework, improving feature success rate by 60%"
+                ]
+              },
+              {
+                "title": "Product Manager",
+                "company": "Google",
+                "location": "Mountain View, CA",
+                "startDate": "May 2018",
+                "endDate": "Jan 2021",
+                "bullets": [
+                  "Shipped 3 major features for Cloud Build that increased customer adoption by 60%, supporting Google Cloud's infrastructure expansion",
+                  "Collaborated with engineering teams across 4 countries to deliver seamless CI/CD experience for 10,000+ enterprise developers",
+                  "Conducted 100+ user interviews to inform product roadmap, translating insights into actionable feature requirements"
+                ]
+              }
+            ],
+            "skills": ["Product Strategy", "Cross-functional Leadership", "Data Analysis", "SaaS", "Agile Methodologies", "AI/ML Products", "User Research", "A/B Testing"],
+            "education": [
+              {
+                "degree": "Master of Science in Computer Science",
+                "school": "Stanford University",
+                "location": "Stanford, CA",
+                "graduation": "2016"
+              }
+            ]
+          },
+          "coverLetter": "Dear Hiring Manager,\n\nI am writing to express my strong interest in the Senior Product Manager position at TechFlow Inc. With over 8 years of experience building and scaling AI-powered B2B SaaS products, I am excited about the opportunity to drive product strategy for your analytics platform.\n\nIn my current role at TechFlow, I've led the development of AI-driven insights features that increased user engagement by 45% and generated $3M in new revenue. This experience aligns perfectly with your requirements for someone who can leverage AI to solve complex user problems. I've successfully grown products from $2M to $10M ARR by focusing on strategic feature prioritization and data-driven decision making.\n\nMy background at Google further strengthened my ability to work with distributed engineering teams and deliver products at scale. I shipped features that impacted 10,000+ enterprise developers and collaborated across 4 countries to ensure seamless user experiences.\n\nI'm particularly drawn to TechFlow's mission of making data analytics accessible to enterprise customers. The opportunity to lead product strategy for a platform serving 500+ customers excites me, and I believe my experience scaling similar products makes me an ideal fit.\n\nI would welcome the opportunity to discuss how my experience in AI-powered products, cross-functional leadership, and data-driven product development can contribute to TechFlow's continued growth.\n\nThank you for your consideration.\n\nBest regards,\nSarah Chen",
+          "aiRationale": [
+            "Emphasized AI product experience prominently since the job heavily focuses on AI-powered analytics",
+            "Highlighted specific metrics (45% engagement increase, $3M revenue, $10M ARR) to demonstrate quantifiable impact",
+            "Featured cross-functional leadership experience with team size (12 people) matching job requirements",
+            "Included Google experience to show credibility with enterprise-scale products",
+            "Focused on data-driven decision making and A/B testing to align with job's analytical requirements"
+          ]
+        },
+        {
+          "id": "var-001-2",
+          "name": "Leadership-Focused",
+          "resume": {
+            "summary": "Strategic Senior Product Manager with proven track record of building and leading high-performing product teams. Currently leading product strategy at TechFlow Inc for AI analytics platform serving 500+ enterprise customers. Excel at cross-functional collaboration, mentoring junior PMs, and translating complex technical concepts into user-friendly features. Known for fostering innovation and driving alignment across engineering, design, and business stakeholders.",
+            "experience": [
+              {
+                "title": "Senior Product Manager",
+                "company": "TechFlow Inc",
+                "location": "San Francisco, CA",
+                "startDate": "Feb 2021",
+                "endDate": "Present",
+                "bullets": [
+                  "Lead cross-functional team of 12 engineers, designers, and data scientists, fostering collaborative environment that improved team velocity by 25%",
+                  "Mentor 2 junior product managers, developing their skills in roadmapping, stakeholder management, and user research",
+                  "Drive product vision and strategy for AI-powered analytics platform, aligning engineering, sales, and customer success teams on shared goals",
+                  "Present quarterly product updates to VP-level stakeholders, translating complex technical achievements into business value"
+                ]
+              },
+              {
+                "title": "Product Manager",
+                "company": "Google",
+                "location": "Mountain View, CA",
+                "startDate": "May 2018",
+                "endDate": "Jan 2021",
+                "bullets": [
+                  "Collaborated with engineering teams across 4 countries, establishing communication frameworks that reduced cross-team friction by 40%",
+                  "Led product roadmap discussions with VP-level stakeholders, presenting vision for Cloud Build platform evolution",
+                  "Facilitated design sprints and user research sessions, bringing together engineers, designers, and customers to co-create solutions"
+                ]
+              }
+            ],
+            "skills": ["Cross-functional Leadership", "Team Management", "Stakeholder Management", "Product Strategy", "Agile Methodologies", "Mentorship", "Communication", "Strategic Planning"],
+            "education": [
+              {
+                "degree": "Master of Science in Computer Science",
+                "school": "Stanford University",
+                "location": "Stanford, CA",
+                "graduation": "2016"
+              }
+            ]
+          },
+          "coverLetter": "Dear Hiring Manager,\n\nI am excited to apply for the Senior Product Manager position at TechFlow Inc. As a product leader with extensive experience building and guiding high-performing cross-functional teams, I am drawn to the opportunity to drive product strategy for your analytics platform.\n\nThroughout my career, I've focused on building strong collaborative relationships across engineering, design, and business teams. At TechFlow, I currently lead a team of 12 engineers and designers, creating an environment where innovation thrives and team velocity has improved by 25%. I also mentor two junior product managers, helping develop the next generation of product leaders.\n\nMy experience at Google taught me how to operate at scale and work effectively with distributed teams. I collaborated with engineering teams across 4 countries and regularly presented product vision to VP-level stakeholders, skills that will serve me well in this role.\n\nWhat excites me most about this opportunity is the chance to lead product strategy for a platform serving 500+ enterprise customers. I thrive in environments where I can align diverse stakeholders around a shared vision and drive meaningful impact through collaborative product development.\n\nI would love to discuss how my leadership approach and experience building cohesive product teams can contribute to TechFlow's success.\n\nThank you for considering my application.\n\nSincerely,\nSarah Chen",
+          "aiRationale": [
+            "Emphasized leadership and team management since the job requires managing cross-functional teams of 10-15 people",
+            "Highlighted mentorship experience to show readiness for senior role with team development responsibilities",
+            "Focused on stakeholder management and communication with VPs to match seniority level",
+            "Featured collaboration skills prominently given the cross-functional nature of the role",
+            "Downplayed individual contributor work in favor of team leadership and strategic influence"
+          ]
+        }
+      ],
+      "editHistory": [
+        {
+          "timestamp": "2024-02-15T15:20:00Z",
+          "field": "resume.experience[0].bullets[0]",
+          "originalValue": "Launched AI-driven insights feature that increased user engagement by 45% and generated $3M in new revenue",
+          "editedValue": "Launched AI-driven insights feature that increased user engagement by 45% and drove $3M in new revenue within first year",
+          "reason": "Added timeframe for clarity"
+        },
+        {
+          "timestamp": "2024-02-15T15:25:00Z",
+          "field": "coverLetter.paragraph[2]",
+          "originalValue": "My background at Google taught me how to work with distributed teams and deliver products at scale.",
+          "editedValue": "My background at Google further strengthened my ability to work with distributed engineering teams and deliver products at scale. I shipped features that impacted 10,000+ enterprise developers and collaborated across 4 countries to ensure seamless user experiences.",
+          "reason": "Added specific metrics and details"
+        }
+      ]
+    },
+    {
+      "id": "app-002",
+      "jobId": "job-007",
+      "jobTitle": "Senior Product Manager - Platform",
+      "company": "DataStream Analytics",
+      "status": "draft",
+      "createdAt": "2024-02-16T10:15:00Z",
+      "submittedAt": null,
+      "selectedVariantId": null,
+      "variants": [
+        {
+          "id": "var-002-1",
+          "name": "Technical-Focused",
+          "resume": {
+            "summary": "Technical Product Manager with 8+ years building platform products and developer tools. Strong technical background with CS degree from Stanford and hands-on coding experience. Excel at translating complex technical requirements into scalable platform solutions. Led platform initiatives at TechFlow serving 100+ internal product teams and Google Cloud serving 10,000+ developers.",
+            "experience": [
+              {
+                "title": "Senior Product Manager",
+                "company": "TechFlow Inc",
+                "location": "San Francisco, CA",
+                "startDate": "Feb 2021",
+                "endDate": "Present",
+                "bullets": [
+                  "Built scalable platform infrastructure supporting 100+ internal product teams, reducing duplicate engineering work by 40%",
+                  "Designed and shipped shared component library and design system used across 15+ product surfaces",
+                  "Partnered with engineering architects to define platform APIs and microservices architecture serving 500+ enterprise customers",
+                  "Established platform governance framework balancing flexibility for product teams with consistency and quality standards"
+                ]
+              },
+              {
+                "title": "Product Manager",
+                "company": "Google",
+                "location": "Mountain View, CA",
+                "startDate": "May 2018",
+                "endDate": "Jan 2021",
+                "bullets": [
+                  "Managed Cloud Build platform serving 10,000+ developers, focusing on API design and developer experience",
+                  "Shipped CI/CD automation features reducing deployment time by 50% for enterprise customers",
+                  "Collaborated with engineering teams to design scalable infrastructure handling 1M+ builds per day",
+                  "Created technical documentation and API reference guides used by thousands of developers"
+                ]
+              }
+            ],
+            "skills": ["Platform Products", "API Design", "Systems Thinking", "Developer Tools", "Microservices Architecture", "Technical Documentation", "Scalability", "Cloud Infrastructure"],
+            "education": [
+              {
+                "degree": "Master of Science in Computer Science",
+                "school": "Stanford University",
+                "location": "Stanford, CA",
+                "graduation": "2016",
+                "focus": "Human-Computer Interaction"
+              }
+            ]
+          },
+          "coverLetter": "Dear Hiring Manager,\n\nI am writing to express my enthusiasm for the Senior Product Manager - Platform position at DataStream Analytics. With a strong technical background and 8 years of experience building platform products, I am excited about the opportunity to build foundational infrastructure that enables your entire product suite.\n\nPlatform products require a unique combination of technical depth and strategic thinking, which I've honed through my work at TechFlow and Google. At TechFlow, I built platform infrastructure serving 100+ internal teams, reducing duplicate work by 40% while maintaining the flexibility teams needed to innovate. At Google, I managed Cloud Build platform handling 1M+ builds daily, focusing on scalability and developer experience.\n\nMy CS degree from Stanford and hands-on technical experience enable me to work effectively with engineering teams on complex architectural decisions. I understand the trade-offs between flexibility and standardization, and I excel at balancing the needs of internal platform consumers with long-term architectural vision.\n\nWhat excites me most about DataStream is the opportunity to build platform capabilities that power your analytics product suite. I thrive on the challenge of creating infrastructure that enables other teams to move faster while ensuring quality and consistency.\n\nI would welcome the chance to discuss how my platform product experience and technical background can contribute to DataStream's infrastructure strategy.\n\nBest regards,\nSarah Chen",
+          "aiRationale": [
+            "Emphasized platform product experience since this is specifically a platform PM role",
+            "Highlighted technical background (CS degree, API design, architecture) to match technical requirements",
+            "Featured internal platform work serving other teams, which is key for this role",
+            "Included specific metrics around scale (100+ teams, 1M+ builds) to demonstrate experience with platform challenges",
+            "Focused on developer experience and internal customer success rather than end-user features"
+          ]
+        },
+        {
+          "id": "var-002-2",
+          "name": "Systems-Thinking Focused",
+          "resume": {
+            "summary": "Platform-focused Product Manager with expertise in building scalable foundations that enable product teams. Known for systems thinking and ability to balance short-term team needs with long-term architectural vision. 8 years experience building developer tools and platform products at high-growth companies. Excel at enabling other teams while maintaining quality and consistency.",
+            "experience": [
+              {
+                "title": "Senior Product Manager",
+                "company": "TechFlow Inc",
+                "location": "San Francisco, CA",
+                "startDate": "Feb 2021",
+                "endDate": "Present",
+                "bullets": [
+                  "Define platform strategy enabling 100+ product managers and engineers to build faster with shared infrastructure",
+                  "Balance competing priorities across 15+ product teams while maintaining architectural consistency and quality standards",
+                  "Establish platform governance model fostering innovation while preventing fragmentation and technical debt",
+                  "Champion platform adoption through internal evangelism, documentation, and success stories demonstrating value"
+                ]
+              },
+              {
+                "title": "Product Manager",
+                "company": "Google",
+                "location": "Mountain View, CA",
+                "startDate": "May 2018",
+                "endDate": "Jan 2021",
+                "bullets": [
+                  "Managed platform product serving multiple internal teams and 10,000+ external developers",
+                  "Navigated complex stakeholder landscape balancing needs of platform consumers with platform vision",
+                  "Built internal community of platform advocates driving adoption and gathering feedback",
+                  "Designed migration paths helping teams transition to new platform capabilities with minimal disruption"
+                ]
+              }
+            ],
+            "skills": ["Platform Strategy", "Systems Thinking", "Stakeholder Management", "Technical Architecture", "Developer Experience", "API Design", "Internal Enablement", "Strategic Planning"],
+            "education": [
+              {
+                "degree": "Master of Science in Computer Science",
+                "school": "Stanford University",
+                "location": "Stanford, CA",
+                "graduation": "2016"
+              }
+            ]
+          },
+          "coverLetter": "Dear Hiring Manager,\n\nI am excited to apply for the Senior Product Manager - Platform role at DataStream Analytics. Building platforms that enable other teams is where I thrive, and I'm drawn to the challenge of creating foundational infrastructure for your product suite.\n\nPlatform products require a unique mindset—balancing the needs of multiple internal customers while maintaining a coherent long-term vision. At TechFlow, I've honed this skill by serving 100+ product managers and engineers with shared infrastructure. Success in this role means constantly navigating trade-offs: flexibility vs. standardization, short-term team needs vs. long-term architecture, innovation vs. stability.\n\nWhat I love most about platform work is the multiplier effect. When you enable 15 teams to move faster, the impact compounds. I've focused on not just building capabilities, but ensuring adoption through evangelism, documentation, and demonstrating clear value to platform consumers.\n\nMy experience at Google taught me how to work at scale and manage complex stakeholder relationships. I learned that successful platforms require strong internal communities and clear migration paths when introducing new capabilities.\n\nI'm excited about the opportunity to bring this platform-first mindset to DataStream and build infrastructure that accelerates your entire product organization.\n\nThank you for considering my application.\n\nSincerely,\nSarah Chen",
+          "aiRationale": [
+            "Focused on systems thinking and strategic platform vision rather than just technical details",
+            "Emphasized ability to balance competing priorities and stakeholder needs, key for platform roles",
+            "Highlighted internal customer success and adoption challenges unique to platform products",
+            "Featured the 'multiplier effect' concept central to platform value proposition",
+            "Demonstrated understanding of platform-specific challenges like governance and migration paths"
+          ]
+        }
+      ],
+      "editHistory": []
+    },
+    {
+      "id": "app-003",
+      "jobId": "job-010",
+      "jobTitle": "Product Manager - Enterprise",
+      "company": "B2B Solutions Inc",
+      "status": "in_progress",
+      "createdAt": "2024-02-17T09:00:00Z",
+      "submittedAt": null,
+      "selectedVariantId": "var-003-1",
+      "variants": [
+        {
+          "id": "var-003-1",
+          "name": "Enterprise-Focused",
+          "resume": {
+            "summary": "Enterprise Product Manager with 8+ years building B2B SaaS products for Fortune 500 customers. Deep understanding of enterprise buying process, security requirements, and customer success at scale. Led products serving 500+ enterprise customers at TechFlow, working closely with sales and customer success teams to drive adoption and expansion.",
+            "experience": [
+              {
+                "title": "Senior Product Manager",
+                "company": "TechFlow Inc",
+                "location": "San Francisco, CA",
+                "startDate": "Feb 2021",
+                "endDate": "Present",
+                "bullets": [
+                  "Manage product serving 500+ enterprise customers including Fortune 500 companies, maintaining 95% customer satisfaction",
+                  "Partner with sales team on strategic deals, presenting product roadmap to C-suite executives at customer sites",
+                  "Lead enterprise feature development including SSO, SCIM provisioning, audit logs, and advanced permissions",
+                  "Conduct quarterly business reviews with top 20 customers, gathering feedback and demonstrating commitment to their success"
+                ]
+              },
+              {
+                "title": "Product Manager",
+                "company": "Google",
+                "location": "Mountain View, CA",
+                "startDate": "May 2018",
+                "endDate": "Jan 2021",
+                "bullets": [
+                  "Managed Cloud Build product for enterprise customers, focusing on security, compliance, and scalability requirements",
+                  "Worked with enterprise sales team to understand customer needs and close strategic deals",
+                  "Built features supporting enterprise requirements: advanced access controls, detailed audit trails, SLA guarantees",
+                  "Presented product vision and roadmap to enterprise decision-makers during sales cycles"
+                ]
+              }
+            ],
+            "skills": ["Enterprise SaaS", "Customer Success", "Stakeholder Management", "Security & Compliance", "Sales Enablement", "Executive Presentations", "Account Management", "Product Roadmapping"],
+            "education": [
+              {
+                "degree": "Master of Science in Computer Science",
+                "school": "Stanford University",
+                "location": "Stanford, CA",
+                "graduation": "2016"
+              }
+            ]
+          },
+          "coverLetter": "Dear Hiring Manager,\n\nI am writing to express my strong interest in the Product Manager - Enterprise position at B2B Solutions Inc. With 8 years of experience building products for enterprise customers, I understand the unique challenges and opportunities of serving large organizations.\n\nAt TechFlow, I manage a product serving 500+ enterprise customers including several Fortune 500 companies. This role has taught me that enterprise success requires balancing customer requests with product vision, building features that serve broad needs while accommodating specific requirements, and maintaining strong relationships with customer stakeholders.\n\nI work closely with our sales team on strategic deals, often presenting our roadmap to C-suite executives. I've learned to translate technical capabilities into business value and to understand the long sales cycles and complex decision-making processes typical of enterprise buyers.\n\nMy experience includes building enterprise-specific features like SSO, advanced permissions, audit logs, and compliance capabilities. I understand that enterprise customers need security, reliability, and partnership—not just features.\n\nWhat excites me about B2B Solutions is the opportunity to focus exclusively on enterprise customers. I thrive in environments where I can build deep customer relationships and create products that solve complex organizational challenges.\n\nI would welcome the opportunity to discuss how my enterprise product experience can contribute to B2B Solutions' growth.\n\nThank you for your consideration.\n\nBest regards,\nSarah Chen",
+          "aiRationale": [
+            "Emphasized enterprise customer experience prominently throughout resume and cover letter",
+            "Highlighted specific enterprise features (SSO, SCIM, audit logs) showing understanding of enterprise needs",
+            "Featured collaboration with sales team and C-suite presentations, key for enterprise PM roles",
+            "Included customer success and relationship management aspects critical for enterprise focus",
+            "Used metrics around enterprise customer base size (500+ customers, Fortune 500) to demonstrate scale"
+          ]
+        },
+        {
+          "id": "var-003-2",
+          "name": "Customer-Centric",
+          "resume": {
+            "summary": "Customer-focused Product Manager passionate about understanding and solving enterprise customer needs. 8 years building deep customer relationships and translating feedback into impactful product improvements. Known for quarterly business reviews, on-site customer visits, and partnership approach to product development. Led customer-driven initiatives at TechFlow resulting in 95% enterprise satisfaction and 40% reduction in churn.",
+            "experience": [
+              {
+                "title": "Senior Product Manager",
+                "company": "TechFlow Inc",
+                "location": "San Francisco, CA",
+                "startDate": "Feb 2021",
+                "endDate": "Present",
+                "bullets": [
+                  "Conduct quarterly business reviews with top 20 enterprise customers, building trusted advisor relationships",
+                  "Visit customer sites regularly to observe product usage and understand workflow challenges firsthand",
+                  "Lead customer advisory board of 15 enterprise customers, gathering strategic feedback on roadmap priorities",
+                  "Reduced enterprise customer churn by 40% through proactive engagement and customer-requested feature development"
+                ]
+              },
+              {
+                "title": "Product Manager",
+                "company": "Google",
+                "location": "Mountain View, CA",
+                "startDate": "May 2018",
+                "endDate": "Jan 2021",
+                "bullets": [
+                  "Conducted 100+ customer interviews with enterprise users to understand pain points and workflow needs",
+                  "Established regular touchpoints with top customers including monthly check-ins and roadmap previews",
+                  "Built customer feedback loop translating qualitative insights into prioritized product improvements",
+                  "Created case studies showcasing customer success stories, strengthening customer relationships and marketing efforts"
+                ]
+              }
+            ],
+            "skills": ["Customer Success", "Relationship Management", "User Research", "Stakeholder Management", "Product Roadmapping", "Enterprise SaaS", "Account Management", "Communication"],
+            "education": [
+              {
+                "degree": "Master of Science in Computer Science",
+                "school": "Stanford University",
+                "location": "Stanford, CA",
+                "graduation": "2016"
+              }
+            ]
+          },
+          "coverLetter": "Dear Hiring Manager,\n\nI am excited to apply for the Product Manager - Enterprise position at B2B Solutions Inc. What draws me to this role is the opportunity to work closely with enterprise customers and build products that truly solve their challenges.\n\nThroughout my career, I've prioritized building deep customer relationships. At TechFlow, I conduct quarterly business reviews with our top 20 customers and regularly visit their sites to see our product in action. This hands-on approach has taught me that the best product insights come from observing real workflows and building trust with customer stakeholders.\n\nI believe enterprise product management is fundamentally about partnership. It's balancing what customers request with what they actually need, educating them on product capabilities while advocating internally for their requirements, and maintaining relationships that go beyond transactions.\n\nThis customer-centric approach has delivered measurable results: 95% enterprise satisfaction scores and 40% reduction in churn. I've learned that success with enterprise customers comes from consistent engagement, proactive communication, and delivering on commitments.\n\nWhat excites me about B2B Solutions is the chance to bring this customer-first mindset to your enterprise product line. I thrive in roles where customer relationships are central to product strategy.\n\nI would love to discuss how my approach to customer-driven product development can contribute to B2B Solutions' success with enterprise accounts.\n\nThank you for considering my application.\n\nSincerely,\nSarah Chen",
+          "aiRationale": [
+            "Focused heavily on customer relationships and customer success rather than technical features",
+            "Highlighted specific customer engagement practices (QBRs, site visits, advisory board) to show deep customer commitment",
+            "Emphasized customer satisfaction and churn reduction metrics demonstrating customer-centric impact",
+            "Featured partnership and relationship-building language throughout to match enterprise account management aspects",
+            "Balanced customer advocacy with product vision to show ability to navigate customer requests wisely"
+          ]
+        }
+      ],
+      "editHistory": [
+        {
+          "timestamp": "2024-02-17T11:30:00Z",
+          "field": "resume.summary",
+          "originalValue": "Enterprise Product Manager with 8+ years building B2B SaaS products for Fortune 500 customers.",
+          "editedValue": "Enterprise Product Manager with 8+ years building B2B SaaS products for Fortune 500 customers. Deep understanding of enterprise buying process, security requirements, and customer success at scale.",
+          "reason": "Added more detail to summary"
+        }
+      ]
+    }
+  ]
+}

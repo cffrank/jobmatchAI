@@ -1,0 +1,194 @@
+{
+  "_meta": {
+    "models": {
+      "user": "A job seeker using the platform with imported LinkedIn profile data, skills, experience, and account information.",
+      "resume": "A generated resume document, either a master version or tailored for a specific job posting.",
+      "workExperience": "Individual job positions showing career history with company, title, dates, and accomplishments.",
+      "education": "Academic credentials including schools attended, degrees earned, and completion dates.",
+      "skill": "Professional skills and competencies with endorsement counts from LinkedIn connections.",
+      "optimizationSuggestion": "AI-generated recommendations to improve resume effectiveness and impact."
+    },
+    "relationships": [
+      "User contains personal information, work experience, education, and skills",
+      "User has one master Resume",
+      "Work Experience entries are ordered chronologically to show career progression",
+      "Skills can have endorsement counts from LinkedIn connections",
+      "Optimization Suggestions target specific sections of the resume for improvement"
+    ]
+  },
+  "user": {
+    "id": "user-001",
+    "firstName": "Sarah",
+    "lastName": "Chen",
+    "email": "sarah.chen@email.com",
+    "phone": "+1 (555) 234-5678",
+    "location": "San Francisco, CA",
+    "linkedInUrl": "https://linkedin.com/in/sarahchen",
+    "profileImageUrl": null,
+    "headline": "Senior Product Manager | SaaS & AI Products | Ex-Google",
+    "summary": "Results-driven product manager with 8+ years of experience launching and scaling B2B SaaS products. Passionate about leveraging AI to solve complex user problems. Led products from 0 to $10M ARR at high-growth startups. Strong cross-functional leader with expertise in product strategy, roadmapping, and data-driven decision making."
+  },
+  "workExperience": [
+    {
+      "id": "exp-001",
+      "company": "TechFlow Inc",
+      "position": "Senior Product Manager",
+      "location": "San Francisco, CA",
+      "startDate": "2021-03",
+      "endDate": null,
+      "current": true,
+      "description": "Lead product strategy and execution for AI-powered analytics platform serving 500+ enterprise customers.",
+      "accomplishments": [
+        "Launched AI-driven insights feature that increased user engagement by 45% and drove $3M in new revenue",
+        "Led cross-functional team of 12 engineers, designers, and data scientists through complete product redesign",
+        "Established data-driven product development process, reducing time-to-market by 30%",
+        "Grew product from $2M to $10M ARR in 2 years through strategic feature prioritization"
+      ]
+    },
+    {
+      "id": "exp-002",
+      "company": "Google",
+      "position": "Product Manager",
+      "location": "Mountain View, CA",
+      "startDate": "2018-06",
+      "endDate": "2021-02",
+      "current": false,
+      "description": "Managed cloud infrastructure products for Google Cloud Platform, focusing on developer tools and automation.",
+      "accomplishments": [
+        "Shipped 3 major features for Cloud Build that increased customer adoption by 60%",
+        "Collaborated with engineering teams across 4 countries to deliver seamless CI/CD experience",
+        "Conducted 100+ user interviews to inform product roadmap and feature prioritization",
+        "Presented product vision and quarterly updates to VP-level stakeholders"
+      ]
+    },
+    {
+      "id": "exp-003",
+      "company": "StartupLab",
+      "position": "Associate Product Manager",
+      "location": "San Francisco, CA",
+      "startDate": "2016-08",
+      "endDate": "2018-05",
+      "current": false,
+      "description": "First product hire at early-stage B2B SaaS startup. Built product from concept to 50 paying customers.",
+      "accomplishments": [
+        "Defined product vision and roadmap for project management tool targeting creative agencies",
+        "Conducted market research and competitive analysis to identify product-market fit",
+        "Launched MVP in 4 months with limited engineering resources",
+        "Gathered continuous customer feedback through weekly user testing sessions"
+      ]
+    }
+  ],
+  "education": [
+    {
+      "id": "edu-001",
+      "school": "Stanford University",
+      "degree": "Master of Science",
+      "field": "Computer Science",
+      "location": "Stanford, CA",
+      "startDate": "2014-09",
+      "endDate": "2016-06",
+      "gpa": "3.8",
+      "highlights": [
+        "Concentration in Human-Computer Interaction",
+        "Teaching Assistant for CS147: Introduction to HCI",
+        "Published research on AI-driven user interfaces"
+      ]
+    },
+    {
+      "id": "edu-002",
+      "school": "University of California, Berkeley",
+      "degree": "Bachelor of Arts",
+      "field": "Cognitive Science",
+      "location": "Berkeley, CA",
+      "startDate": "2010-08",
+      "endDate": "2014-05",
+      "gpa": "3.7",
+      "highlights": [
+        "Minor in Computer Science",
+        "Dean's List all 4 years",
+        "President of Product Management Club"
+      ]
+    }
+  ],
+  "skills": [
+    { "id": "skill-001", "name": "Product Strategy", "endorsements": 47 },
+    { "id": "skill-002", "name": "Product Management", "endorsements": 52 },
+    { "id": "skill-003", "name": "Roadmapping", "endorsements": 34 },
+    { "id": "skill-004", "name": "User Research", "endorsements": 28 },
+    { "id": "skill-005", "name": "Data Analysis", "endorsements": 31 },
+    { "id": "skill-006", "name": "A/B Testing", "endorsements": 23 },
+    { "id": "skill-007", "name": "SQL", "endorsements": 19 },
+    { "id": "skill-008", "name": "Agile Methodologies", "endorsements": 38 },
+    { "id": "skill-009", "name": "Cross-functional Leadership", "endorsements": 41 },
+    { "id": "skill-010", "name": "Product Analytics", "endorsements": 25 },
+    { "id": "skill-011", "name": "SaaS", "endorsements": 36 },
+    { "id": "skill-012", "name": "AI/Machine Learning", "endorsements": 15 }
+  ],
+  "resume": {
+    "id": "resume-001",
+    "userId": "user-001",
+    "type": "master",
+    "title": "Sarah Chen - Product Manager Resume",
+    "createdAt": "2024-01-15T10:30:00Z",
+    "updatedAt": "2024-02-10T14:22:00Z",
+    "sections": {
+      "header": {
+        "name": "Sarah Chen",
+        "title": "Senior Product Manager",
+        "contact": {
+          "email": "sarah.chen@email.com",
+          "phone": "+1 (555) 234-5678",
+          "location": "San Francisco, CA",
+          "linkedIn": "linkedin.com/in/sarahchen"
+        }
+      },
+      "summary": "Results-driven product manager with 8+ years of experience launching and scaling B2B SaaS products. Passionate about leveraging AI to solve complex user problems. Led products from 0 to $10M ARR at high-growth startups. Strong cross-functional leader with expertise in product strategy, roadmapping, and data-driven decision making.",
+      "experience": ["exp-001", "exp-002", "exp-003"],
+      "education": ["edu-001", "edu-002"],
+      "skills": ["skill-001", "skill-002", "skill-003", "skill-004", "skill-005", "skill-006", "skill-007", "skill-008", "skill-009", "skill-010", "skill-011", "skill-012"]
+    },
+    "formats": ["pdf", "docx", "txt"]
+  },
+  "optimizationSuggestions": [
+    {
+      "id": "sugg-001",
+      "section": "summary",
+      "priority": "high",
+      "type": "impact",
+      "title": "Quantify your impact in the summary",
+      "description": "Add specific metrics about team size, budget, or revenue impact to make your summary more compelling. For example, mention the number of products you've launched or total ARR managed.",
+      "suggestion": "Consider adding: 'Led product teams of 10-15 people managing $15M+ in ARR across 3 major product lines.'",
+      "accepted": false
+    },
+    {
+      "id": "sugg-002",
+      "section": "experience",
+      "priority": "high",
+      "type": "keywords",
+      "title": "Add industry-relevant keywords",
+      "description": "Your resume would rank higher for PM roles if you include more industry-standard keywords. Consider adding terms like 'OKRs', 'product-market fit', 'go-to-market strategy', and 'stakeholder management'.",
+      "suggestion": "Integrate these keywords naturally into your accomplishment bullets, especially in your most recent role.",
+      "accepted": false
+    },
+    {
+      "id": "sugg-003",
+      "section": "skills",
+      "priority": "medium",
+      "type": "organization",
+      "title": "Group skills by category",
+      "description": "Organizing your skills into categories (Technical, Product, Leadership) makes it easier for recruiters to scan and shows the breadth of your expertise.",
+      "suggestion": "Create three skill groups: Technical Skills (SQL, A/B Testing, Product Analytics), Product Skills (Roadmapping, User Research, Product Strategy), and Leadership Skills (Cross-functional Leadership, Agile Methodologies).",
+      "accepted": false
+    },
+    {
+      "id": "sugg-004",
+      "section": "experience",
+      "priority": "medium",
+      "type": "formatting",
+      "title": "Lead with action verbs",
+      "description": "Some of your bullets start with weak phrases. Strong action verbs like 'Drove', 'Spearheaded', 'Orchestrated', and 'Transformed' create more impact than 'Managed' or 'Worked on'.",
+      "suggestion": "Review your TechFlow bullets and replace 'Led cross-functional team' with 'Orchestrated cross-functional team' and 'Established data-driven process' with 'Transformed product development by establishing data-driven process'.",
+      "accepted": false
+    }
+  ]
+}

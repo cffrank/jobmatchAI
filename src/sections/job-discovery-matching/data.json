@@ -1,0 +1,379 @@
+{
+  "_meta": {
+    "models": {
+      "jobs": "Job postings scraped from job boards containing description, requirements, company information, and AI-calculated compatibility score."
+    },
+    "relationships": [
+      "Each Job contains required skills that are matched against the user's profile",
+      "Jobs track their compatibility score and skill gap analysis for the current user",
+      "Users can save/bookmark Jobs for later review"
+    ]
+  },
+  "jobs": [
+    {
+      "id": "job-001",
+      "title": "Senior Product Manager",
+      "company": "TechFlow Inc",
+      "companyLogo": "https://via.placeholder.com/80x80/3b82f6/ffffff?text=TF",
+      "location": "San Francisco, CA",
+      "workArrangement": "Hybrid",
+      "salaryMin": 140000,
+      "salaryMax": 180000,
+      "postedDate": "2024-02-10",
+      "applicationDeadline": "2024-03-15",
+      "matchScore": 92,
+      "isSaved": true,
+      "requiredSkills": [
+        "Product Strategy",
+        "Cross-functional Leadership",
+        "Agile Methodologies",
+        "Data Analysis",
+        "SaaS"
+      ],
+      "missingSkills": [],
+      "description": "We're seeking an experienced Senior Product Manager to lead our AI-powered analytics platform. You'll drive product strategy, work closely with engineering and design teams, and shape the future of data analytics for enterprise customers.\n\nResponsibilities:\n• Define and execute product roadmap for our flagship analytics product\n• Lead cross-functional teams of 10-15 engineers and designers\n• Conduct user research and translate insights into product requirements\n• Analyze metrics and make data-driven decisions\n• Present product vision to executive stakeholders\n\nQualifications:\n• 5+ years of product management experience in B2B SaaS\n• Strong track record of launching successful products\n• Experience with agile development methodologies\n• Excellent communication and leadership skills\n• Technical background preferred",
+      "compatibilityBreakdown": {
+        "skillMatch": 100,
+        "experienceMatch": 95,
+        "industryMatch": 85,
+        "locationMatch": 90
+      },
+      "recommendations": [
+        "Your profile is an excellent match for this role",
+        "Your experience at Google and TechFlow aligns perfectly with their requirements",
+        "Consider highlighting your AI product experience in your application"
+      ]
+    },
+    {
+      "id": "job-002",
+      "title": "Product Manager - AI/ML Products",
+      "company": "InnovateLabs",
+      "companyLogo": "https://via.placeholder.com/80x80/8b5cf6/ffffff?text=IL",
+      "location": "Remote",
+      "workArrangement": "Remote",
+      "salaryMin": 130000,
+      "salaryMax": 170000,
+      "postedDate": "2024-02-12",
+      "applicationDeadline": "2024-03-20",
+      "matchScore": 88,
+      "isSaved": true,
+      "requiredSkills": [
+        "Product Management",
+        "AI/Machine Learning",
+        "User Research",
+        "Product Analytics",
+        "Python"
+      ],
+      "missingSkills": [
+        "Python"
+      ],
+      "description": "Join our growing AI team as a Product Manager focused on building the next generation of machine learning products. You'll work at the intersection of AI technology and user experience to create products that solve real business problems.\n\nWhat You'll Do:\n• Own the product roadmap for our ML-powered features\n• Partner with data scientists and ML engineers to define requirements\n• Conduct A/B tests and analyze product metrics\n• Build deep understanding of customer needs through research\n• Translate complex ML concepts into user-friendly features\n\nWhat We're Looking For:\n• 4+ years of product management experience\n• Experience with AI/ML products or deep interest in the space\n• Strong analytical skills and comfort with data\n• Excellent written and verbal communication\n• Nice to have: Technical background or coding experience",
+      "compatibilityBreakdown": {
+        "skillMatch": 80,
+        "experienceMatch": 95,
+        "industryMatch": 90,
+        "locationMatch": 100
+      },
+      "recommendations": [
+        "Strong match overall - consider learning Python basics to close the skill gap",
+        "Your AI product experience from TechFlow is highly relevant",
+        "Highlight your A/B testing and analytics experience"
+      ]
+    },
+    {
+      "id": "job-003",
+      "title": "Associate Product Manager",
+      "company": "StartupHub",
+      "companyLogo": "https://via.placeholder.com/80x80/10b981/ffffff?text=SH",
+      "location": "New York, NY",
+      "workArrangement": "On-site",
+      "salaryMin": 90000,
+      "salaryMax": 120000,
+      "postedDate": "2024-02-14",
+      "applicationDeadline": "2024-03-10",
+      "matchScore": 65,
+      "isSaved": false,
+      "requiredSkills": [
+        "Product Management",
+        "Agile Methodologies",
+        "User Research",
+        "Roadmapping",
+        "Jira"
+      ],
+      "missingSkills": [
+        "Jira"
+      ],
+      "description": "We're looking for an Associate Product Manager to join our fast-growing startup. This is a great opportunity for someone early in their PM career to take on significant ownership and learn from experienced product leaders.\n\nYou Will:\n• Support senior PMs in defining and executing product initiatives\n• Write user stories and acceptance criteria\n• Conduct user interviews and usability tests\n• Track metrics and report on product performance\n• Collaborate with engineering, design, and marketing teams\n\nYou Have:\n• 1-3 years of product management or related experience\n• Strong communication and organizational skills\n• Passion for building great user experiences\n• Ability to thrive in a fast-paced startup environment\n• Bachelor's degree in a relevant field",
+      "compatibilityBreakdown": {
+        "skillMatch": 80,
+        "experienceMatch": 45,
+        "industryMatch": 70,
+        "locationMatch": 60
+      },
+      "recommendations": [
+        "This role is more junior than your experience level - you're overqualified",
+        "Consider if you're willing to take a step back in seniority",
+        "The salary range is significantly lower than your current level"
+      ]
+    },
+    {
+      "id": "job-004",
+      "title": "Director of Product Management",
+      "company": "Enterprise Solutions Corp",
+      "companyLogo": "https://via.placeholder.com/80x80/ef4444/ffffff?text=ES",
+      "location": "Seattle, WA",
+      "workArrangement": "Hybrid",
+      "salaryMin": 180000,
+      "salaryMax": 230000,
+      "postedDate": "2024-02-08",
+      "applicationDeadline": "2024-03-05",
+      "matchScore": 78,
+      "isSaved": true,
+      "requiredSkills": [
+        "Product Strategy",
+        "Team Leadership",
+        "Enterprise SaaS",
+        "OKRs",
+        "Stakeholder Management",
+        "Budget Management"
+      ],
+      "missingSkills": [
+        "OKRs",
+        "Budget Management"
+      ],
+      "description": "We're seeking a Director of Product Management to lead our enterprise products division. You'll manage a team of 5-7 product managers and own the strategy for our $50M+ product line.\n\nKey Responsibilities:\n• Lead and mentor a team of product managers\n• Define 3-year product vision and strategy\n• Manage $10M+ product development budget\n• Present quarterly business reviews to C-suite executives\n• Drive alignment across engineering, sales, and customer success\n• Establish OKRs and measure team performance\n\nQualifications:\n• 8+ years of product management experience\n• 3+ years managing other product managers\n• Proven track record of scaling enterprise SaaS products\n• Experience with P&L ownership\n• Strong executive presence and communication skills\n• MBA preferred",
+      "compatibilityBreakdown": {
+        "skillMatch": 65,
+        "experienceMatch": 80,
+        "industryMatch": 90,
+        "locationMatch": 70
+      },
+      "recommendations": [
+        "Good experience match but missing some senior-level skills",
+        "Consider gaining experience with OKRs and budget management",
+        "This role requires people management experience - highlight any leadership experience you have"
+      ]
+    },
+    {
+      "id": "job-005",
+      "title": "Product Manager - Growth",
+      "company": "GrowthEngine",
+      "companyLogo": "https://via.placeholder.com/80x80/f59e0b/ffffff?text=GE",
+      "location": "Austin, TX",
+      "workArrangement": "Remote",
+      "salaryMin": 120000,
+      "salaryMax": 155000,
+      "postedDate": "2024-02-15",
+      "applicationDeadline": "2024-03-25",
+      "matchScore": 71,
+      "isSaved": false,
+      "requiredSkills": [
+        "Growth Hacking",
+        "A/B Testing",
+        "Product Analytics",
+        "SQL",
+        "Conversion Optimization"
+      ],
+      "missingSkills": [
+        "Growth Hacking",
+        "Conversion Optimization"
+      ],
+      "description": "Join our growth team to drive user acquisition, activation, and retention through product-led growth strategies. You'll run experiments, analyze data, and build features that help our product grow itself.\n\nWhat You'll Do:\n• Design and execute growth experiments across the user funnel\n• Analyze user behavior and identify growth opportunities\n• Work with engineering to build and iterate on growth features\n• Track KPIs and report on growth metrics\n• Optimize onboarding, activation, and retention flows\n\nWhat We Need:\n• 3+ years in product management or growth roles\n• Strong analytical skills and proficiency with SQL\n• Experience with A/B testing and experimentation platforms\n• Data-driven mindset with focus on metrics\n• Startup experience preferred",
+      "compatibilityBreakdown": {
+        "skillMatch": 60,
+        "experienceMatch": 85,
+        "industryMatch": 70,
+        "locationMatch": 100
+      },
+      "recommendations": [
+        "Your SQL and A/B testing skills are a great fit",
+        "Consider learning growth-specific frameworks and methodologies",
+        "This role focuses heavily on metrics - your analytics background is valuable"
+      ]
+    },
+    {
+      "id": "job-006",
+      "title": "Technical Product Manager",
+      "company": "CloudScale Systems",
+      "companyLogo": "https://via.placeholder.com/80x80/06b6d4/ffffff?text=CS",
+      "location": "Boston, MA",
+      "workArrangement": "Hybrid",
+      "salaryMin": 145000,
+      "salaryMax": 185000,
+      "postedDate": "2024-02-11",
+      "applicationDeadline": "2024-03-18",
+      "matchScore": 82,
+      "isSaved": false,
+      "requiredSkills": [
+        "Product Management",
+        "API Design",
+        "Cloud Architecture",
+        "Developer Tools",
+        "Technical Documentation"
+      ],
+      "missingSkills": [
+        "API Design",
+        "Cloud Architecture",
+        "Technical Documentation"
+      ],
+      "description": "We're looking for a Technical Product Manager to own our developer platform and API products. You'll work closely with engineering teams to build products that developers love.\n\nResponsibilities:\n• Define product requirements for our API and SDK offerings\n• Create technical specifications and architecture documents\n• Gather feedback from developer community\n• Prioritize developer experience improvements\n• Collaborate with DevRel team on documentation and adoption\n\nRequirements:\n• 5+ years of product management experience\n• Strong technical background (CS degree or equivalent)\n• Experience building developer tools or platforms\n• Understanding of API design and cloud infrastructure\n• Excellent written communication for technical audiences",
+      "compatibilityBreakdown": {
+        "skillMatch": 40,
+        "experienceMatch": 95,
+        "industryMatch": 85,
+        "locationMatch": 75
+      },
+      "recommendations": [
+        "Your experience level is a strong match",
+        "Consider building technical skills in API design and cloud architecture",
+        "Your CS background from Stanford is valuable for this technical role"
+      ]
+    },
+    {
+      "id": "job-007",
+      "title": "Senior Product Manager - Platform",
+      "company": "DataStream Analytics",
+      "companyLogo": "https://via.placeholder.com/80x80/ec4899/ffffff?text=DA",
+      "location": "Remote",
+      "workArrangement": "Remote",
+      "salaryMin": 150000,
+      "salaryMax": 190000,
+      "postedDate": "2024-02-09",
+      "applicationDeadline": "2024-03-12",
+      "matchScore": 94,
+      "isSaved": true,
+      "requiredSkills": [
+        "Product Strategy",
+        "Platform Products",
+        "Cross-functional Leadership",
+        "SaaS",
+        "Data Analytics"
+      ],
+      "missingSkills": [],
+      "description": "Lead our platform product strategy and build the foundation that powers our entire product suite. You'll work on high-impact projects that enable other product teams and delight our customers.\n\nWhat You'll Own:\n• Platform product roadmap and strategy\n• Core infrastructure and shared services\n• Developer experience for internal teams\n• Scalability and performance initiatives\n• Integration capabilities and API strategy\n\nWhat You Bring:\n• 6+ years of product management experience\n• Experience with platform or infrastructure products\n• Strong technical aptitude and systems thinking\n• Track record of enabling other teams through platform work\n• Excellent stakeholder management across multiple teams",
+      "compatibilityBreakdown": {
+        "skillMatch": 100,
+        "experienceMatch": 90,
+        "industryMatch": 95,
+        "locationMatch": 100
+      },
+      "recommendations": [
+        "Excellent match! Your skills align perfectly with this role",
+        "Your experience with data analytics products is highly relevant",
+        "Strong candidate - recommend applying soon"
+      ]
+    },
+    {
+      "id": "job-008",
+      "title": "Product Manager - Mobile",
+      "company": "AppVentures",
+      "companyLogo": "https://via.placeholder.com/80x80/84cc16/ffffff?text=AV",
+      "location": "Los Angeles, CA",
+      "workArrangement": "Hybrid",
+      "salaryMin": 125000,
+      "salaryMax": 160000,
+      "postedDate": "2024-02-13",
+      "applicationDeadline": "2024-03-22",
+      "matchScore": 58,
+      "isSaved": false,
+      "requiredSkills": [
+        "Mobile Product Management",
+        "iOS/Android Platforms",
+        "App Store Optimization",
+        "Mobile Analytics",
+        "Push Notifications"
+      ],
+      "missingSkills": [
+        "Mobile Product Management",
+        "iOS/Android Platforms",
+        "App Store Optimization",
+        "Push Notifications"
+      ],
+      "description": "Join our mobile team to build and grow our iOS and Android applications. You'll drive mobile strategy, work with mobile engineers, and optimize the mobile user experience.\n\nResponsibilities:\n• Own mobile product roadmap for iOS and Android apps\n• Optimize app store presence and conversion rates\n• Implement mobile-specific features and improvements\n• Analyze mobile metrics and user behavior\n• Coordinate app releases and updates\n\nQualifications:\n• 3+ years of mobile product management experience\n• Deep understanding of iOS and Android platforms\n• Experience with app store optimization\n• Strong analytical skills with mobile analytics tools\n• Consumer app experience preferred",
+      "compatibilityBreakdown": {
+        "skillMatch": 20,
+        "experienceMatch": 75,
+        "industryMatch": 50,
+        "locationMatch": 80
+      },
+      "recommendations": [
+        "Significant skill gap in mobile-specific expertise",
+        "Your general PM skills are transferable but mobile PM is quite specialized",
+        "Consider if you're interested in pivoting to mobile products"
+      ]
+    },
+    {
+      "id": "job-009",
+      "title": "VP of Product",
+      "company": "ScaleUp Ventures",
+      "companyLogo": "https://via.placeholder.com/80x80/6366f1/ffffff?text=SV",
+      "location": "San Francisco, CA",
+      "workArrangement": "On-site",
+      "salaryMin": 220000,
+      "salaryMax": 280000,
+      "postedDate": "2024-02-07",
+      "applicationDeadline": "2024-03-01",
+      "matchScore": 68,
+      "isSaved": false,
+      "requiredSkills": [
+        "Product Leadership",
+        "Team Building",
+        "Product Strategy",
+        "Executive Presence",
+        "Fundraising",
+        "Go-to-Market Strategy"
+      ],
+      "missingSkills": [
+        "Team Building",
+        "Fundraising",
+        "Go-to-Market Strategy"
+      ],
+      "description": "Be the first VP of Product at our Series B startup. You'll build and lead the entire product organization, define our product vision, and work directly with the CEO and board.\n\nYour Impact:\n• Build and lead product team from 3 to 15+ people\n• Define product vision and multi-year strategy\n• Establish product processes, frameworks, and culture\n• Partner with CEO on fundraising and company strategy\n• Own product-market fit and go-to-market execution\n• Present to board and investors quarterly\n\nWhat You Need:\n• 10+ years of product management experience\n• 5+ years in product leadership roles\n• Experience building product teams from scratch\n• Strong track record at high-growth startups\n• Executive presence and board-level communication\n• Previous VP or Head of Product title",
+      "compatibilityBreakdown": {
+        "skillMatch": 50,
+        "experienceMatch": 60,
+        "industryMatch": 80,
+        "locationMatch": 90
+      },
+      "recommendations": [
+        "This is a significant step up requiring executive-level experience",
+        "Your 8 years of experience may not be enough for this VP role",
+        "Consider gaining more leadership and team-building experience first"
+      ]
+    },
+    {
+      "id": "job-010",
+      "title": "Product Manager - Enterprise",
+      "company": "B2B Solutions Inc",
+      "companyLogo": "https://via.placeholder.com/80x80/14b8a6/ffffff?text=B2B",
+      "location": "Chicago, IL",
+      "workArrangement": "Hybrid",
+      "salaryMin": 135000,
+      "salaryMax": 175000,
+      "postedDate": "2024-02-16",
+      "applicationDeadline": "2024-03-28",
+      "matchScore": 86,
+      "isSaved": true,
+      "requiredSkills": [
+        "Enterprise SaaS",
+        "Product Management",
+        "Stakeholder Management",
+        "Roadmapping",
+        "Customer Success"
+      ],
+      "missingSkills": [],
+      "description": "Drive our enterprise product strategy and work directly with our largest customers. You'll balance customer needs with product vision to build features that serve enterprise buyers.\n\nWhat You'll Do:\n• Own enterprise feature roadmap\n• Conduct customer interviews and requirements gathering\n• Work with sales and customer success on deals and renewals\n• Build features for security, compliance, and admin needs\n• Present product roadmap to enterprise clients\n\nWhat We Want:\n• 5+ years of product management in B2B SaaS\n• Experience working with enterprise customers\n• Strong stakeholder management skills\n• Understanding of enterprise buying process\n• Ability to balance customer requests with product vision",
+      "compatibilityBreakdown": {
+        "skillMatch": 100,
+        "experienceMatch": 90,
+        "industryMatch": 85,
+        "locationMatch": 65
+      },
+      "recommendations": [
+        "Great fit! Your enterprise SaaS experience is exactly what they need",
+        "Your stakeholder management skills will be valuable here",
+        "Consider the location - Chicago requires relocation or frequent travel"
+      ]
+    }
+  ]
+}

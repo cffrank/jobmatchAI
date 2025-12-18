@@ -1,0 +1,326 @@
+{
+  "userProfile": {
+    "id": "user-001",
+    "fullName": "Sarah Mitchell",
+    "email": "sarah.mitchell@email.com",
+    "emailVerified": true,
+    "phone": "+1 (555) 123-4567",
+    "profilePhotoUrl": "https://api.dicebear.com/7.x/avataaars/svg?seed=Sarah",
+    "createdAt": "2024-10-15"
+  },
+  "securitySettings": {
+    "twoFactorEnabled": false,
+    "twoFactorSetupComplete": false,
+    "backupCodesGenerated": false,
+    "activeSessions": [
+      {
+        "id": "session-001",
+        "device": "MacBook Pro",
+        "browser": "Chrome 120",
+        "location": "San Francisco, CA",
+        "ipAddress": "192.168.1.100",
+        "lastActive": "2024-12-18T14:30:00Z",
+        "current": true
+      },
+      {
+        "id": "session-002",
+        "device": "iPhone 15",
+        "browser": "Safari Mobile",
+        "location": "San Francisco, CA",
+        "ipAddress": "192.168.1.101",
+        "lastActive": "2024-12-17T09:15:00Z",
+        "current": false
+      },
+      {
+        "id": "session-003",
+        "device": "iPad Air",
+        "browser": "Safari",
+        "location": "Oakland, CA",
+        "ipAddress": "192.168.2.50",
+        "lastActive": "2024-12-15T18:45:00Z",
+        "current": false
+      }
+    ],
+    "recentActivity": [
+      {
+        "id": "activity-001",
+        "date": "2024-12-18T14:30:00Z",
+        "action": "Login",
+        "device": "MacBook Pro",
+        "location": "San Francisco, CA",
+        "ipAddress": "192.168.1.100",
+        "status": "success"
+      },
+      {
+        "id": "activity-002",
+        "date": "2024-12-17T09:15:00Z",
+        "action": "Login",
+        "device": "iPhone 15",
+        "location": "San Francisco, CA",
+        "ipAddress": "192.168.1.101",
+        "status": "success"
+      },
+      {
+        "id": "activity-003",
+        "date": "2024-12-15T18:45:00Z",
+        "action": "Login",
+        "device": "iPad Air",
+        "location": "Oakland, CA",
+        "ipAddress": "192.168.2.50",
+        "status": "success"
+      },
+      {
+        "id": "activity-004",
+        "date": "2024-12-14T08:20:00Z",
+        "action": "Password Changed",
+        "device": "MacBook Pro",
+        "location": "San Francisco, CA",
+        "ipAddress": "192.168.1.100",
+        "status": "success"
+      },
+      {
+        "id": "activity-005",
+        "date": "2024-12-10T22:10:00Z",
+        "action": "Failed Login Attempt",
+        "device": "Unknown",
+        "location": "New York, NY",
+        "ipAddress": "203.0.113.45",
+        "status": "failed"
+      }
+    ]
+  },
+  "notificationPreferences": {
+    "email": {
+      "applicationUpdates": true,
+      "interviewReminders": true,
+      "followUpReminders": true,
+      "weeklyJobDigest": false,
+      "productUpdates": false
+    },
+    "inApp": {
+      "enabled": true,
+      "soundEnabled": false
+    },
+    "frequency": "immediate"
+  },
+  "privacySettings": {
+    "dataCollection": true,
+    "thirdPartySharing": false,
+    "connectedAccounts": [
+      {
+        "id": "conn-001",
+        "provider": "linkedin",
+        "email": "sarah.mitchell@email.com",
+        "connectedAt": "2024-10-20"
+      },
+      {
+        "id": "conn-002",
+        "provider": "google",
+        "email": "sarah.mitchell@gmail.com",
+        "connectedAt": "2024-10-15"
+      }
+    ]
+  },
+  "availablePlans": [
+    {
+      "tier": "basic",
+      "displayName": "Basic",
+      "description": "Perfect for getting started with your job search",
+      "monthlyPrice": 0,
+      "annualPrice": 0,
+      "annualTotal": 0,
+      "annualSavings": 0,
+      "features": [
+        "Up to 10 tracked applications",
+        "Up to 3 resume variants",
+        "50 job searches per month",
+        "Core job discovery",
+        "Basic application generator",
+        "Application tracking",
+        "Profile and resume management"
+      ],
+      "limits": {
+        "maxApplications": 10,
+        "maxResumeVariants": 3,
+        "maxJobSearches": 50
+      }
+    },
+    {
+      "tier": "premium",
+      "displayName": "Premium",
+      "description": "Unlimited access to accelerate your job search",
+      "monthlyPrice": 19,
+      "annualPrice": 15,
+      "annualTotal": 180,
+      "annualSavings": 48,
+      "features": [
+        "Unlimited tracked applications",
+        "Unlimited resume variants",
+        "Unlimited job searches",
+        "Priority AI generation",
+        "Advanced analytics and insights",
+        "Priority email support",
+        "Export to Excel and ATS formats",
+        "14-day free trial"
+      ],
+      "limits": {
+        "maxApplications": "unlimited",
+        "maxResumeVariants": "unlimited",
+        "maxJobSearches": "unlimited"
+      },
+      "popular": true
+    }
+  ],
+  "subscription": {
+    "id": "sub-001",
+    "userId": "user-001",
+    "plan": "basic",
+    "billingCycle": "monthly",
+    "status": "active",
+    "currentPeriodStart": "2024-12-01",
+    "currentPeriodEnd": "2024-12-31",
+    "cancelAtPeriodEnd": false
+  },
+  "usage": {
+    "userId": "user-001",
+    "period": "2024-12",
+    "applicationsTracked": 8,
+    "resumeVariantsCreated": 3,
+    "jobSearchesPerformed": 42,
+    "limits": {
+      "maxApplications": 10,
+      "maxResumeVariants": 3,
+      "maxJobSearches": 50
+    }
+  },
+  "invoices": [],
+  "paymentMethods": [],
+  "premiumUserExample": {
+    "userProfile": {
+      "id": "user-002",
+      "fullName": "Alex Chen",
+      "email": "alex.chen@email.com",
+      "emailVerified": true,
+      "phone": "+1 (555) 987-6543",
+      "profilePhotoUrl": "https://api.dicebear.com/7.x/avataaars/svg?seed=Alex",
+      "createdAt": "2024-09-01"
+    },
+    "subscription": {
+      "id": "sub-002",
+      "userId": "user-002",
+      "plan": "premium",
+      "billingCycle": "annual",
+      "status": "active",
+      "currentPeriodStart": "2024-11-15",
+      "currentPeriodEnd": "2025-11-15",
+      "nextBillingDate": "2025-11-15",
+      "cancelAtPeriodEnd": false,
+      "paymentMethod": {
+        "type": "card",
+        "brand": "visa",
+        "last4": "4242",
+        "expiryMonth": 12,
+        "expiryYear": 2027
+      }
+    },
+    "usage": {
+      "userId": "user-002",
+      "period": "2024-12",
+      "applicationsTracked": 24,
+      "resumeVariantsCreated": 8,
+      "jobSearchesPerformed": 156,
+      "limits": {
+        "maxApplications": "unlimited",
+        "maxResumeVariants": "unlimited",
+        "maxJobSearches": "unlimited"
+      }
+    },
+    "invoices": [
+      {
+        "id": "inv-001",
+        "userId": "user-002",
+        "date": "2024-11-15",
+        "amount": 180.0,
+        "status": "paid",
+        "paymentMethod": {
+          "brand": "Visa",
+          "last4": "4242"
+        },
+        "description": "Premium Annual Subscription",
+        "pdfUrl": "/invoices/inv-001.pdf",
+        "lineItems": [
+          {
+            "description": "Premium Plan (Annual)",
+            "quantity": 1,
+            "unitPrice": 180.0,
+            "total": 180.0
+          }
+        ]
+      },
+      {
+        "id": "inv-002",
+        "userId": "user-002",
+        "date": "2024-10-15",
+        "amount": 19.0,
+        "status": "paid",
+        "paymentMethod": {
+          "brand": "Visa",
+          "last4": "4242"
+        },
+        "description": "Premium Monthly Subscription",
+        "pdfUrl": "/invoices/inv-002.pdf",
+        "lineItems": [
+          {
+            "description": "Premium Plan (Monthly)",
+            "quantity": 1,
+            "unitPrice": 19.0,
+            "total": 19.0
+          }
+        ]
+      },
+      {
+        "id": "inv-003",
+        "userId": "user-002",
+        "date": "2024-09-15",
+        "amount": 19.0,
+        "status": "paid",
+        "paymentMethod": {
+          "brand": "Visa",
+          "last4": "4242"
+        },
+        "description": "Premium Monthly Subscription",
+        "pdfUrl": "/invoices/inv-003.pdf",
+        "lineItems": [
+          {
+            "description": "Premium Plan (Monthly)",
+            "quantity": 1,
+            "unitPrice": 19.0,
+            "total": 19.0
+          }
+        ]
+      }
+    ],
+    "paymentMethods": [
+      {
+        "id": "pm-001",
+        "type": "card",
+        "brand": "visa",
+        "last4": "4242",
+        "expiryMonth": 12,
+        "expiryYear": 2027,
+        "isDefault": true,
+        "addedAt": "2024-09-01"
+      },
+      {
+        "id": "pm-002",
+        "type": "card",
+        "brand": "mastercard",
+        "last4": "5555",
+        "expiryMonth": 8,
+        "expiryYear": 2026,
+        "isDefault": false,
+        "addedAt": "2024-10-10"
+      }
+    ]
+  }
+}

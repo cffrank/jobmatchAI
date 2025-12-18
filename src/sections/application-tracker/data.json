@@ -1,0 +1,977 @@
+{
+  "trackedApplications": [
+    {
+      "id": "track-001",
+      "jobId": "job-001",
+      "applicationId": "app-001",
+      "company": "TechVision AI",
+      "jobTitle": "Senior Product Manager",
+      "location": "San Francisco, CA",
+      "matchScore": 92,
+      "status": "accepted",
+      "appliedDate": "2024-11-15",
+      "lastUpdated": "2024-12-10",
+      "statusHistory": [
+        {
+          "status": "applied",
+          "date": "2024-11-15",
+          "note": "Applied via company website"
+        },
+        {
+          "status": "screening",
+          "date": "2024-11-18",
+          "note": "Recruiter reached out for initial call"
+        },
+        {
+          "status": "interview_scheduled",
+          "date": "2024-11-20",
+          "note": "Phone screen scheduled with Sarah Chen"
+        },
+        {
+          "status": "interview_completed",
+          "date": "2024-11-22",
+          "note": "Phone screen went well, moving to next round"
+        },
+        {
+          "status": "interview_scheduled",
+          "date": "2024-11-25",
+          "note": "Panel interview scheduled"
+        },
+        {
+          "status": "interview_completed",
+          "date": "2024-11-29",
+          "note": "Panel interview completed, positive feedback"
+        },
+        {
+          "status": "offer",
+          "date": "2024-12-05",
+          "note": "Offer received!"
+        },
+        {
+          "status": "accepted",
+          "date": "2024-12-10",
+          "note": "Accepted offer after negotiation"
+        }
+      ],
+      "interviews": [
+        {
+          "id": "int-001-1",
+          "round": "Phone Screen",
+          "date": "2024-11-22",
+          "interviewers": ["Sarah Chen (Senior Recruiter)"],
+          "notes": "Great conversation about product vision and AI experience. Sarah was impressed by my background in ML-powered products. Discussed team structure and growth opportunities.",
+          "preparation": [
+            "Reviewed company's AI product suite",
+            "Prepared examples of cross-functional leadership",
+            "Researched recent funding round"
+          ],
+          "questionsAsked": [
+            "Tell me about your experience leading AI product initiatives",
+            "How do you balance technical debt with feature development?",
+            "Describe a time you had to pivot product strategy"
+          ],
+          "reflection": "Strong connection with Sarah. She emphasized the company's rapid growth and need for strategic product leadership. Next step is panel interview with VP of Product and Engineering Director."
+        },
+        {
+          "id": "int-001-2",
+          "round": "Panel Interview",
+          "date": "2024-11-29",
+          "interviewers": [
+            "Michael Rodriguez (VP of Product)",
+            "Jennifer Liu (Engineering Director)",
+            "David Park (Head of Design)"
+          ],
+          "notes": "3-hour panel covering product strategy, technical collaboration, and design thinking. Michael asked about scaling product from 10K to 1M users. Jennifer deep-dived into my experience working with ML engineers. David focused on user research methodologies.",
+          "preparation": [
+            "Prepared case study on scaling AI products",
+            "Reviewed company's product roadmap from recent blog posts",
+            "Practiced whiteboarding session for product strategy"
+          ],
+          "questionsAsked": [
+            "How would you prioritize features for our next major release?",
+            "What's your approach to working with ML/AI engineering teams?",
+            "Walk us through your user research process",
+            "How do you measure product success beyond vanity metrics?"
+          ],
+          "reflection": "Excellent team chemistry. Michael's vision aligns perfectly with my product philosophy. Jennifer and I connected on the challenges of productizing ML models. David appreciated my user-centric approach. Feeling very confident about this opportunity."
+        }
+      ],
+      "recruiter": {
+        "name": "Sarah Chen",
+        "role": "Senior Recruiter",
+        "email": "sarah.chen@techvision.ai",
+        "phone": "+1 (415) 555-0123"
+      },
+      "hiringManager": {
+        "name": "Michael Rodriguez",
+        "role": "VP of Product",
+        "email": "michael.r@techvision.ai"
+      },
+      "followUpActions": [
+        {
+          "id": "action-001-1",
+          "type": "action_item",
+          "title": "Send thank-you email",
+          "description": "Send thank-you note to panel interviewers",
+          "completed": true,
+          "priority": "high"
+        },
+        {
+          "id": "action-001-2",
+          "type": "action_item",
+          "title": "Review offer details",
+          "description": "Review equity package and benefits details",
+          "completed": true,
+          "priority": "high"
+        },
+        {
+          "id": "action-001-3",
+          "type": "action_item",
+          "title": "Prepare for first day",
+          "description": "Complete onboarding paperwork and setup",
+          "dueDate": "2025-01-06",
+          "completed": false,
+          "priority": "medium"
+        }
+      ],
+      "nextAction": "Complete onboarding paperwork",
+      "nextActionDate": "2025-01-06",
+      "notes": "Dream role! Team culture feels amazing, and the product vision is exactly what I've been looking for. Successfully negotiated base salary from $185K to $195K and increased equity by 0.05%. Start date: January 6, 2025.",
+      "activityLog": [
+        {
+          "id": "log-001-1",
+          "date": "2024-11-15",
+          "type": "status_change",
+          "description": "Application submitted",
+          "details": "Used Impact-Focused resume variant"
+        },
+        {
+          "id": "log-001-2",
+          "date": "2024-11-18",
+          "type": "email",
+          "description": "Received email from Sarah Chen",
+          "details": "Invitation for phone screen"
+        },
+        {
+          "id": "log-001-3",
+          "date": "2024-11-19",
+          "type": "email",
+          "description": "Confirmed phone screen",
+          "details": "Scheduled for November 22 at 2 PM PT"
+        },
+        {
+          "id": "log-001-4",
+          "date": "2024-11-22",
+          "type": "call",
+          "description": "Phone screen with Sarah Chen",
+          "details": "45-minute conversation, very positive"
+        },
+        {
+          "id": "log-001-5",
+          "date": "2024-11-23",
+          "type": "email",
+          "description": "Sent thank-you email to Sarah"
+        },
+        {
+          "id": "log-001-6",
+          "date": "2024-11-25",
+          "type": "email",
+          "description": "Panel interview invitation received",
+          "details": "3-hour panel on November 29"
+        },
+        {
+          "id": "log-001-7",
+          "date": "2024-11-29",
+          "type": "status_change",
+          "description": "Completed panel interview"
+        },
+        {
+          "id": "log-001-8",
+          "date": "2024-11-30",
+          "type": "email",
+          "description": "Sent thank-you emails to all panelists"
+        },
+        {
+          "id": "log-001-9",
+          "date": "2024-12-05",
+          "type": "call",
+          "description": "Received verbal offer from Michael",
+          "details": "Base: $185K, Equity: 0.15%, Benefits discussed"
+        },
+        {
+          "id": "log-001-10",
+          "date": "2024-12-06",
+          "type": "email",
+          "description": "Sent counter-offer",
+          "details": "Requested $195K base and 0.20% equity"
+        },
+        {
+          "id": "log-001-11",
+          "date": "2024-12-08",
+          "type": "call",
+          "description": "Negotiation call with Sarah",
+          "details": "Agreed on $195K base and 0.20% equity"
+        },
+        {
+          "id": "log-001-12",
+          "date": "2024-12-10",
+          "type": "status_change",
+          "description": "Accepted offer",
+          "details": "Start date: January 6, 2025"
+        }
+      ],
+      "offerDetails": {
+        "salary": "$195,000",
+        "equity": "0.20%",
+        "benefits": [
+          "Full health, dental, vision coverage",
+          "401(k) with 4% match",
+          "Unlimited PTO",
+          "Home office stipend: $2,000",
+          "Learning & development budget: $3,000/year",
+          "Stock options with 4-year vest, 1-year cliff"
+        ],
+        "deadline": "2024-12-12",
+        "notes": "Successfully negotiated from initial offer. Very competitive package with strong growth potential."
+      },
+      "archived": false,
+      "tags": ["high-priority", "ai-focused", "senior-role"]
+    },
+    {
+      "id": "track-002",
+      "jobId": "job-003",
+      "applicationId": "app-002",
+      "company": "DataFlow Analytics",
+      "jobTitle": "Product Lead - Data Platform",
+      "location": "Remote",
+      "matchScore": 88,
+      "status": "offer",
+      "appliedDate": "2024-11-20",
+      "lastUpdated": "2024-12-15",
+      "statusHistory": [
+        {
+          "status": "applied",
+          "date": "2024-11-20"
+        },
+        {
+          "status": "screening",
+          "date": "2024-11-25"
+        },
+        {
+          "status": "interview_scheduled",
+          "date": "2024-11-28"
+        },
+        {
+          "status": "interview_completed",
+          "date": "2024-12-03"
+        },
+        {
+          "status": "interview_scheduled",
+          "date": "2024-12-06"
+        },
+        {
+          "status": "interview_completed",
+          "date": "2024-12-10"
+        },
+        {
+          "status": "offer",
+          "date": "2024-12-15",
+          "note": "Competitive offer received"
+        }
+      ],
+      "interviews": [
+        {
+          "id": "int-002-1",
+          "round": "Recruiter Screen",
+          "date": "2024-11-28",
+          "interviewers": ["Amanda Foster (Talent Acquisition)"],
+          "notes": "Discussion about remote work setup, team structure, and compensation expectations. Amanda explained the company's data platform vision and growth trajectory.",
+          "questionsAsked": [
+            "What's your ideal remote work environment?",
+            "Experience with data platform products?",
+            "Salary expectations?"
+          ]
+        },
+        {
+          "id": "int-002-2",
+          "round": "Hiring Manager Interview",
+          "date": "2024-12-03",
+          "interviewers": ["Robert Kim (Director of Product)"],
+          "notes": "Deep dive into product strategy for data platforms. Robert asked about experience with B2B SaaS and enterprise customers. Discussed roadmap priorities and team dynamics.",
+          "questionsAsked": [
+            "How do you balance technical complexity with user experience?",
+            "Experience selling to enterprise customers?",
+            "Approach to product discovery?"
+          ]
+        },
+        {
+          "id": "int-002-3",
+          "round": "Team Interview",
+          "date": "2024-12-10",
+          "interviewers": [
+            "Jessica Martinez (Senior PM)",
+            "Alex Chen (Engineering Manager)",
+            "Priya Patel (Customer Success Lead)"
+          ],
+          "notes": "Met with cross-functional team members. Jessica and I discussed collaboration on the product roadmap. Alex focused on technical trade-offs. Priya shared customer pain points and feedback.",
+          "questionsAsked": [
+            "How do you prioritize competing stakeholder requests?",
+            "Experience with API-first products?",
+            "How do you incorporate customer feedback?"
+          ],
+          "reflection": "Good team but slightly concerned about the pace of decision-making. Robert mentioned the company is in a 'scale-up phase' which could mean organizational growing pains."
+        }
+      ],
+      "nextInterviewDate": "2024-12-10",
+      "recruiter": {
+        "name": "Amanda Foster",
+        "role": "Talent Acquisition Manager",
+        "email": "amanda@dataflow.io"
+      },
+      "hiringManager": {
+        "name": "Robert Kim",
+        "role": "Director of Product",
+        "email": "robert.kim@dataflow.io"
+      },
+      "followUpActions": [
+        {
+          "id": "action-002-1",
+          "type": "reminder",
+          "title": "Offer decision deadline",
+          "description": "Respond to offer by December 20",
+          "dueDate": "2024-12-20",
+          "completed": false,
+          "priority": "high"
+        },
+        {
+          "id": "action-002-2",
+          "type": "action_item",
+          "title": "Compare offers",
+          "description": "Compare DataFlow offer with TechVision offer",
+          "completed": false,
+          "priority": "high"
+        },
+        {
+          "id": "action-002-3",
+          "type": "action_item",
+          "title": "Reference checks",
+          "description": "Reach out to connections who worked at DataFlow",
+          "completed": true,
+          "priority": "medium"
+        }
+      ],
+      "nextAction": "Decide on offer",
+      "nextActionDate": "2024-12-20",
+      "notes": "Strong offer but slightly below TechVision. Remote-first culture is appealing. Team seemed solid but not as excited as TechVision team. Leaning toward declining politely.",
+      "activityLog": [
+        {
+          "id": "log-002-1",
+          "date": "2024-11-20",
+          "type": "status_change",
+          "description": "Application submitted"
+        },
+        {
+          "id": "log-002-2",
+          "date": "2024-11-25",
+          "type": "email",
+          "description": "Recruiter outreach from Amanda"
+        },
+        {
+          "id": "log-002-3",
+          "date": "2024-11-28",
+          "type": "call",
+          "description": "Recruiter screen completed"
+        },
+        {
+          "id": "log-002-4",
+          "date": "2024-12-03",
+          "type": "call",
+          "description": "Interview with Robert Kim"
+        },
+        {
+          "id": "log-002-5",
+          "date": "2024-12-10",
+          "type": "call",
+          "description": "Team interviews completed"
+        },
+        {
+          "id": "log-002-6",
+          "date": "2024-12-15",
+          "type": "email",
+          "description": "Offer letter received",
+          "details": "$175K base, 0.12% equity"
+        }
+      ],
+      "offerDetails": {
+        "salary": "$175,000",
+        "equity": "0.12%",
+        "benefits": [
+          "Health, dental, vision coverage (80% employer-paid)",
+          "401(k) with 3% match",
+          "Flexible PTO (3 weeks suggested minimum)",
+          "Remote work stipend: $1,500",
+          "Professional development: $2,000/year"
+        ],
+        "deadline": "2024-12-20",
+        "notes": "Good offer but not as competitive as TechVision. Remote-first is a plus but team culture not as strong."
+      },
+      "archived": false,
+      "tags": ["remote", "data-platform", "backup-option"]
+    },
+    {
+      "id": "track-003",
+      "jobId": "job-002",
+      "applicationId": "app-003",
+      "company": "CloudScale Solutions",
+      "jobTitle": "Senior Product Manager - Infrastructure",
+      "location": "Seattle, WA",
+      "matchScore": 85,
+      "status": "interview_completed",
+      "appliedDate": "2024-11-25",
+      "lastUpdated": "2024-12-12",
+      "statusHistory": [
+        {
+          "status": "applied",
+          "date": "2024-11-25"
+        },
+        {
+          "status": "screening",
+          "date": "2024-12-02"
+        },
+        {
+          "status": "interview_scheduled",
+          "date": "2024-12-05"
+        },
+        {
+          "status": "interview_completed",
+          "date": "2024-12-12",
+          "note": "Final round completed, waiting for decision"
+        }
+      ],
+      "interviews": [
+        {
+          "id": "int-003-1",
+          "round": "Phone Screen",
+          "date": "2024-12-05",
+          "interviewers": ["Tom Mitchell (Recruiter)"],
+          "notes": "Brief conversation about role scope and compensation. Tom was friendly but the call felt rushed.",
+          "questionsAsked": [
+            "Why are you interested in infrastructure products?",
+            "Compensation range expectations?"
+          ]
+        },
+        {
+          "id": "int-003-2",
+          "round": "Hiring Manager + Technical Interview",
+          "date": "2024-12-12",
+          "interviewers": [
+            "Linda Wang (VP of Product)",
+            "Greg Foster (Principal Engineer)"
+          ],
+          "notes": "Combined interview covering both product strategy and technical depth. Linda asked about cloud infrastructure experience. Greg deep-dived into Kubernetes and container orchestration knowledge. Interview went long (2.5 hours instead of scheduled 1.5 hours).",
+          "questionsAsked": [
+            "Experience with infrastructure-as-code?",
+            "How do you handle technical product decisions?",
+            "Describe a time you shipped a complex technical product"
+          ],
+          "reflection": "Mixed feelings. Linda seemed distracted and checked her phone several times. Greg was engaged but very technical - concerned the role might be more technical than product-focused. Long interview length suggests some disorganization."
+        }
+      ],
+      "recruiter": {
+        "name": "Tom Mitchell",
+        "role": "Technical Recruiter",
+        "email": "tom.m@cloudscale.com"
+      },
+      "hiringManager": {
+        "name": "Linda Wang",
+        "role": "VP of Product",
+        "email": "linda.wang@cloudscale.com"
+      },
+      "followUpActions": [
+        {
+          "id": "action-003-1",
+          "type": "reminder",
+          "title": "Follow up on interview status",
+          "description": "Check in if no response by December 19",
+          "dueDate": "2024-12-19",
+          "completed": false,
+          "priority": "low"
+        },
+        {
+          "id": "action-003-2",
+          "type": "action_item",
+          "title": "Send thank-you email",
+          "description": "Thank Linda and Greg for their time",
+          "completed": true,
+          "priority": "medium"
+        }
+      ],
+      "nextAction": "Wait for feedback",
+      "nextActionDate": "2024-12-19",
+      "notes": "Not feeling great about this one. Interview experience was mediocre and role might be too technical. Will wait for their decision but not my top choice. Already accepted TechVision offer so may withdraw if this drags on.",
+      "activityLog": [
+        {
+          "id": "log-003-1",
+          "date": "2024-11-25",
+          "type": "status_change",
+          "description": "Application submitted"
+        },
+        {
+          "id": "log-003-2",
+          "date": "2024-12-02",
+          "type": "email",
+          "description": "Phone screen invitation from Tom"
+        },
+        {
+          "id": "log-003-3",
+          "date": "2024-12-05",
+          "type": "call",
+          "description": "Phone screen with Tom"
+        },
+        {
+          "id": "log-003-4",
+          "date": "2024-12-08",
+          "type": "email",
+          "description": "Interview scheduled with Linda and Greg"
+        },
+        {
+          "id": "log-003-5",
+          "date": "2024-12-12",
+          "type": "call",
+          "description": "Technical interview completed"
+        },
+        {
+          "id": "log-003-6",
+          "date": "2024-12-13",
+          "type": "email",
+          "description": "Sent thank-you email"
+        }
+      ],
+      "archived": false,
+      "tags": ["infrastructure", "technical", "lower-priority"]
+    },
+    {
+      "id": "track-004",
+      "jobId": "job-005",
+      "applicationId": "app-004",
+      "company": "FinTech Innovations",
+      "jobTitle": "Product Manager - Payments",
+      "location": "New York, NY",
+      "matchScore": 78,
+      "status": "interview_scheduled",
+      "appliedDate": "2024-12-01",
+      "lastUpdated": "2024-12-14",
+      "statusHistory": [
+        {
+          "status": "applied",
+          "date": "2024-12-01"
+        },
+        {
+          "status": "screening",
+          "date": "2024-12-08"
+        },
+        {
+          "status": "interview_scheduled",
+          "date": "2024-12-14",
+          "note": "First round scheduled for December 18"
+        }
+      ],
+      "interviews": [],
+      "nextInterviewDate": "2024-12-18",
+      "recruiter": {
+        "name": "Kevin Park",
+        "role": "Recruiter",
+        "email": "kevin.park@fintechinno.com"
+      },
+      "followUpActions": [
+        {
+          "id": "action-004-1",
+          "type": "action_item",
+          "title": "Prepare for interview",
+          "description": "Research FinTech Innovations' payment products and recent news",
+          "dueDate": "2024-12-17",
+          "completed": false,
+          "priority": "high"
+        },
+        {
+          "id": "action-004-2",
+          "type": "reminder",
+          "title": "Interview tomorrow",
+          "description": "First round interview with hiring manager",
+          "dueDate": "2024-12-17",
+          "completed": false,
+          "priority": "high"
+        }
+      ],
+      "nextAction": "Prepare for interview",
+      "nextActionDate": "2024-12-17",
+      "notes": "Lower match score due to limited payments experience, but worth exploring. Already accepted TechVision offer so will probably withdraw before interview.",
+      "activityLog": [
+        {
+          "id": "log-004-1",
+          "date": "2024-12-01",
+          "type": "status_change",
+          "description": "Application submitted"
+        },
+        {
+          "id": "log-004-2",
+          "date": "2024-12-08",
+          "type": "email",
+          "description": "Recruiter outreach from Kevin"
+        },
+        {
+          "id": "log-004-3",
+          "date": "2024-12-10",
+          "type": "email",
+          "description": "Scheduled interview for December 18"
+        }
+      ],
+      "archived": false,
+      "tags": ["fintech", "payments", "exploratory"]
+    },
+    {
+      "id": "track-005",
+      "jobId": "job-007",
+      "applicationId": "app-005",
+      "company": "HealthTech Plus",
+      "jobTitle": "Senior Product Manager - Patient Experience",
+      "location": "Boston, MA",
+      "matchScore": 82,
+      "status": "screening",
+      "appliedDate": "2024-12-05",
+      "lastUpdated": "2024-12-11",
+      "statusHistory": [
+        {
+          "status": "applied",
+          "date": "2024-12-05"
+        },
+        {
+          "status": "screening",
+          "date": "2024-12-11",
+          "note": "Recruiter reached out to schedule phone screen"
+        }
+      ],
+      "interviews": [],
+      "recruiter": {
+        "name": "Maria Gonzalez",
+        "role": "Senior Recruiter",
+        "email": "maria.g@healthtechplus.com"
+      },
+      "followUpActions": [
+        {
+          "id": "action-005-1",
+          "type": "action_item",
+          "title": "Respond to recruiter",
+          "description": "Politely withdraw application (accepted other offer)",
+          "dueDate": "2024-12-16",
+          "completed": false,
+          "priority": "medium"
+        }
+      ],
+      "nextAction": "Withdraw application",
+      "nextActionDate": "2024-12-16",
+      "notes": "Interesting healthcare opportunity but already accepted TechVision offer. Need to withdraw respectfully.",
+      "activityLog": [
+        {
+          "id": "log-005-1",
+          "date": "2024-12-05",
+          "type": "status_change",
+          "description": "Application submitted"
+        },
+        {
+          "id": "log-005-2",
+          "date": "2024-12-11",
+          "type": "email",
+          "description": "Recruiter outreach from Maria"
+        }
+      ],
+      "archived": false,
+      "tags": ["healthcare", "patient-experience"]
+    },
+    {
+      "id": "track-006",
+      "jobId": "job-009",
+      "applicationId": "app-006",
+      "company": "E-Commerce Giants Inc",
+      "jobTitle": "Product Manager - Marketplace",
+      "location": "Remote",
+      "matchScore": 75,
+      "status": "applied",
+      "appliedDate": "2024-12-10",
+      "lastUpdated": "2024-12-10",
+      "statusHistory": [
+        {
+          "status": "applied",
+          "date": "2024-12-10"
+        }
+      ],
+      "interviews": [],
+      "followUpActions": [
+        {
+          "id": "action-006-1",
+          "type": "reminder",
+          "title": "Follow up if no response",
+          "description": "It's been 2 weeks since you applied - consider following up",
+          "dueDate": "2024-12-24",
+          "completed": false,
+          "priority": "low"
+        }
+      ],
+      "notes": "Applied as a backup option. Remote role is appealing but not super excited about e-commerce. Will likely withdraw since I accepted TechVision.",
+      "activityLog": [
+        {
+          "id": "log-006-1",
+          "date": "2024-12-10",
+          "type": "status_change",
+          "description": "Application submitted"
+        }
+      ],
+      "archived": false,
+      "tags": ["remote", "marketplace", "backup"]
+    },
+    {
+      "id": "track-007",
+      "jobId": "job-004",
+      "applicationId": "app-007",
+      "company": "StartupX",
+      "jobTitle": "Head of Product",
+      "location": "Austin, TX",
+      "matchScore": 68,
+      "status": "rejected",
+      "appliedDate": "2024-11-10",
+      "lastUpdated": "2024-11-28",
+      "statusHistory": [
+        {
+          "status": "applied",
+          "date": "2024-11-10"
+        },
+        {
+          "status": "screening",
+          "date": "2024-11-14"
+        },
+        {
+          "status": "interview_scheduled",
+          "date": "2024-11-18"
+        },
+        {
+          "status": "interview_completed",
+          "date": "2024-11-22"
+        },
+        {
+          "status": "rejected",
+          "date": "2024-11-28",
+          "note": "Not selected - feedback: looking for someone with more startup experience"
+        }
+      ],
+      "interviews": [
+        {
+          "id": "int-007-1",
+          "round": "Founder Interview",
+          "date": "2024-11-18",
+          "interviewers": ["Jake Miller (CEO & Co-founder)"],
+          "notes": "Casual conversation with CEO about product vision. Jake emphasized the need for someone comfortable with ambiguity and rapid iteration.",
+          "questionsAsked": [
+            "Why do you want to join an early-stage startup?",
+            "Experience building 0-to-1 products?",
+            "How do you handle limited resources?"
+          ]
+        },
+        {
+          "id": "int-007-2",
+          "round": "Team Interview",
+          "date": "2024-11-22",
+          "interviewers": [
+            "Emily Chen (CTO)",
+            "Ryan Brooks (Lead Engineer)"
+          ],
+          "notes": "Technical discussion about product-engineering collaboration. Emily asked about my startup experience. I mentioned my experience at larger companies, which might have hurt my chances.",
+          "questionsAsked": [
+            "How do you prioritize with limited engineering resources?",
+            "Experience with rapid prototyping?",
+            "Thoughts on technical debt in early-stage startups?"
+          ],
+          "reflection": "Interview went okay but I sensed they were looking for someone with more direct startup experience. My background is primarily at larger companies (500+ employees)."
+        }
+      ],
+      "recruiter": {
+        "name": "Jake Miller",
+        "role": "CEO",
+        "email": "jake@startupx.io"
+      },
+      "followUpActions": [],
+      "notes": "Rejection was expected - they wanted someone with more startup experience. Good learning experience about positioning myself for startup roles. Feedback was helpful: need to emphasize any early-stage or 0-to-1 work I've done.",
+      "activityLog": [
+        {
+          "id": "log-007-1",
+          "date": "2024-11-10",
+          "type": "status_change",
+          "description": "Application submitted"
+        },
+        {
+          "id": "log-007-2",
+          "date": "2024-11-14",
+          "type": "email",
+          "description": "CEO reached out directly"
+        },
+        {
+          "id": "log-007-3",
+          "date": "2024-11-18",
+          "type": "call",
+          "description": "Interview with Jake (CEO)"
+        },
+        {
+          "id": "log-007-4",
+          "date": "2024-11-22",
+          "type": "call",
+          "description": "Team interview"
+        },
+        {
+          "id": "log-007-5",
+          "date": "2024-11-28",
+          "type": "email",
+          "description": "Rejection email received",
+          "details": "Feedback: looking for someone with more startup experience"
+        }
+      ],
+      "archived": false,
+      "tags": ["startup", "rejected", "learning-experience"]
+    },
+    {
+      "id": "track-008",
+      "jobId": "job-008",
+      "applicationId": "app-008",
+      "company": "MediaStream Co",
+      "jobTitle": "Product Manager - Content Discovery",
+      "location": "Los Angeles, CA",
+      "matchScore": 71,
+      "status": "withdrawn",
+      "appliedDate": "2024-11-05",
+      "lastUpdated": "2024-11-20",
+      "statusHistory": [
+        {
+          "status": "applied",
+          "date": "2024-11-05"
+        },
+        {
+          "status": "screening",
+          "date": "2024-11-12"
+        },
+        {
+          "status": "interview_scheduled",
+          "date": "2024-11-15"
+        },
+        {
+          "status": "withdrawn",
+          "date": "2024-11-20",
+          "note": "Withdrew application - not aligned with career goals"
+        }
+      ],
+      "interviews": [
+        {
+          "id": "int-008-1",
+          "round": "Phone Screen",
+          "date": "2024-11-15",
+          "interviewers": ["Lisa Anderson (Recruiter)"],
+          "notes": "During the phone screen, realized the role was more focused on content licensing than product strategy. Not aligned with my interests in building technical products.",
+          "questionsAsked": [
+            "Experience with content recommendation algorithms?",
+            "Thoughts on content licensing strategies?"
+          ],
+          "reflection": "The conversation clarified that this role is more business-focused (content deals, licensing) than product-focused. Not what I'm looking for."
+        }
+      ],
+      "recruiter": {
+        "name": "Lisa Anderson",
+        "role": "Recruiter",
+        "email": "lisa.a@mediastream.com"
+      },
+      "followUpActions": [],
+      "notes": "Withdrew after phone screen. Role was more about content licensing deals than technical product work. Learned to ask better questions upfront about role scope.",
+      "activityLog": [
+        {
+          "id": "log-008-1",
+          "date": "2024-11-05",
+          "type": "status_change",
+          "description": "Application submitted"
+        },
+        {
+          "id": "log-008-2",
+          "date": "2024-11-12",
+          "type": "email",
+          "description": "Recruiter outreach"
+        },
+        {
+          "id": "log-008-3",
+          "date": "2024-11-15",
+          "type": "call",
+          "description": "Phone screen"
+        },
+        {
+          "id": "log-008-4",
+          "date": "2024-11-20",
+          "type": "email",
+          "description": "Sent withdrawal email",
+          "details": "Thanked them but explained role wasn't aligned with career goals"
+        }
+      ],
+      "archived": false,
+      "tags": ["media", "withdrawn", "misaligned"]
+    }
+  ],
+  "analytics": {
+    "totalApplications": 8,
+    "responseRate": 87.5,
+    "averageTimeToResponse": 5.2,
+    "averageTimeToInterview": 11.5,
+    "averageTimeToOffer": 22.3,
+    "applicationsByStatus": {
+      "applied": 1,
+      "screening": 1,
+      "interview_scheduled": 1,
+      "interview_completed": 1,
+      "offer": 1,
+      "accepted": 1,
+      "rejected": 1,
+      "withdrawn": 1
+    },
+    "successByMatchScore": [
+      {
+        "range": "90-100%",
+        "responseRate": 100,
+        "offerRate": 100
+      },
+      {
+        "range": "80-89%",
+        "responseRate": 100,
+        "offerRate": 50
+      },
+      {
+        "range": "70-79%",
+        "responseRate": 66.7,
+        "offerRate": 0
+      },
+      {
+        "range": "60-69%",
+        "responseRate": 100,
+        "offerRate": 0
+      }
+    ],
+    "topPerformingVariants": [
+      {
+        "variantName": "Impact-Focused",
+        "responseRate": 100,
+        "count": 3
+      },
+      {
+        "variantName": "Leadership-Focused",
+        "responseRate": 80,
+        "count": 2
+      },
+      {
+        "variantName": "Technical-Focused",
+        "responseRate": 75,
+        "count": 3
+      }
+    ]
+  }
+}
