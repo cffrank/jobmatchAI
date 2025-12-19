@@ -1,4 +1,4 @@
-import { createBrowserRouter } from 'react-router-dom'
+import { createBrowserRouter, Navigate } from 'react-router-dom'
 import AppLayout from '@/components/AppLayout'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import LoginPage from '@/pages/LoginPage'
@@ -8,6 +8,10 @@ import ProfileOverviewPage from '@/sections/profile-resume-management/ProfileOve
 import ResumeEditorPage from '@/sections/profile-resume-management/ResumeEditorPage'
 import ResumePreviewPage from '@/sections/profile-resume-management/ResumePreviewPage'
 import LinkedInImportWizardPage from '@/sections/profile-resume-management/LinkedInImportWizardPage'
+import EditProfilePage from '@/sections/profile-resume-management/EditProfilePage'
+import WorkExperiencePage from '@/sections/profile-resume-management/WorkExperiencePage'
+import EducationPage from '@/sections/profile-resume-management/EducationPage'
+import SkillsPage from '@/sections/profile-resume-management/SkillsPage'
 
 // Job Discovery & Matching
 import JobListPage from '@/sections/job-discovery-matching/JobListPage'
@@ -20,6 +24,7 @@ import ApplicationEditorPage from '@/sections/application-generator/ApplicationE
 // Application Tracker
 import ApplicationTrackerListPage from '@/sections/application-tracker/ApplicationTrackerListPage'
 import TrackerApplicationDetailPage from '@/sections/application-tracker/ApplicationDetailPage'
+import ApplicationAnalyticsPage from '@/sections/application-tracker/ApplicationAnalyticsPage'
 
 // Account & Billing
 import SettingsPage from '@/sections/account-billing/SettingsPage'
@@ -42,8 +47,28 @@ export const router = createBrowserRouter([
         element: <ProfileOverviewPage />,
       },
       {
+        path: 'dashboard',
+        element: <Navigate to="/" replace />,
+      },
+      {
         path: 'profile',
         element: <ProfileOverviewPage />,
+      },
+      {
+        path: 'profile/edit-profile',
+        element: <EditProfilePage />,
+      },
+      {
+        path: 'profile/work-experience',
+        element: <WorkExperiencePage />,
+      },
+      {
+        path: 'profile/education',
+        element: <EducationPage />,
+      },
+      {
+        path: 'profile/skills',
+        element: <SkillsPage />,
       },
       {
         path: 'profile/edit',
@@ -80,6 +105,10 @@ export const router = createBrowserRouter([
       {
         path: 'tracker/:id',
         element: <TrackerApplicationDetailPage />,
+      },
+      {
+        path: 'analytics',
+        element: <ApplicationAnalyticsPage />,
       },
       {
         path: 'settings',

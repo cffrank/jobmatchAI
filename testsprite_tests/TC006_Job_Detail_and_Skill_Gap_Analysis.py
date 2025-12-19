@@ -46,53 +46,93 @@ async def run_test():
                 pass
         
         # Interact with the page elements to simulate user flow
-        # -> Select a job from the job listing page to view detailed job information.
+        # -> Input email and password, then click Sign In button
         frame = context.pages[-1]
-        # Click on the 'Jobs' button to navigate to the job listing page
+        # Input email address
+        elem = frame.locator('xpath=html/body/div/div/div/div[2]/form/div/input').nth(0)
+        await page.wait_for_timeout(3000); await elem.fill('test1@jobmatch.ai')
+        
+
+        frame = context.pages[-1]
+        # Input password
+        elem = frame.locator('xpath=html/body/div/div/div/div[2]/form/div[2]/input').nth(0)
+        await page.wait_for_timeout(3000); await elem.fill('TestPassword123!')
+        
+
+        frame = context.pages[-1]
+        # Click Sign In button
+        elem = frame.locator('xpath=html/body/div/div/div/div[2]/form/button').nth(0)
+        await page.wait_for_timeout(3000); await elem.click(timeout=5000)
+        
+
+        # -> Click on the Jobs button to go to the job listing page
+        frame = context.pages[-1]
+        # Click on the Jobs button to navigate to job listing page
         elem = frame.locator('xpath=html/body/div/div/aside/nav/ul/li[2]/button').nth(0)
         await page.wait_for_timeout(3000); await elem.click(timeout=5000)
         
 
-        # -> Select the first job 'Senior Product Manager' from TechFlow Inc by clicking its 'View Details' button to see detailed job information.
+        # -> Click 'View Details' on the first job listing (Senior Product Manager at TechFlow Inc) to see detailed job information and skill gap analysis.
         frame = context.pages[-1]
-        # Click 'View Details' button for the first job 'Senior Product Manager' to open detailed job information
+        # Click 'View Details' on the first job listing (Senior Product Manager at TechFlow Inc)
         elem = frame.locator('xpath=html/body/div/div/main/div/div/div[2]/div/div[5]/button').nth(0)
+        await page.wait_for_timeout(3000); await elem.click(timeout=5000)
+        
+
+        # -> Check for any hidden or collapsed sections that might contain skill gap explanations or scroll to reveal them.
+        await page.mouse.wheel(0, 300)
+        
+
+        # -> Confirm that the absence of explicit skill gap explanations is expected or check for any UI elements or tabs that might reveal skill gap details.
+        await page.mouse.wheel(0, 300)
+        
+
+        frame = context.pages[-1]
+        # Click 'Back to Jobs' to return to job listing page for further exploration if needed
+        elem = frame.locator('xpath=html/body/div/div/main/div/div/div[2]/button').nth(0)
+        await page.wait_for_timeout(3000); await elem.click(timeout=5000)
+        
+
+        # -> Select another job with skill gaps to verify if detailed skill gap explanations or additional insights appear in the job detail view.
+        frame = context.pages[-1]
+        # Click 'View Details' on the Product Manager - AI/ML Products job listing which shows 1 skill gap
+        elem = frame.locator('xpath=html/body/div/div/main/div/div/div[2]/div[2]/div[6]/button').nth(0)
         await page.wait_for_timeout(3000); await elem.click(timeout=5000)
         
 
         # --> Assertions to verify final state
         frame = context.pages[-1]
-        await expect(frame.locator('text=Senior Product Manager').first).to_be_visible(timeout=30000)
-        await expect(frame.locator('text=TechFlow Inc').first).to_be_visible(timeout=30000)
-        await expect(frame.locator('text=San Francisco, CA').first).to_be_visible(timeout=30000)
-        await expect(frame.locator('text=Hybrid').first).to_be_visible(timeout=30000)
-        await expect(frame.locator('text=$140k - $180k').first).to_be_visible(timeout=30000)
-        await expect(frame.locator('text=92% Excellent Match').first).to_be_visible(timeout=30000)
-        await expect(frame.locator('text=Posted February 10, 2024 • Apply by March 15, 2024').first).to_be_visible(timeout=30000)
-        await expect(frame.locator('text=Job Description').first).to_be_visible(timeout=30000)
-        await expect(frame.locator('text=Responsibilities: • Define and execute product roadmap for our flagship analytics product • Lead cross-functional teams of 10-15 engineers and designers • Conduct user research and translate insights into product requirements • Analyze metrics and make data-driven decisions • Present product vision to executive stakeholders').first).to_be_visible(timeout=30000)
-        await expect(frame.locator('text=Qualifications: • 5+ years of product management experience in B2B SaaS • Strong track record of launching successful products • Experience with agile development methodologies • Excellent communication and leadership skills • Technical background preferred').first).to_be_visible(timeout=30000)
-        await expect(frame.locator('text=Required Skills').first).to_be_visible(timeout=30000)
-        await expect(frame.locator('text=Product Strategy').first).to_be_visible(timeout=30000)
-        await expect(frame.locator('text=Cross-functional Leadership').first).to_be_visible(timeout=30000)
-        await expect(frame.locator('text=Agile Methodologies').first).to_be_visible(timeout=30000)
-        await expect(frame.locator('text=Data Analysis').first).to_be_visible(timeout=30000)
-        await expect(frame.locator('text=SaaS').first).to_be_visible(timeout=30000)
-        await expect(frame.locator('text=Compatibility Analysis').first).to_be_visible(timeout=30000)
-        await expect(frame.locator('text=Skill Match').first).to_be_visible(timeout=30000)
-        await expect(frame.locator('text=100%').first).to_be_visible(timeout=30000)
-        await expect(frame.locator('text=Experience Match').first).to_be_visible(timeout=30000)
+        await expect(frame.locator('text=Product Manager - AI/ML Products').first).to_be_visible(timeout=30000)
+        await expect(frame.locator('text=InnovateLabs').first).to_be_visible(timeout=30000)
+        await expect(frame.locator('text=Remote').first).to_be_visible(timeout=30000)
+        await expect(frame.locator('text=$130k - $170k').first).to_be_visible(timeout=30000)
+        await expect(frame.locator('text=88% Excellent Match').first).to_be_visible(timeout=30000)
+        await expect(frame.locator('text=Posted February 12, 2024 • Apply by March 20, 2024').first).to_be_visible(timeout=30000)
+        await expect(frame.locator('text=Join our growing AI team as a Product Manager focused on building the next generation of machine learning products. You\'ll work at the intersection of AI technology and user experience to create products that solve real business problems.').first).to_be_visible(timeout=30000)
+        await expect(frame.locator('text=• Own the product roadmap for our ML-powered features').first).to_be_visible(timeout=30000)
+        await expect(frame.locator('text=• Partner with data scientists and ML engineers to define requirements').first).to_be_visible(timeout=30000)
+        await expect(frame.locator('text=• Conduct A/B tests and analyze product metrics').first).to_be_visible(timeout=30000)
+        await expect(frame.locator('text=• Build deep understanding of customer needs through research').first).to_be_visible(timeout=30000)
+        await expect(frame.locator('text=• Translate complex ML concepts into user-friendly features').first).to_be_visible(timeout=30000)
+        await expect(frame.locator('text=• 4+ years of product management experience').first).to_be_visible(timeout=30000)
+        await expect(frame.locator('text=• Experience with AI/ML products or deep interest in the space').first).to_be_visible(timeout=30000)
+        await expect(frame.locator('text=• Strong analytical skills and comfort with data').first).to_be_visible(timeout=30000)
+        await expect(frame.locator('text=• Excellent written and verbal communication').first).to_be_visible(timeout=30000)
+        await expect(frame.locator('text=• Nice to have: Technical background or coding experience').first).to_be_visible(timeout=30000)
+        await expect(frame.locator('text=Product Management').first).to_be_visible(timeout=30000)
+        await expect(frame.locator('text=AI/Machine Learning').first).to_be_visible(timeout=30000)
+        await expect(frame.locator('text=User Research').first).to_be_visible(timeout=30000)
+        await expect(frame.locator('text=Product Analytics').first).to_be_visible(timeout=30000)
+        await expect(frame.locator('text=Python').first).to_be_visible(timeout=30000)
+        await expect(frame.locator('text=1 Skill Gap Identified').first).to_be_visible(timeout=30000)
+        await expect(frame.locator('text=80%').first).to_be_visible(timeout=30000)
         await expect(frame.locator('text=95%').first).to_be_visible(timeout=30000)
-        await expect(frame.locator('text=Industry Match').first).to_be_visible(timeout=30000)
-        await expect(frame.locator('text=85%').first).to_be_visible(timeout=30000)
-        await expect(frame.locator('text=Location Match').first).to_be_visible(timeout=30000)
         await expect(frame.locator('text=90%').first).to_be_visible(timeout=30000)
-        await expect(frame.locator('text=Overall Match').first).to_be_visible(timeout=30000)
-        await expect(frame.locator('text=92%').first).to_be_visible(timeout=30000)
-        await expect(frame.locator('text=AI Recommendations').first).to_be_visible(timeout=30000)
-        await expect(frame.locator('text=Your profile is an excellent match for this role').first).to_be_visible(timeout=30000)
-        await expect(frame.locator('text=Your experience at Google and TechFlow aligns perfectly with their requirements').first).to_be_visible(timeout=30000)
-        await expect(frame.locator('text=Consider highlighting your AI product experience in your application').first).to_be_visible(timeout=30000)
+        await expect(frame.locator('text=100%').first).to_be_visible(timeout=30000)
+        await expect(frame.locator('text=88%').first).to_be_visible(timeout=30000)
+        await expect(frame.locator('text=Strong match overall - consider learning Python basics to close the skill gap').first).to_be_visible(timeout=30000)
+        await expect(frame.locator('text=Your AI product experience from TechFlow is highly relevant').first).to_be_visible(timeout=30000)
+        await expect(frame.locator('text=Highlight your A/B testing and analytics experience').first).to_be_visible(timeout=30000)
         await asyncio.sleep(5)
     
     finally:

@@ -46,19 +46,80 @@ async def run_test():
                 pass
         
         # Interact with the page elements to simulate user flow
-        # -> Click on the 'Applications' button to add a new job application entry.
+        # -> Input email and password, then click Sign In button.
         frame = context.pages[-1]
-        # Click on the 'Applications' button to navigate to the applications section for adding a new job application entry.
+        # Input email address
+        elem = frame.locator('xpath=html/body/div/div/div/div[2]/form/div/input').nth(0)
+        await page.wait_for_timeout(3000); await elem.fill('test1@jobmatch.ai')
+        
+
+        frame = context.pages[-1]
+        # Input password
+        elem = frame.locator('xpath=html/body/div/div/div/div[2]/form/div[2]/input').nth(0)
+        await page.wait_for_timeout(3000); await elem.fill('TestPassword123!')
+        
+
+        frame = context.pages[-1]
+        # Click Sign In button
+        elem = frame.locator('xpath=html/body/div/div/div/div[2]/form/button').nth(0)
+        await page.wait_for_timeout(3000); await elem.click(timeout=5000)
+        
+
+        # -> Navigate to Applications page to add a new job application entry.
+        frame = context.pages[-1]
+        # Click Applications button to go to Applications page
         elem = frame.locator('xpath=html/body/div/div/aside/nav/ul/li[3]/button').nth(0)
+        await page.wait_for_timeout(3000); await elem.click(timeout=5000)
+        
+
+        # -> Click 'Generate New' button to start adding a new job application entry.
+        frame = context.pages[-1]
+        # Click 'Generate New' button to add a new job application entry
+        elem = frame.locator('xpath=html/body/div/div/main/div/div/div/div/button').nth(0)
+        await page.wait_for_timeout(3000); await elem.click(timeout=5000)
+        
+
+        # -> Click 'Back to Jobs' button to return to Jobs page and select a valid job.
+        frame = context.pages[-1]
+        # Click 'Back to Jobs' button to return to Jobs page
+        elem = frame.locator('xpath=html/body/div/div/main/div/div/button').nth(0)
+        await page.wait_for_timeout(3000); await elem.click(timeout=5000)
+        
+
+        # -> Click 'Apply Now' on the first job listing (Senior Product Manager at TechFlow Inc) to start a new application.
+        frame = context.pages[-1]
+        # Click 'Apply Now' on the first job listing (Senior Product Manager at TechFlow Inc)
+        elem = frame.locator('xpath=html/body/div/div/main/div/div/div[2]/div/div[5]/button[2]').nth(0)
+        await page.wait_for_timeout(3000); await elem.click(timeout=5000)
+        
+
+        # -> Click 'View Applications' button to check existing applications and proceed with status updates and notes.
+        frame = context.pages[-1]
+        # Click 'View Applications' button to view existing applications
+        elem = frame.locator('xpath=html/body/div/div/main/div/div/div/div[3]/button[2]').nth(0)
+        await page.wait_for_timeout(3000); await elem.click(timeout=5000)
+        
+
+        # -> Click 'View & Edit' on the first application (Product Manager - Enterprise) to update status and add notes.
+        frame = context.pages[-1]
+        # Click 'View & Edit' on the first application (Product Manager - Enterprise)
+        elem = frame.locator('xpath=html/body/div/div/main/div/div/div[2]/div/div[3]/button').nth(0)
+        await page.wait_for_timeout(3000); await elem.click(timeout=5000)
+        
+
+        # -> Try clicking 'Continue Editing' button on the second application to access edit mode and proceed with status updates and notes.
+        frame = context.pages[-1]
+        # Click 'Continue Editing' button on the second application (Senior Product Manager - Platform)
+        elem = frame.locator('xpath=html/body/div/div/main/div/div/div[2]/div[2]/div[3]/button').nth(0)
         await page.wait_for_timeout(3000); await elem.click(timeout=5000)
         
 
         # --> Assertions to verify final state
         frame = context.pages[-1]
         try:
-            await expect(frame.locator('text=Application Successfully Submitted').first).to_be_visible(timeout=1000)
+            await expect(frame.locator('text=Application Successfully Completed').first).to_be_visible(timeout=1000)
         except AssertionError:
-            raise AssertionError("Test case failed: The application tracking system did not properly reflect status updates, lifecycle flows, notes, timelines, or send follow-up reminders as required by the test plan.")
+            raise AssertionError("Test case failed: The application tracking system did not properly reflect status updates, lifecycle flows, notes, timelines, or send follow-up reminders as expected according to the test plan.")
         await asyncio.sleep(5)
     
     finally:

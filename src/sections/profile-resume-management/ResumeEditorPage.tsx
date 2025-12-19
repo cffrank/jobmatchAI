@@ -21,15 +21,26 @@ export default function ResumeEditorPage() {
     navigate('/profile/preview')
   }
 
+  const handleAcceptSuggestion = (id: string) => {
+    console.log('Accept suggestion:', id)
+  }
+
+  const handleDismissSuggestion = (id: string) => {
+    console.log('Dismiss suggestion:', id)
+  }
+
   return (
     <ResumeEditor
       resume={data.resume}
       workExperience={data.workExperience}
       education={data.education}
       skills={data.skills}
+      optimizationSuggestions={data.optimizationSuggestions}
       onSave={handleSave}
       onCancel={handleCancel}
       onPreview={handlePreview}
+      onAcceptSuggestion={handleAcceptSuggestion}
+      onDismissSuggestion={handleDismissSuggestion}
     />
   )
 }

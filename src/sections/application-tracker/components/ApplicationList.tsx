@@ -1,4 +1,4 @@
-import { Calendar, ChevronDown, ChevronUp, Clock, Filter, Search, Archive, Download, MoreVertical, Eye, CheckCircle2, XCircle, AlertCircle, MinusCircle, TrendingUp } from 'lucide-react'
+import { Calendar, ChevronDown, ChevronUp, Clock, Filter, Search, Archive, Download, MoreVertical, Eye, CheckCircle2, XCircle, AlertCircle, MinusCircle, TrendingUp, Plus } from 'lucide-react'
 import { useState } from 'react'
 import type { ApplicationTrackerProps, TrackedApplication, ApplicationStatus, ApplicationFilters } from '../types'
 
@@ -12,8 +12,9 @@ export function ApplicationList({
   onSort,
   onBulkUpdateStatus,
   onBulkArchive,
-  onExport
-}: ApplicationTrackerProps) {
+  onExport,
+  onAddNew
+}: ApplicationTrackerProps & { onAddNew?: () => void }) {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [sortField, setSortField] = useState<keyof TrackedApplication>('lastUpdated')
@@ -156,13 +157,22 @@ export function ApplicationList({
                 Monitor status, manage follow-ups, and track your job search progress
               </p>
             </div>
-            <button
-              onClick={() => onExport?.(applications.map(a => a.id), 'csv')}
-              className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl hover:scale-105 flex items-center gap-2"
-            >
-              <Download className="w-5 h-5" />
-              <span className="hidden sm:inline">Export All</span>
-            </button>
+            <div className="flex gap-3">
+              <button
+                onClick={() => onAddNew?.()}
+                className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl hover:scale-105 flex items-center gap-2"
+              >
+                <Plus className="w-5 h-5" />
+                <span className="hidden sm:inline">New Application</span>
+              </button>
+              <button
+                onClick={() => onExport?.(applications.map(a => a.id), 'csv')}
+                className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl hover:scale-105 flex items-center gap-2"
+              >
+                <Download className="w-5 h-5" />
+                <span className="hidden sm:inline">Export All</span>
+              </button>
+            </div>
           </div>
 
           {/* Quick Stats */}

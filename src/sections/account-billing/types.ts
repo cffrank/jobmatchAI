@@ -165,6 +165,8 @@ export interface AccountSettingsProps {
   onUpdateProfile?: (updates: Partial<UserProfile>) => void
   onChangePassword?: (currentPassword: string, newPassword: string) => void
   onUploadPhoto?: (file: File) => void
+  photoUploading?: boolean
+  photoError?: Error | null
   onResendVerification?: () => void
 }
 

@@ -3,6 +3,8 @@
   "type": "frontend",
   "scope": "codebase",
   "localEndpoint": "http://localhost:5173",
+  "loginUser": "test1@jobmatch.ai",
+  "loginPassword": "TestPassword123!",
   "executionArgs": {
     "projectName": "jobmatch-ai",
     "projectPath": "/home/carl/application-tracking/jobmatch-ai",
@@ -12,5 +14,5 @@
       "API_KEY": "sk-user-JBziyzBZeynuqVSD36fPhSUXSaXmMfFr-k00IIPB8XvTlfJPoSP31ro9TvbkI2mfZsluLC6XbFk1aouxd-q7ykQhbVfW5VbuuTx3hKHFPRP_Xja-t45SvElp-5Zghj5YfpU"
     }
   },
-  "proxy": "http://9559f7c7-73e6-453a-bd4d-44b66e5d0f74:ZWP8k7Ok4YX8z957IFbBWKNs0GXyUQpv@tun.testsprite.com:8080"
+  "proxy": "http://ec8a0e94-0075-4da1-9cd9-90e5112161f7:u8s0TCUuhIqhMued5BTiCk1aVfGHI3P5@tun.testsprite.com:8080"
 }

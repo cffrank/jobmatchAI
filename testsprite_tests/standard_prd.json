@@ -4,53 +4,87 @@
     "date": "2025-12-18",
     "prepared_by": "Software Development Manager"
   },
-  "product_overview": "JobMatch AI is a comprehensive intelligent job application assistant designed to streamline the job seeking process by integrating LinkedIn profile import, AI-powered resume generation, job matching with compatibility scoring, tailored application material creation, and detailed application tracking alongside subscription management.",
+  "product_overview": "JobMatch AI is an intelligent job application assistant designed to streamline the entire job seeking process for active candidates. It automates LinkedIn profile import, resumes and cover letter creation with AI, job discovery with smart matching, application tracking, and account management, saving users significant time and improving their application quality and success rate.",
   "core_goals": [
-    "Automate and personalize job application materials using AI to save time.",
-    "Provide accurate AI-powered job matching with skill gap analysis to improve application relevance.",
-    "Offer an integrated application tracking system with status management and smart follow-up reminders.",
-    "Enable seamless LinkedIn profile integration and resume management.",
-    "Support tiered subscription plans with usage limits and premium feature unlocking."
+    "Automate the customization of job applications to save users time.",
+    "Provide AI-powered job matching with compatibility and skill gap analysis to increase application relevance.",
+    "Enable comprehensive tracking of job applications with status updates and smart follow-up recommendations.",
+    "Offer AI-driven resume and cover letter generation tailored to specific jobs.",
+    "Centralize job discovery through automated scraping and filtering from multiple job boards.",
+    "Support user account management with secure authentication, subscription plans, and usage limits."
   ],
   "key_features": [
-    "LinkedIn OAuth integration and profile import wizard for easy start.",
-    "AI-driven resume optimization and multi-format resume export.",
-    "Automated job scraping with a centralized database and compatibility scoring.",
-    "Custom AI-generated tailored resumes and cover letters per job application.",
-    "Comprehensive application tracker with status lifecycle, notes, and timelines.",
-    "Tiered subscription and billing system with usage enforcement for Basic and Premium plans.",
-    "User account management including security (2FA), notification preferences, and privacy controls."
+    "LinkedIn OAuth integration and one-time profile import wizard for seamless user onboarding.",
+    "AI-powered resume editor with optimization suggestions and multiple format export (PDF, DOCX).",
+    "Job discovery interface with searchable, filterable job listings, compatibility scoring, and skill gap badges.",
+    "Application Generator to create tailored resumes and cover letters with multiple AI-generated variants and form-based editing.",
+    "Comprehensive Application Tracker with status lifecycle, follow-up reminders, interview and contact notes, and analytics dashboard.",
+    "Subscription and billing management including freemium Basic and paid Premium tiers, feature gating, and upgrade prompts.",
+    "Robust security features including 2FA, session management, and GDPR-compliant data export and deletion."
   ],
   "user_flow_summary": [
-    "User imports LinkedIn profile via step-by-step wizard and manages/edit resume with AI suggestions.",
-    "Browse and filter jobs with real-time match scores and detailed compatibility breakdowns.",
-    "Generate tailored application materials with AI and submit applications tracked automatically.",
-    "Manage and update application statuses, schedule follow-ups, and analyze job search effectiveness.",
-    "Handle subscription upgrades/downgrades triggered by usage limits and payment processing with confirmation feedback."
+    "New user connects LinkedIn account via import wizard and imports profile data.",
+    "User views and edits their profile and master resume with AI optimization suggestions.",
+    "User browses and filters jobs with AI match scores and saves interesting jobs.",
+    "User initiates application generation for a selected job to produce customized resumes and cover letters.",
+    "User reviews, edits, and submits applications; applications are automatically tracked with status and follow-ups.",
+    "User manages application statuses, adds notes, schedules follow-ups, and reviews analytics to optimize job search.",
+    "User manages account settings including profile, security, privacy, and subscription plans with upgrade capability."
   ],
   "validation_criteria": [
-    "Successful LinkedIn OAuth authentication and accurate profile import.",
-    "AI-generated resume and cover letter relevance with multiple variants available.",
-    "Job matching scores correlate with user feedback and skill gap accuracy.",
-    "Application tracker reflects real-time status updates and follows lifecycle flow.",
-    "Subscription usage limits enforced correctly with upgrade prompts and billing handled securely.",
-    "User account settings are editable, secure, and reflect privacy/compliance requirements.",
-    "UI responsiveness and accessibility confirmed across supported devices and browsers."
+    "Successful LinkedIn OAuth connection and profile data import with accurate mapping.",
+    "AI-generated resume and cover letter variants must be relevant, editable, and exportable.",
+    "Job listings should be searchable, filterable, and show accurate compatibility scores and skill gap information.",
+    "Application tracker must support full status lifecycle updates, bulk actions, and generate timely follow-up reminders.",
+    "Subscription limits enforced with clear user prompts and seamless upgrade process.",
+    "Security features, including 2FA and session management, operate reliably.",
+    "User data export and deletion comply with GDPR requirements.",
+    "Performance metrics meet target benchmarks for onboarding completion, application volume, and user retention."
   ],
   "code_summary": {
     "tech_stack": [
       "TypeScript",
       "React 19",
       "Vite 7",
+      "Firebase 10 (Authentication, Firestore, Storage)",
       "React Router DOM 7",
+      "React Firebase Hooks 5",
       "Tailwind CSS 3",
       "Radix UI",
-      "Lucide React Icons"
+      "Lucide React Icons",
+      "Sonner (Toast Notifications)"
     ],
     "features": [
       {
+        "name": "Firebase Authentication",
+        "description": "User authentication with email/password and Google OAuth. Includes signup, login, logout, password reset, email verification, and protected routes.",
+        "files": [
+          "src/lib/firebase.ts",
+          "src/contexts/AuthContext.tsx",
+          "src/pages/LoginPage.tsx",
+          "src/components/ProtectedRoute.tsx"
+        ]
+      },
+      {
+        "name": "Firestore Database Integration",
+        "description": "Real-time database hooks for user data (profile, work experience, education, skills, resumes), jobs, applications, and tracked applications with CRUD operations.",
+        "files": [
+          "src/hooks/useProfile.ts",
+          "src/hooks/useWorkExperience.ts",
+          "src/hooks/useEducation.ts",
+          "src/hooks/useSkills.ts",
+          "src/hooks/useResumes.ts",
+          "src/hooks/useJobs.ts",
+          "src/hooks/useApplications.ts",
+          "src/hooks/useTrackedApplications.ts",
+          "src/hooks/useSubscription.ts",
+          "firestore.rules",
+          "firestore.indexes.json"
+        ]
+      },
+      {
         "name": "App Shell & Layout",
-        "description": "Main application shell with navigation, user menu, and layout components",
+        "description": "Main application shell with navigation, user menu, and layout components with real Firebase authentication integration",
         "files": [
           "src/App.tsx",
           "src/main.tsx",
@@ -140,9 +174,12 @@
       },
       {
         "name": "Account Settings",
-        "description": "Manage user profile, security settings, notifications, and privacy preferences",
+        "description": "Manage user profile, security settings (2FA, active sessions), privacy controls (connected accounts, data export), and notification preferences with 4 separate tabs",
         "files": [
           "src/sections/account-billing/SettingsPage.tsx",
+          "src/sections/account-billing/components/ProfileSettings.tsx",
+          "src/sections/account-billing/components/SecurityTab.tsx",
+          "src/sections/account-billing/components/PrivacyTab.tsx",
           "src/sections/account-billing/components/AccountSettings.tsx"
         ]
       },

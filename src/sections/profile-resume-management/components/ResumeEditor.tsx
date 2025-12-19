@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Save, X, Eye, Plus, Trash2, GripVertical } from 'lucide-react'
+import { OptimizationSidebar } from './OptimizationSidebar'
 import type { ResumeEditorProps, WorkExperience, Education, Skill } from '@/../product/sections/profile-resume-management/types'
 
 export function ResumeEditor({
@@ -7,9 +8,12 @@ export function ResumeEditor({
   workExperience,
   education,
   skills,
+  optimizationSuggestions,
   onSave,
   onCancel,
   onPreview,
+  onAcceptSuggestion,
+  onDismissSuggestion,
 }: ResumeEditorProps) {
   const [editedResume, setEditedResume] = useState(resume)
   const [activeSection, setActiveSection] = useState<string>('header')
@@ -85,7 +89,7 @@ export function ResumeEditor({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 p-6">
+        <div className="grid grid-cols-1 lg:grid-cols-6 gap-6 p-6">
           {/* Section Navigator */}
           <div className="lg:col-span-1">
             <div className="sticky top-24 space-y-2">
@@ -463,6 +467,19 @@ export function ResumeEditor({
               )}
             </div>
           </div>
+
+          {/* AI Optimization Sidebar */}
+          {optimizationSuggestions && optimizationSuggestions.length > 0 && (
+            <div className="lg:col-span-2">
+              <div className="sticky top-24">
+                <OptimizationSidebar
+                  suggestions={optimizationSuggestions}
+                  onAcceptSuggestion={onAcceptSuggestion}
+                  onDismissSuggestion={onDismissSuggestion}
+                />
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

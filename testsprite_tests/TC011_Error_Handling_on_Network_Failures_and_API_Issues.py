@@ -46,68 +46,45 @@ async def run_test():
                 pass
         
         # Interact with the page elements to simulate user flow
+        # -> Input email and password, then click Sign In button to authenticate.
+        frame = context.pages[-1]
+        # Input email address
+        elem = frame.locator('xpath=html/body/div/div/div/div[2]/form/div/input').nth(0)
+        await page.wait_for_timeout(3000); await elem.fill('test1@jobmatch.ai')
+        
+
+        frame = context.pages[-1]
+        # Input password
+        elem = frame.locator('xpath=html/body/div/div/div/div[2]/form/div[2]/input').nth(0)
+        await page.wait_for_timeout(3000); await elem.fill('TestPassword123!')
+        
+
+        frame = context.pages[-1]
+        # Click Sign In button
+        elem = frame.locator('xpath=html/body/div/div/div/div[2]/form/button').nth(0)
+        await page.wait_for_timeout(3000); await elem.click(timeout=5000)
+        
+
         # -> Simulate network failure or API timeout during LinkedIn OAuth authentication or profile import.
         frame = context.pages[-1]
-        # Click LinkedIn Profile link to initiate LinkedIn OAuth or profile import process
+        # Click LinkedIn Profile link to simulate LinkedIn import error
         elem = frame.locator('xpath=html/body/div/div/main/div/div/div[2]/div/div/div[2]/div[2]/div[2]/a[3]').nth(0)
         await page.wait_for_timeout(3000); await elem.click(timeout=5000)
         
 
-        # -> Simulate network failure or API timeout during LinkedIn OAuth authentication or profile import and verify error handling.
+        # -> Simulate LinkedIn import API failure and verify error message and retry option.
         frame = context.pages[-1]
-        # Click 'Sign in' button to attempt LinkedIn OAuth authentication and simulate network failure
-        elem = frame.locator('xpath=html/body/main/section/div/section/section[3]/div/div/div[2]/div/div/button').nth(0)
-        await page.wait_for_timeout(3000); await elem.click(timeout=5000)
-        
-
-        # -> Simulate network failure or API timeout during LinkedIn OAuth authentication or profile import and verify error handling.
-        frame = context.pages[-1]
-        # Input email for LinkedIn sign-in
-        elem = frame.locator('xpath=html/body/div[2]/div[2]/div/section/div/div/form/div/div/div/div/input').nth(0)
-        await page.wait_for_timeout(3000); await elem.fill('testuser@example.com')
-        
-
-        frame = context.pages[-1]
-        # Input password for LinkedIn sign-in
-        elem = frame.locator('xpath=html/body/div[2]/div[2]/div/section/div/div/form/div/div[2]/div/div/input').nth(0)
-        await page.wait_for_timeout(3000); await elem.fill('incorrectpassword')
-        
-
-        frame = context.pages[-1]
-        # Click Sign in button to submit LinkedIn OAuth authentication and simulate network failure
-        elem = frame.locator('xpath=html/body/div[2]/div[2]/div/section/div/div/form/div[2]/button').nth(0)
-        await page.wait_for_timeout(3000); await elem.click(timeout=5000)
-        
-
-        # -> Simulate network failure or API timeout during LinkedIn OAuth authentication or profile import and verify error handling.
-        frame = context.pages[-1]
-        # Click Sign in button to retry login and simulate network failure or API timeout
-        elem = frame.locator('xpath=html/body/div/main/div[2]/div/form/div[3]/button').nth(0)
-        await page.wait_for_timeout(3000); await elem.click(timeout=5000)
-        
-
-        frame = context.pages[-1]
-        # Check for network error message or retry option after simulated failure
-        elem = frame.locator('xpath=html/body/div/main/div[2]/div/form/div[2]/div').nth(0)
-        await page.wait_for_timeout(3000); await elem.click(timeout=5000)
-        
-
-        # -> Simulate network failure or API timeout during LinkedIn OAuth authentication or profile import and verify error handling.
-        frame = context.pages[-1]
-        # Input password to proceed with LinkedIn OAuth authentication attempt
-        elem = frame.locator('xpath=html/body/div/main/div[2]/div/form/div[2]/input').nth(0)
-        await page.wait_for_timeout(3000); await elem.fill('incorrectpassword')
-        
-
-        frame = context.pages[-1]
-        # Click Sign in button to submit LinkedIn OAuth authentication and simulate network failure
-        elem = frame.locator('xpath=html/body/div/main/div[2]/div/form/div[3]/button').nth(0)
+        # Click LinkedIn Profile import button to trigger LinkedIn import API call for failure simulation
+        elem = frame.locator('xpath=html/body/main/section/div/section/section[3]').nth(0)
         await page.wait_for_timeout(3000); await elem.click(timeout=5000)
         
 
         # --> Assertions to verify final state
         frame = context.pages[-1]
-        await expect(frame.locator('text=Wrong email or password. Try again or create an account.').first).to_be_visible(timeout=30000)
+        try:
+            await expect(frame.locator('text=Network connection established successfully').first).to_be_visible(timeout=1000)
+        except AssertionError:
+            raise AssertionError("Test failed: The system did not handle network errors gracefully during LinkedIn import, AI generation, job listing, or subscription APIs as expected. Appropriate user feedback and retry options were not displayed.")
         await asyncio.sleep(5)
     
     finally:

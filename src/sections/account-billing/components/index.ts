@@ -1,2 +1,5 @@
 export { SubscriptionOverview } from './SubscriptionOverview'
 export { AccountSettings } from './AccountSettings'
+export { ProfileSettings } from './ProfileSettings'
+export { SecurityTab } from './SecurityTab'
+export { PrivacyTab } from './PrivacyTab'

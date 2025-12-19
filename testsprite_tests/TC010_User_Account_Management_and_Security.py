@@ -46,31 +46,57 @@ async def run_test():
                 pass
         
         # Interact with the page elements to simulate user flow
-        # -> Click on Settings to access account settings page.
+        # -> Input email and password, then click Sign In button to authenticate.
         frame = context.pages[-1]
-        # Click on Settings to access account settings page
-        elem = frame.locator('xpath=html/body/div/div/aside/nav/ul/li[5]/button').nth(0)
+        # Input email address
+        elem = frame.locator('xpath=html/body/div/div/div/div[2]/form/div/input').nth(0)
+        await page.wait_for_timeout(3000); await elem.fill('test1@jobmatch.ai')
+        
+
+        frame = context.pages[-1]
+        # Input password
+        elem = frame.locator('xpath=html/body/div/div/div/div[2]/form/div[2]/input').nth(0)
+        await page.wait_for_timeout(3000); await elem.fill('TestPassword123!')
+        
+
+        frame = context.pages[-1]
+        # Click Sign In button
+        elem = frame.locator('xpath=html/body/div/div/div/div[2]/form/button').nth(0)
         await page.wait_for_timeout(3000); await elem.click(timeout=5000)
         
 
-        # -> Click Edit Profile to enable editing of profile personal information fields.
+        # -> Click on 'Settings' button to access account settings page.
         frame = context.pages[-1]
-        # Click Edit Profile to enable editing of profile personal information fields
+        # Click on Settings button to access account settings page
+        elem = frame.locator('xpath=html/body/div/div/aside/nav/ul/li[6]/button').nth(0)
+        await page.wait_for_timeout(3000); await elem.click(timeout=5000)
+        
+
+        # -> Click Edit Profile button to enable editing of profile fields.
+        frame = context.pages[-1]
+        # Click Edit Profile button to enable editing of profile fields
         elem = frame.locator('xpath=html/body/div/div/main/div/div[2]/div/div[2]/div[2]/div/div[2]/div[4]/button').nth(0)
         await page.wait_for_timeout(3000); await elem.click(timeout=5000)
         
 
-        # -> Update profile personal information fields and click Save Changes.
+        # -> Click Edit Profile button to enable editing of profile fields.
+        frame = context.pages[-1]
+        # Click Edit Profile button to enable editing of profile fields
+        elem = frame.locator('xpath=html/body/div/div/main/div/div[2]/div/div[2]/div[2]/div/div[2]/div[4]/button').nth(0)
+        await page.wait_for_timeout(3000); await elem.click(timeout=5000)
+        
+
+        # -> Update profile personal information fields with new test data and save changes.
         frame = context.pages[-1]
         # Update Full Name field
         elem = frame.locator('xpath=html/body/div/div/main/div/div[2]/div/div[2]/div[2]/div/div[2]/div/input').nth(0)
-        await page.wait_for_timeout(3000); await elem.fill('Sarah M. Mitchell')
+        await page.wait_for_timeout(3000); await elem.fill('Test User')
         
 
         frame = context.pages[-1]
         # Update Email Address field
         elem = frame.locator('xpath=html/body/div/div/main/div/div[2]/div/div[2]/div[2]/div/div[2]/div[2]/div/input').nth(0)
-        await page.wait_for_timeout(3000); await elem.fill('sarah.m.mitchell@email.com')
+        await page.wait_for_timeout(3000); await elem.fill('testuser@example.com')
         
 
         frame = context.pages[-1]
@@ -80,74 +106,31 @@ async def run_test():
         
 
         frame = context.pages[-1]
-        # Click Save Changes to save updated profile information
+        # Click Save Changes button to save updated profile information
         elem = frame.locator('xpath=html/body/div/div/main/div/div[2]/div/div[2]/div[2]/div/div[2]/div[4]/button').nth(0)
         await page.wait_for_timeout(3000); await elem.click(timeout=5000)
         
 
-        # -> Click on the Security tab to access security settings for 2FA setup.
+        # -> Click on Security tab button at index 11 to access security settings for 2FA setup.
         frame = context.pages[-1]
-        # Click on Security tab to access security settings for 2FA setup
+        # Click Security tab to access security settings for 2FA setup
         elem = frame.locator('xpath=html/body/div/div/main/div/div[2]/div/div[2]/div/div/button[2]').nth(0)
         await page.wait_for_timeout(3000); await elem.click(timeout=5000)
         
 
-        # -> Click 'Enable 2FA' button to start the two-factor authentication setup process.
+        # -> Click 'Enable 2FA' button to start two-factor authentication setup.
         frame = context.pages[-1]
-        # Click 'Enable 2FA' button to start 2FA setup
-        elem = frame.locator('xpath=html/body/div/div/main/div/div[2]/div/div[2]/div[2]/div/div/div/div/button').nth(0)
-        await page.wait_for_timeout(3000); await elem.click(timeout=5000)
-        
-
-        # -> Click on Notifications tab to modify notification preferences.
-        frame = context.pages[-1]
-        # Click on Notifications tab to modify notification preferences
-        elem = frame.locator('xpath=html/body/div/div/main/div/div[2]/div/div[2]/div/div/button[3]').nth(0)
-        await page.wait_for_timeout(3000); await elem.click(timeout=5000)
-        
-
-        # -> Modify notification preferences by toggling or selecting options available on the Notifications tab, then save changes.
-        frame = context.pages[-1]
-        # Click Notifications button on sidebar to access notification preferences
-        elem = frame.locator('xpath=html/body/div/div/aside/nav/ul/li[6]/button').nth(0)
-        await page.wait_for_timeout(3000); await elem.click(timeout=5000)
-        
-
-        # -> Click on Privacy tab button at index 13 to check if privacy settings can be accessed.
-        frame = context.pages[-1]
-        # Click on Privacy tab to access privacy settings
+        # Click Enable 2FA button to start two-factor authentication setup
         elem = frame.locator('xpath=html/body/div/div/main/div/div[2]/div/div[2]/div/div/button[4]').nth(0)
-        await page.wait_for_timeout(3000); await elem.click(timeout=5000)
-        
-
-        # -> Review and modify privacy settings as needed, then verify compliance and propagation of changes.
-        frame = context.pages[-1]
-        # Click on Privacy tab to review and modify privacy settings
-        elem = frame.locator('xpath=html/body/div/div/main/div/div[2]/div/div[2]/div/div/button[4]').nth(0)
-        await page.wait_for_timeout(3000); await elem.click(timeout=5000)
-        
-
-        # -> Click 'Disconnect' button for LinkedIn connected account to test modifying privacy settings.
-        frame = context.pages[-1]
-        # Click 'Disconnect' button for LinkedIn connected account to test modifying privacy settings
-        elem = frame.locator('xpath=html/body/div/div/main/div/div[2]/div/div[2]/div[2]/div/div/div/div/button').nth(0)
         await page.wait_for_timeout(3000); await elem.click(timeout=5000)
         
 
         # --> Assertions to verify final state
         frame = context.pages[-1]
-        await expect(frame.locator('text=Account Settings').first).to_be_visible(timeout=30000)
-        await expect(frame.locator('text=Manage your profile, security, and preferences').first).to_be_visible(timeout=30000)
-        await expect(frame.locator('text=Profile').first).to_be_visible(timeout=30000)
-        await expect(frame.locator('text=Security').first).to_be_visible(timeout=30000)
-        await expect(frame.locator('text=Notifications').first).to_be_visible(timeout=30000)
-        await expect(frame.locator('text=Privacy').first).to_be_visible(timeout=30000)
-        await expect(frame.locator('text=Sarah Mitchell').first).to_be_visible(timeout=30000)
-        await expect(frame.locator('text=sarah.mitchell@email.com').first).to_be_visible(timeout=30000)
-        await expect(frame.locator('text=Full Name').first).to_be_visible(timeout=30000)
-        await expect(frame.locator('text=Email Address').first).to_be_visible(timeout=30000)
-        await expect(frame.locator('text=Verified').first).to_be_visible(timeout=30000)
-        await expect(frame.locator('text=Phone Number (Optional)').first).to_be_visible(timeout=30000)
+        try:
+            await expect(frame.locator('text=Two-Factor Authentication Setup Complete').first).to_be_visible(timeout=1000)
+        except AssertionError:
+            raise AssertionError("Test case failed: The test plan execution failed to verify that 2FA setup completes successfully and is enforced on next login, profile updates, notification preferences, and privacy controls compliance.")
         await asyncio.sleep(5)
     
     finally:

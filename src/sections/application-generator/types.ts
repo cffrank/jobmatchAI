@@ -42,6 +42,19 @@ export interface EditHistoryEntry {
   reason: string
 }
 
+export interface EmailHistoryEntry {
+  id: string
+  recipientEmail: string
+  subject: string
+  body: string
+  includeResume: boolean
+  includeCoverLetter: boolean
+  sentAt: string
+  status: 'sent' | 'failed'
+  fromEmail: string
+  fromName: string
+}
+
 export interface GeneratedApplication {
   id: string
   jobId: string
@@ -53,6 +66,7 @@ export interface GeneratedApplication {
   selectedVariantId: string | null
   variants: ApplicationVariant[]
   editHistory: EditHistoryEntry[]
+  lastEmailSentAt?: string
 }
 
 // =============================================================================

@@ -9,7 +9,7 @@ export default function ApplicationDetailPage() {
   const { id } = useParams<{ id: string }>()
 
   const [application, setApplication] = useState<TrackedApplication | undefined>(
-    data.applications.find(app => app.id === id)
+    data.trackedApplications.find(app => app.id === id)
   )
 
   if (!application) {

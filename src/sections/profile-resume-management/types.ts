@@ -92,9 +92,17 @@ export interface OptimizationSuggestion {
 // Component Props
 // =============================================================================
 
+export interface ResumeFile {
+  id: string
+  name: string
+  format: 'pdf' | 'docx' | 'txt'
+  uploadedAt: string
+  size?: string
+}
+
 export interface ProfileOverviewProps {
   /** The user's profile information */
-  user: User
+  user?: User | null
   /** List of work experience entries */
   workExperience: WorkExperience[]
   /** List of education entries */
@@ -102,9 +110,11 @@ export interface ProfileOverviewProps {
   /** List of skills */
   skills: Skill[]
   /** The user's master resume */
-  resume: Resume
+  resume?: Resume | null
   /** AI-generated optimization suggestions */
   optimizationSuggestions: OptimizationSuggestion[]
+  /** Uploaded resume files */
+  resumeFiles?: ResumeFile[]
   /** Called when user wants to edit their profile */
   onEditProfile?: () => void
   /** Called when user wants to edit a work experience entry */
@@ -127,6 +137,10 @@ export interface ProfileOverviewProps {
   onEditResume?: () => void
   /** Called when user wants to download resume */
   onDownloadResume?: (format: 'pdf' | 'docx' | 'txt') => void
+  /** Called when user uploads a resume file */
+  onUploadResumeFile?: (file: File) => Promise<void>
+  /** Called when user deletes a resume file */
+  onDeleteResumeFile?: (format: 'pdf' | 'docx' | 'txt') => Promise<void>
   /** Called when user accepts an optimization suggestion */
   onAcceptSuggestion?: (id: string) => void
   /** Called when user dismisses an optimization suggestion */
@@ -159,12 +173,18 @@ export interface ResumeEditorProps {
   education: Education[]
   /** User's skills for reference */
   skills: Skill[]
+  /** AI-generated optimization suggestions */
+  optimizationSuggestions?: OptimizationSuggestion[]
   /** Called when user saves resume changes */
   onSave?: (resume: Resume) => void
   /** Called when user cancels editing */
   onCancel?: () => void
   /** Called when user wants to preview resume */
   onPreview?: () => void
+  /** Called when user accepts an optimization suggestion */
+  onAcceptSuggestion?: (id: string) => void
+  /** Called when user dismisses an optimization suggestion */
+  onDismissSuggestion?: (id: string) => void
 }
 
 export interface ResumePreviewProps {

@@ -3,15 +3,45 @@
     "TypeScript",
     "React 19",
     "Vite 7",
+    "Firebase 10 (Authentication, Firestore, Storage)",
     "React Router DOM 7",
+    "React Firebase Hooks 5",
     "Tailwind CSS 3",
     "Radix UI",
-    "Lucide React Icons"
+    "Lucide React Icons",
+    "Sonner (Toast Notifications)"
   ],
   "features": [
     {
+      "name": "Firebase Authentication",
+      "description": "User authentication with email/password and Google OAuth. Includes signup, login, logout, password reset, email verification, and protected routes.",
+      "files": [
+        "src/lib/firebase.ts",
+        "src/contexts/AuthContext.tsx",
+        "src/pages/LoginPage.tsx",
+        "src/components/ProtectedRoute.tsx"
+      ]
+    },
+    {
+      "name": "Firestore Database Integration",
+      "description": "Real-time database hooks for user data (profile, work experience, education, skills, resumes), jobs, applications, and tracked applications with CRUD operations.",
+      "files": [
+        "src/hooks/useProfile.ts",
+        "src/hooks/useWorkExperience.ts",
+        "src/hooks/useEducation.ts",
+        "src/hooks/useSkills.ts",
+        "src/hooks/useResumes.ts",
+        "src/hooks/useJobs.ts",
+        "src/hooks/useApplications.ts",
+        "src/hooks/useTrackedApplications.ts",
+        "src/hooks/useSubscription.ts",
+        "firestore.rules",
+        "firestore.indexes.json"
+      ]
+    },
+    {
       "name": "App Shell & Layout",
-      "description": "Main application shell with navigation, user menu, and layout components",
+      "description": "Main application shell with navigation, user menu, and layout components with real Firebase authentication integration",
       "files": [
         "src/App.tsx",
         "src/main.tsx",
@@ -101,9 +131,12 @@
     },
     {
       "name": "Account Settings",
-      "description": "Manage user profile, security settings, notifications, and privacy preferences",
+      "description": "Manage user profile, security settings (2FA, active sessions), privacy controls (connected accounts, data export), and notification preferences with 4 separate tabs",
       "files": [
         "src/sections/account-billing/SettingsPage.tsx",
+        "src/sections/account-billing/components/ProfileSettings.tsx",
+        "src/sections/account-billing/components/SecurityTab.tsx",
+        "src/sections/account-billing/components/PrivacyTab.tsx",
         "src/sections/account-billing/components/AccountSettings.tsx"
       ]
     },

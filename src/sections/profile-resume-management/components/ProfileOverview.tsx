@@ -5,6 +5,7 @@ import { SkillsGrid } from './SkillsGrid'
 import { EducationList } from './EducationList'
 import { OptimizationSidebar } from './OptimizationSidebar'
 import { ResumeActions } from './ResumeActions'
+import { FileManager } from '@/components/FileManager'
 
 export function ProfileOverview({
   user,
@@ -13,6 +14,7 @@ export function ProfileOverview({
   skills,
   resume,
   optimizationSuggestions,
+  resumeFiles,
   onEditProfile,
   onEditExperience,
   onDeleteExperience,
@@ -24,6 +26,8 @@ export function ProfileOverview({
   onViewResume,
   onEditResume,
   onDownloadResume,
+  onUploadResumeFile,
+  onDeleteResumeFile,
   onAcceptSuggestion,
   onDismissSuggestion,
 }: ProfileOverviewProps) {
@@ -46,13 +50,27 @@ export function ProfileOverview({
             {/* Profile Header */}
             <ProfileHeader user={user} onEditProfile={onEditProfile} />
 
-            {/* Resume Actions */}
-            <ResumeActions
-              resume={resume}
-              onViewResume={onViewResume}
-              onEditResume={onEditResume}
-              onDownloadResume={onDownloadResume}
-            />
+            {/* Resume Actions - only show if resume exists */}
+            {resume && (
+              <ResumeActions
+                resume={resume}
+                onViewResume={onViewResume}
+                onEditResume={onEditResume}
+                onDownloadResume={onDownloadResume}
+              />
+            )}
+
+            {/* Resume Files */}
+            {resume && resumeFiles && resumeFiles.length > 0 && (
+              <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6">
+                <FileManager
+                  resumeId={resume.id}
+                  files={resumeFiles}
+                  onUpload={onUploadResumeFile}
+                  onDelete={onDeleteResumeFile}
+                />
+              </div>
+            )}
 
             {/* Work Experience */}
             <ExperienceTimeline

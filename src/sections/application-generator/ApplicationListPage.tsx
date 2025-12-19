@@ -16,11 +16,14 @@ export default function ApplicationListPage() {
     navigate(`/applications/${applicationId}`)
   }
 
-  const handleGenerateNew = (jobId: string) => {
-    toast.info('AI application generation - coming soon!')
-    // TODO: Implement AI generation via Cloud Function
-    // For now, just navigate to job discovery to select a job
-    navigate(`/jobs/${jobId}`)
+  const handleGenerateNew = (jobId?: string) => {
+    if (jobId) {
+      // Navigate to generation page with job ID
+      navigate(`/applications/new?jobId=${jobId}`)
+    } else {
+      // No job selected, send to jobs page
+      navigate('/jobs')
+    }
   }
 
   const handleExport = (applicationId: string, format: 'pdf' | 'docx') => {

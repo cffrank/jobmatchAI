@@ -15,18 +15,22 @@ export interface Job {
   company: string
   companyLogo: string
   location: string
-  workArrangement: 'Remote' | 'Hybrid' | 'On-site'
+  workArrangement: 'Remote' | 'Hybrid' | 'On-site' | 'Unknown'
   salaryMin: number
   salaryMax: number
   postedDate: string
-  applicationDeadline: string
-  matchScore: number
+  applicationDeadline?: string
+  matchScore?: number
   isSaved: boolean
-  requiredSkills: string[]
-  missingSkills: string[]
+  requiredSkills?: string[]
+  missingSkills?: string[]
   description: string
-  compatibilityBreakdown: CompatibilityBreakdown
-  recommendations: string[]
+  compatibilityBreakdown?: CompatibilityBreakdown
+  recommendations?: string[]
+  // Fields for scraped jobs
+  url?: string
+  source?: 'linkedin' | 'indeed' | 'manual'
+  scrapedAt?: Date
 }
 
 // =============================================================================
@@ -59,6 +63,26 @@ export interface JobFilters {
   salaryMin?: number
   salaryMax?: number
   showSavedOnly?: boolean
+}
+
+export interface JobSearchParams {
+  keywords: string
+  location?: string
+  jobType?: 'full-time' | 'part-time' | 'contract' | 'internship'
+  workArrangement?: 'remote' | 'hybrid' | 'on-site'
+  salaryMin?: number
+  salaryMax?: number
+  experienceLevel?: 'entry' | 'mid' | 'senior' | 'executive'
+  maxResults?: number
+  sources?: ('linkedin' | 'indeed')[]
+}
+
+export interface JobSearchResult {
+  success: boolean
+  searchId: string
+  jobCount: number
+  jobs: Job[]
+  errors?: string[]
 }
 
 export interface JobDetailProps {

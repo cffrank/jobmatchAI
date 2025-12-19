@@ -16,6 +16,7 @@ export function JobList({
   const [filters, setFilters] = useState<JobFilters>({
     matchScoreMin: 0,
     workArrangement: 'All',
+    location: '',
     showSavedOnly: false
   })
 
@@ -54,6 +55,7 @@ export function JobList({
     if (filters.showSavedOnly && !job.isSaved) return false
     if (filters.matchScoreMin && job.matchScore < filters.matchScoreMin) return false
     if (filters.workArrangement && filters.workArrangement !== 'All' && job.workArrangement !== filters.workArrangement) return false
+    if (filters.location && !job.location.toLowerCase().includes(filters.location.toLowerCase())) return false
     if (searchQuery) {
       const query = searchQuery.toLowerCase()
       return (
@@ -149,6 +151,19 @@ export function JobList({
                   </select>
                 </div>
 
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                    Location
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Enter location..."
+                    value={filters.location || ''}
+                    onChange={(e) => handleFilterChange({ location: e.target.value })}
+                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
                 <div className="flex items-end">
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
@@ -166,8 +181,8 @@ export function JobList({
                 <div className="flex items-end">
                   <button
                     onClick={() => {
-                      setFilters({ matchScoreMin: 0, workArrangement: 'All', showSavedOnly: false })
-                      onFilter?.({ matchScoreMin: 0, workArrangement: 'All', showSavedOnly: false })
+                      setFilters({ matchScoreMin: 0, workArrangement: 'All', location: '', showSavedOnly: false })
+                      onFilter?.({ matchScoreMin: 0, workArrangement: 'All', location: '', showSavedOnly: false })
                     }}
                     className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
                   >

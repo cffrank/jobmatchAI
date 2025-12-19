@@ -46,9 +46,28 @@ async def run_test():
                 pass
         
         # Interact with the page elements to simulate user flow
-        # -> Navigate to LinkedIn OAuth login page through the import wizard.
+        # -> Input email and password, then click Sign In button to authenticate.
         frame = context.pages[-1]
-        # Click 'Edit Profile' button to find import options or LinkedIn OAuth login.
+        # Input email address
+        elem = frame.locator('xpath=html/body/div/div/div/div[2]/form/div/input').nth(0)
+        await page.wait_for_timeout(3000); await elem.fill('test1@jobmatch.ai')
+        
+
+        frame = context.pages[-1]
+        # Input password
+        elem = frame.locator('xpath=html/body/div/div/div/div[2]/form/div[2]/input').nth(0)
+        await page.wait_for_timeout(3000); await elem.fill('TestPassword123!')
+        
+
+        frame = context.pages[-1]
+        # Click Sign In button to authenticate
+        elem = frame.locator('xpath=html/body/div/div/div/div[2]/form/button').nth(0)
+        await page.wait_for_timeout(3000); await elem.click(timeout=5000)
+        
+
+        # -> Verify that LinkedIn OAuth login is accessible via import wizard and test OAuth flow.
+        frame = context.pages[-1]
+        # Click Edit Profile to check for LinkedIn OAuth import option
         elem = frame.locator('xpath=html/body/div/div/main/div/div/div[2]/div/div/div[2]/div[2]/div/button').nth(0)
         await page.wait_for_timeout(3000); await elem.click(timeout=5000)
         
@@ -56,9 +75,9 @@ async def run_test():
         # --> Assertions to verify final state
         frame = context.pages[-1]
         try:
-            await expect(frame.locator('text=LinkedIn OAuth Authentication Successful')).to_be_visible(timeout=30000)
+            await expect(frame.locator('text=LinkedIn OAuth Import Successful').first).to_be_visible(timeout=1000)
         except AssertionError:
-            raise AssertionError('Test case failed: OAuth authentication did not succeed, or the import wizard did not proceed to profile import as expected.')
+            raise AssertionError("Test case failed: LinkedIn OAuth authentication and profile import did not complete successfully as per the test plan.")
         await asyncio.sleep(5)
     
     finally:

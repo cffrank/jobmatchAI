@@ -2,12 +2,40 @@ import { Mail, Phone, MapPin, Linkedin, Edit2 } from 'lucide-react'
 import type { User } from '@/../product/sections/profile-resume-management/types'
 
 interface ProfileHeaderProps {
-  user: User
+  user?: User | null
   onEditProfile?: () => void
 }
 
 export function ProfileHeader({ user, onEditProfile }: ProfileHeaderProps) {
-  const initials = `${user.firstName[0]}${user.lastName[0]}`
+  // Handle new users with no profile yet
+  if (!user) {
+    return (
+      <div className="relative overflow-hidden bg-gradient-to-br from-blue-50 to-emerald-50 dark:from-blue-950/30 dark:to-emerald-950/30 rounded-2xl p-8 border border-blue-100 dark:border-blue-900">
+        <div className="text-center py-8">
+          <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700 flex items-center justify-center ring-4 ring-white dark:ring-slate-800 mx-auto mb-4">
+            <span className="text-3xl font-bold text-white">?</span>
+          </div>
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2">
+            Welcome! Let's set up your profile
+          </h2>
+          <p className="text-slate-600 dark:text-slate-400 mb-6">
+            Start by adding your professional information to unlock AI-powered job matching
+          </p>
+          {onEditProfile && (
+            <button
+              onClick={onEditProfile}
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-colors"
+            >
+              <Edit2 className="w-5 h-5" />
+              <span>Create Profile</span>
+            </button>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  const initials = `${user.firstName?.[0] || ''}${user.lastName?.[0] || ''}`
 
   return (
     <div className="relative overflow-hidden bg-gradient-to-br from-blue-50 to-emerald-50 dark:from-blue-950/30 dark:to-emerald-950/30 rounded-2xl p-8 border border-blue-100 dark:border-blue-900">

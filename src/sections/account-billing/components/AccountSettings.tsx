@@ -19,6 +19,8 @@ interface CombinedSettingsProps {
   onUpdateProfile?: (updates: Partial<UserProfile>) => void
   onChangePassword?: (currentPassword: string, newPassword: string) => void
   onUploadPhoto?: (file: File) => void
+  photoUploading?: boolean
+  photoError?: Error | null
   onResendVerification?: () => void
   onEnable2FA?: () => void
   onDisable2FA?: () => void
@@ -39,6 +41,8 @@ export function AccountSettings({
   onUpdateProfile,
   onChangePassword,
   onUploadPhoto,
+  photoUploading,
+  photoError,
   onResendVerification,
   onEnable2FA,
   onDisable2FA,
@@ -100,6 +104,8 @@ export function AccountSettings({
                 profile={profile}
                 onUpdateProfile={onUpdateProfile}
                 onUploadPhoto={onUploadPhoto}
+                photoUploading={photoUploading}
+                photoError={photoError}
                 onResendVerification={onResendVerification}
               />
             )}
@@ -134,7 +140,7 @@ export function AccountSettings({
   )
 }
 
-function ProfileSettings({ profile, onUpdateProfile, onUploadPhoto, onResendVerification }: AccountSettingsProps) {
+function ProfileSettings({ profile, onUpdateProfile, onUploadPhoto, photoUploading, photoError, onResendVerification }: AccountSettingsProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [editedProfile, setEditedProfile] = useState(profile)
 
@@ -161,9 +167,21 @@ function ProfileSettings({ profile, onUpdateProfile, onUploadPhoto, onResendVeri
               </span>
             </div>
           )}
+
+          {/* Upload Progress Overlay */}
+          {photoUploading && (
+            <div className="absolute inset-0 rounded-full bg-black/60 flex items-center justify-center border-4 border-slate-200 dark:border-slate-700">
+              <div className="flex flex-col items-center gap-2">
+                <div className="w-8 h-8 border-3 border-white border-t-transparent rounded-full animate-spin" />
+                <span className="text-xs text-white font-medium">Uploading...</span>
+              </div>
+            </div>
+          )}
+
           <button
             onClick={() => document.getElementById('photo-upload')?.click()}
-            className="absolute bottom-0 right-0 w-8 h-8 bg-blue-600 hover:bg-blue-700 text-white rounded-full flex items-center justify-center shadow-lg transition-colors"
+            disabled={photoUploading}
+            className="absolute bottom-0 right-0 w-8 h-8 bg-blue-600 hover:bg-blue-700 text-white rounded-full flex items-center justify-center shadow-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Camera className="w-4 h-4" />
           </button>
@@ -172,15 +190,24 @@ function ProfileSettings({ profile, onUpdateProfile, onUploadPhoto, onResendVeri
             type="file"
             accept="image/*"
             className="hidden"
+            disabled={photoUploading}
             onChange={(e) => {
               const file = e.target.files?.[0]
               if (file) onUploadPhoto?.(file)
             }}
           />
         </div>
-        <div>
+        <div className="flex-1">
           <h3 className="text-xl font-bold text-slate-900 dark:text-slate-50 mb-1">{profile.fullName}</h3>
           <p className="text-slate-600 dark:text-slate-400">{profile.email}</p>
+
+          {/* Upload Error */}
+          {photoError && (
+            <div className="mt-2 flex items-center gap-2 text-sm text-red-600 dark:text-red-400">
+              <AlertTriangle className="w-4 h-4" />
+              <span>Upload failed: {photoError.message}</span>
+            </div>
+          )}
         </div>
       </div>
 

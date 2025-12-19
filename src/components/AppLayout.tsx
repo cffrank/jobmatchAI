@@ -38,6 +38,11 @@ export default function AppLayout() {
       isActive: location.pathname === '/tracker',
     },
     {
+      label: 'Analytics',
+      href: '/analytics',
+      isActive: location.pathname === '/analytics',
+    },
+    {
       label: 'Settings',
       href: '/settings',
       isActive: location.pathname === '/settings',

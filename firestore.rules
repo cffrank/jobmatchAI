@@ -86,8 +86,9 @@ service cloud.firestore {
     match /jobs/{jobId} {
       // All authenticated users can read jobs
       allow read: if isAuthenticated();
-      // Only Cloud Functions can write jobs (job scraping)
-      allow write: if false;
+      // TEMPORARY: Allow authenticated users to write jobs for development
+      // TODO: Change back to "if false" in production (only Cloud Functions should write)
+      allow write: if isAuthenticated();
     }
   }
 }

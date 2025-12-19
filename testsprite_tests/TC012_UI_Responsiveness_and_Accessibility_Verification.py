@@ -46,46 +46,82 @@ async def run_test():
                 pass
         
         # Interact with the page elements to simulate user flow
-        # -> Resize viewport to tablet size and verify UI layout adapts gracefully without overlap or cutoff on Profile & Resume page.
-        await page.goto('http://localhost:5173/', timeout=10000)
-        await asyncio.sleep(3)
-        
-
-        # -> Resize viewport to tablet size and verify UI layout adapts gracefully without overlap or cutoff on Profile & Resume page.
-        await page.goto('http://localhost:5173/', timeout=10000)
-        await asyncio.sleep(3)
-        
-
-        # -> Perform screen reader testing on Profile & Resume page to verify content is read correctly and ARIA roles/labels are present.
+        # -> Input email and password, then click Sign In button to authenticate.
         frame = context.pages[-1]
-        # Click on Jobs page to start testing next main page responsiveness and accessibility on desktop viewport
+        # Input email address
+        elem = frame.locator('xpath=html/body/div/div/div/div[2]/form/div/input').nth(0)
+        await page.wait_for_timeout(3000); await elem.fill('test1@jobmatch.ai')
+        
+
+        frame = context.pages[-1]
+        # Input password
+        elem = frame.locator('xpath=html/body/div/div/div/div[2]/form/div[2]/input').nth(0)
+        await page.wait_for_timeout(3000); await elem.fill('TestPassword123!')
+        
+
+        frame = context.pages[-1]
+        # Click Sign In button
+        elem = frame.locator('xpath=html/body/div/div/div/div[2]/form/button').nth(0)
+        await page.wait_for_timeout(3000); await elem.click(timeout=5000)
+        
+
+        # -> Resize viewport to tablet size and verify UI layout on Profile & Resume page.
+        await page.goto('http://localhost:5173/', timeout=10000)
+        await asyncio.sleep(3)
+        
+
+        # -> Resize viewport to tablet size and verify UI layout on Profile & Resume page.
+        await page.goto('http://localhost:5173/', timeout=10000)
+        await asyncio.sleep(3)
+        
+
+        # -> Resize viewport to tablet size and verify UI layout on Profile & Resume page.
+        await page.goto('http://localhost:5173/', timeout=10000)
+        await asyncio.sleep(3)
+        
+
+        # -> Resize viewport to tablet size and verify UI layout on Profile & Resume page.
+        await page.goto('http://localhost:5173/', timeout=10000)
+        await asyncio.sleep(3)
+        
+
+        # -> Resize viewport to tablet size and verify UI layout on Profile & Resume page.
+        await page.goto('http://localhost:5173/', timeout=10000)
+        await asyncio.sleep(3)
+        
+
+        # -> Resize viewport to tablet size and verify UI layout on Profile & Resume page.
+        frame = context.pages[-1]
+        # Click Jobs tab to navigate to Jobs page
+        elem = frame.locator('xpath=html/body/div/div/aside/nav/ul/li[2]/button').nth(0)
+        await page.wait_for_timeout(3000); await elem.click(timeout=5000)
+        
+
+        # -> Test screen reader navigation on the Jobs page to verify ARIA roles and labels for meaningful content reading.
+        frame = context.pages[-1]
+        # Click Profile & Resume tab to navigate to Profile & Resume page
         elem = frame.locator('xpath=html/body/div/div/aside/nav/ul/li/button').nth(0)
         await page.wait_for_timeout(3000); await elem.click(timeout=5000)
         
 
-        # -> Resize viewport to tablet size and verify UI layout adapts gracefully without overlap or cutoff on Profile & Resume page, then test keyboard navigation and screen reader accessibility.
+        # -> Resize viewport to tablet size and verify UI layout and accessibility on Profile & Resume page.
         await page.goto('http://localhost:5173/', timeout=10000)
         await asyncio.sleep(3)
         
 
-        # -> Resize viewport to mobile size and verify UI layout adapts gracefully without overlap or cutoff on Profile & Resume page, then test keyboard navigation and screen reader accessibility.
-        await page.goto('http://localhost:5173/', timeout=10000)
-        await asyncio.sleep(3)
-        
-
-        # -> Navigate to Jobs page on desktop viewport and verify UI responsiveness and accessibility.
+        # -> Resize viewport to tablet size and verify UI layout and accessibility on Profile & Resume page.
         frame = context.pages[-1]
-        # Click on Jobs page button to access Jobs main page on desktop viewport
-        elem = frame.locator('xpath=html/body/div/div/aside/nav/ul/li[2]/button').nth(0)
+        # Click Settings tab to navigate to Account Settings page
+        elem = frame.locator('xpath=html/body/div/div/aside/nav/ul/li[6]/button').nth(0)
         await page.wait_for_timeout(3000); await elem.click(timeout=5000)
         
 
         # --> Assertions to verify final state
         frame = context.pages[-1]
         try:
-            await expect(frame.locator('text=Accessibility Compliance Verified').first).to_be_visible(timeout=1000)
+            await expect(frame.locator('text=Nonexistent Accessibility Compliance Message').first).to_be_visible(timeout=1000)
         except AssertionError:
-            raise AssertionError('Test plan execution failed: UI responsiveness and accessibility compliance could not be verified across devices, screen sizes, and browsers as per the test plan.')
+            raise AssertionError("Test failed: UI responsiveness and accessibility verification did not pass as per the test plan. The expected accessibility compliance message was not found on the page, indicating failure in meeting accessibility guidelines and responsive UI requirements.")
         await asyncio.sleep(5)
     
     finally:
