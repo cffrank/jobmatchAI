@@ -1,0 +1,93 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Helper function to check if user owns the resource
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    // Users collection - top level profile data
+    match /users/{userId} {
+      // Users can only read and write their own profile
+      allow read, write: if isAuthenticated() && isOwner(userId);
+
+      // Work Experience subcollection
+      match /workExperience/{experienceId} {
+        allow read, write: if isAuthenticated() && isOwner(userId);
+      }
+
+      // Education subcollection
+      match /education/{educationId} {
+        allow read, write: if isAuthenticated() && isOwner(userId);
+      }
+
+      // Skills subcollection
+      match /skills/{skillId} {
+        allow read, write: if isAuthenticated() && isOwner(userId);
+      }
+
+      // Resumes subcollection
+      match /resumes/{resumeId} {
+        allow read, write: if isAuthenticated() && isOwner(userId);
+      }
+
+      // Saved jobs subcollection
+      match /savedJobs/{jobId} {
+        allow read, write: if isAuthenticated() && isOwner(userId);
+      }
+
+      // Generated applications subcollection
+      match /applications/{applicationId} {
+        allow read, write: if isAuthenticated() && isOwner(userId);
+      }
+
+      // Tracked applications subcollection
+      match /trackedApplications/{trackedAppId} {
+        allow read, write: if isAuthenticated() && isOwner(userId);
+      }
+
+      // Subscription document
+      match /subscription {
+        allow read: if isAuthenticated() && isOwner(userId);
+        // Write restricted to Cloud Functions (Stripe webhooks)
+        allow write: if false;
+      }
+
+      // Usage limits document
+      match /usageLimits {
+        allow read: if isAuthenticated() && isOwner(userId);
+        // Write restricted to Cloud Functions
+        allow write: if false;
+      }
+
+      // Invoices subcollection
+      match /invoices/{invoiceId} {
+        allow read: if isAuthenticated() && isOwner(userId);
+        // Write restricted to Cloud Functions (Stripe webhooks)
+        allow write: if false;
+      }
+
+      // Payment methods subcollection
+      match /paymentMethods/{methodId} {
+        allow read: if isAuthenticated() && isOwner(userId);
+        // Write restricted to Cloud Functions (Stripe API)
+        allow write: if false;
+      }
+    }
+
+    // Jobs collection - top level (read-only for users)
+    match /jobs/{jobId} {
+      // All authenticated users can read jobs
+      allow read: if isAuthenticated();
+      // Only Cloud Functions can write jobs (job scraping)
+      allow write: if false;
+    }
+  }
+}

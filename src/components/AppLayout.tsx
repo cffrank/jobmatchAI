@@ -1,14 +1,19 @@
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { AppShell } from './AppShell'
+import { useAuth } from '@/contexts/AuthContext'
+import { toast } from 'sonner'
 import type { NavigationItem } from './AppShell'
 
 export default function AppLayout() {
   const location = useLocation()
   const navigate = useNavigate()
+  const { user, logOut } = useAuth()
 
-  const user = {
-    name: 'Sarah Chen',
-    email: 'sarah.chen@email.com',
+  // Map Firebase user to AppShell user format
+  const appUser = {
+    name: user?.displayName || user?.email?.split('@')[0] || 'User',
+    email: user?.email || '',
+    avatarUrl: user?.photoURL || undefined,
   }
 
   const navigationItems: NavigationItem[] = [
@@ -43,18 +48,25 @@ export default function AppLayout() {
     navigate(href)
   }
 
-  const handleLogout = () => {
-    console.log('Logout clicked')
+  const handleLogout = async () => {
+    try {
+      await logOut()
+      toast.success('Logged out successfully')
+      navigate('/login')
+    } catch (error) {
+      toast.error('Failed to log out')
+    }
   }
 
   const handleNotificationsClick = () => {
     console.log('Notifications clicked')
+    // TODO: Implement notifications
   }
 
   return (
     <AppShell
       navigationItems={navigationItems}
-      user={user}
+      user={appUser}
       onNavigate={handleNavigate}
       onLogout={handleLogout}
       notificationCount={3}

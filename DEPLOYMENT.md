@@ -425,9 +425,83 @@ To add performance monitoring:
 
 ## Environment Variables
 
-If your application needs environment variables:
+### Firebase Configuration Secrets (Required)
 
-### Build-time Variables
+Your application requires Firebase configuration to be set as GitHub Secrets for production builds.
+
+#### Step 1: Get Firebase Configuration
+
+1. Go to [Firebase Console](https://console.firebase.google.com/project/ai-career-os-139db/settings/general)
+2. Scroll to "Your apps" section
+3. If you don't have a web app yet:
+   - Click "Add app" → Select Web (</>)
+   - Register the app with a nickname like "JobMatch AI Web"
+4. Copy the Firebase config values
+
+#### Step 2: Add Firebase Secrets to GitHub
+
+Go to your GitHub repository → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**
+
+Add each of the following 6 secrets:
+
+| Secret Name | Description | Example Value |
+|-------------|-------------|---------------|
+| `VITE_FIREBASE_API_KEY` | Firebase API Key | `AIzaSyC...` |
+| `VITE_FIREBASE_AUTH_DOMAIN` | Auth Domain | `ai-career-os-139db.firebaseapp.com` |
+| `VITE_FIREBASE_PROJECT_ID` | Project ID | `ai-career-os-139db` |
+| `VITE_FIREBASE_STORAGE_BUCKET` | Storage Bucket | `ai-career-os-139db.firebasestorage.app` |
+| `VITE_FIREBASE_MESSAGING_SENDER_ID` | Messaging Sender ID | `123456789` |
+| `VITE_FIREBASE_APP_ID` | App ID | `1:123456789:web:abc123` |
+
+**Note:** These secrets are already configured in the GitHub Actions workflow and will be injected during the build process.
+
+#### Local Development Configuration
+
+For local development, create a `.env.local` file in the `jobmatch-ai` directory:
+
+```env
+VITE_FIREBASE_API_KEY=your-api-key-here
+VITE_FIREBASE_AUTH_DOMAIN=ai-career-os-139db.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=ai-career-os-139db
+VITE_FIREBASE_STORAGE_BUCKET=ai-career-os-139db.firebasestorage.app
+VITE_FIREBASE_MESSAGING_SENDER_ID=your-sender-id-here
+VITE_FIREBASE_APP_ID=your-app-id-here
+```
+
+**Important:** `.env.local` is already gitignored and should never be committed to the repository.
+
+### How Environment Variables Work
+
+#### Development (Local)
+- Vite reads from `.env.local` file
+- File is gitignored for security
+- Hot reloading updates when env changes
+
+#### Production (GitHub Actions)
+- GitHub Actions injects secrets as environment variables during build
+- Vite bundles them into the static build at build-time
+- Secrets are encrypted and never exposed in logs or artifacts
+
+#### Security Notes
+
+✅ **Safe to expose (but use secrets anyway):**
+- Firebase API Key (designed for client-side use)
+- Project ID, Auth Domain, Storage Bucket (public info)
+
+❌ **Never commit:**
+- Service Account JSON
+- Any backend/server API keys
+- Database connection strings
+
+**Why use GitHub Secrets for Firebase config?**
+1. **Consistency** - All config in one secure place
+2. **Rotation** - Easy to update without code changes
+3. **Environment-specific** - Different configs for staging/production
+4. **Best Practice** - Treat all config as potentially sensitive
+
+### Build-time Variables (Custom)
+
+If your application needs additional environment variables:
 
 Add to workflow:
 
@@ -435,8 +509,10 @@ Add to workflow:
 - name: Build application
   run: npm run build
   env:
+    VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
+    # ... (Firebase secrets already configured)
     VITE_API_URL: ${{ secrets.API_URL }}
-    VITE_ENV: production
+    VITE_CUSTOM_VAR: ${{ secrets.CUSTOM_VAR }}
 ```
 
 Then add secrets to GitHub:
@@ -445,7 +521,7 @@ Then add secrets to GitHub:
 
 ### Runtime Variables
 
-Use Firebase Remote Config or Firestore for runtime configuration.
+Use Firebase Remote Config or Firestore for runtime configuration that needs to change without redeployment.
 
 ## Support and Resources
 
@@ -488,12 +564,30 @@ gh run view                          # View run details
 
 Before your first deployment:
 
-- [ ] Firebase service account created
-- [ ] `FIREBASE_SERVICE_ACCOUNT` secret added to GitHub
-- [ ] `.firebaserc` and `firebase.json` committed to repository
-- [ ] `.github/workflows/firebase-deploy.yml` committed to repository
-- [ ] `.gitignore` includes Firebase and build artifacts
+### GitHub Secrets (Required - 7 total)
+- [ ] `FIREBASE_SERVICE_ACCOUNT` - Service account JSON for deployments
+- [ ] `VITE_FIREBASE_API_KEY` - Firebase API Key
+- [ ] `VITE_FIREBASE_AUTH_DOMAIN` - Firebase Auth Domain
+- [ ] `VITE_FIREBASE_PROJECT_ID` - Firebase Project ID
+- [ ] `VITE_FIREBASE_STORAGE_BUCKET` - Firebase Storage Bucket
+- [ ] `VITE_FIREBASE_MESSAGING_SENDER_ID` - Firebase Messaging Sender ID
+- [ ] `VITE_FIREBASE_APP_ID` - Firebase App ID
+
+### Local Development
+- [ ] `.env.local` created with Firebase configuration
+- [ ] `.env.local` is in `.gitignore`
 - [ ] Test build runs locally: `npm run build`
 - [ ] Test lint runs locally: `npm run lint`
+- [ ] Test auth flow works locally
+
+### Repository Configuration
+- [ ] `.firebaserc` and `firebase.json` committed to repository
+- [ ] `.github/workflows/firebase-deploy.yml` committed to repository
+- [ ] `.gitignore` includes Firebase artifacts and `.env.local`
+
+### Firebase Console Setup
+- [ ] Authentication providers enabled (Email/Password, Google, LinkedIn)
+- [ ] Authorized domains configured (localhost + production domain)
+- [ ] Web app created in Firebase project
 
 Your pipeline is now ready. Push your code to trigger the first deployment.

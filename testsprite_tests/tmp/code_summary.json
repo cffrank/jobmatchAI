@@ -1,0 +1,126 @@
+{
+  "tech_stack": [
+    "TypeScript",
+    "React 19",
+    "Vite 7",
+    "React Router DOM 7",
+    "Tailwind CSS 3",
+    "Radix UI",
+    "Lucide React Icons"
+  ],
+  "features": [
+    {
+      "name": "App Shell & Layout",
+      "description": "Main application shell with navigation, user menu, and layout components",
+      "files": [
+        "src/App.tsx",
+        "src/main.tsx",
+        "src/components/AppShell.tsx",
+        "src/components/AppLayout.tsx",
+        "src/components/MainNav.tsx",
+        "src/components/UserMenu.tsx",
+        "src/lib/router.tsx"
+      ]
+    },
+    {
+      "name": "LinkedIn Import Wizard",
+      "description": "Step-by-step wizard for connecting LinkedIn account and importing profile data",
+      "files": [
+        "src/sections/profile-resume-management/LinkedInImportWizardPage.tsx",
+        "src/sections/profile-resume-management/components/LinkedInImportWizard.tsx"
+      ]
+    },
+    {
+      "name": "Profile Overview",
+      "description": "Display user profile with personal info, work experience, education, and skills",
+      "files": [
+        "src/sections/profile-resume-management/ProfileOverviewPage.tsx",
+        "src/sections/profile-resume-management/components/ProfileOverview.tsx",
+        "src/sections/profile-resume-management/components/ProfileHeader.tsx",
+        "src/sections/profile-resume-management/components/ExperienceTimeline.tsx",
+        "src/sections/profile-resume-management/components/EducationList.tsx",
+        "src/sections/profile-resume-management/components/SkillsGrid.tsx"
+      ]
+    },
+    {
+      "name": "Resume Editor",
+      "description": "Interactive resume editor with AI optimization suggestions",
+      "files": [
+        "src/sections/profile-resume-management/ResumeEditorPage.tsx",
+        "src/sections/profile-resume-management/components/ResumeEditor.tsx",
+        "src/sections/profile-resume-management/components/OptimizationSidebar.tsx"
+      ]
+    },
+    {
+      "name": "Resume Preview & Download",
+      "description": "Preview and download resume in multiple formats (PDF, DOCX)",
+      "files": [
+        "src/sections/profile-resume-management/ResumePreviewPage.tsx",
+        "src/sections/profile-resume-management/components/ResumePreview.tsx",
+        "src/sections/profile-resume-management/components/ResumeActions.tsx"
+      ]
+    },
+    {
+      "name": "Job Discovery & Listing",
+      "description": "Browse and search jobs with AI-powered match scores and filtering",
+      "files": [
+        "src/sections/job-discovery-matching/JobListPage.tsx",
+        "src/sections/job-discovery-matching/components/JobList.tsx",
+        "src/sections/job-discovery-matching/types.ts"
+      ]
+    },
+    {
+      "name": "Job Detail & Matching",
+      "description": "View detailed job information with compatibility analysis and skill gap assessment",
+      "files": [
+        "src/sections/job-discovery-matching/JobDetailPage.tsx",
+        "src/sections/job-discovery-matching/components/JobDetail.tsx"
+      ]
+    },
+    {
+      "name": "Application Generator",
+      "description": "AI-powered generation of tailored resumes and cover letters for specific jobs",
+      "files": [
+        "src/sections/application-generator/ApplicationListPage.tsx",
+        "src/sections/application-generator/ApplicationEditorPage.tsx",
+        "src/sections/application-generator/components/ApplicationList.tsx",
+        "src/sections/application-generator/components/ApplicationEditor.tsx",
+        "src/sections/application-generator/types.ts"
+      ]
+    },
+    {
+      "name": "Application Tracker",
+      "description": "Track job applications with status management, follow-ups, and analytics",
+      "files": [
+        "src/sections/application-tracker/ApplicationTrackerListPage.tsx",
+        "src/sections/application-tracker/ApplicationDetailPage.tsx",
+        "src/sections/application-tracker/components/ApplicationList.tsx",
+        "src/sections/application-tracker/components/ApplicationDetail.tsx",
+        "src/sections/application-tracker/types.ts"
+      ]
+    },
+    {
+      "name": "Account Settings",
+      "description": "Manage user profile, security settings, notifications, and privacy preferences",
+      "files": [
+        "src/sections/account-billing/SettingsPage.tsx",
+        "src/sections/account-billing/components/AccountSettings.tsx"
+      ]
+    },
+    {
+      "name": "Subscription & Billing",
+      "description": "Manage subscription plans (Basic/Premium), payment methods, and billing history",
+      "files": [
+        "src/sections/account-billing/components/SubscriptionOverview.tsx",
+        "src/sections/account-billing/types.ts"
+      ]
+    },
+    {
+      "name": "Utilities & Helpers",
+      "description": "Common utility functions and helpers for styling and data manipulation",
+      "files": [
+        "src/lib/utils.ts"
+      ]
+    }
+  ]
+}

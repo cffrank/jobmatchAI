@@ -1,7 +1,7 @@
-import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ApplicationList } from './components/ApplicationList'
-import data from './data.json'
+import { useApplications } from '@/hooks/useApplications'
+import { toast } from 'sonner'
 import type { GeneratedApplication } from './types'
 
 export default function ApplicationListPage() {
@@ -9,47 +9,80 @@ export default function ApplicationListPage() {
   const [searchParams] = useSearchParams()
   const jobId = searchParams.get('jobId')
 
-  const [applications, setApplications] = useState<GeneratedApplication[]>(data.applications)
+  // Use Firestore hook to fetch applications
+  const { applications = [], loading, error, updateApplication, deleteApplication } = useApplications()
 
   const handleViewApplication = (applicationId: string) => {
     navigate(`/applications/${applicationId}`)
   }
 
   const handleGenerateNew = (jobId: string) => {
-    console.log('Generate new application for job:', jobId)
-    // In a real app, this would call AI API to generate application
+    toast.info('AI application generation - coming soon!')
+    // TODO: Implement AI generation via Cloud Function
     // For now, just navigate to job discovery to select a job
     navigate(`/jobs/${jobId}`)
   }
 
   const handleExport = (applicationId: string, format: 'pdf' | 'docx') => {
-    console.log('Export application:', applicationId, 'as', format)
-    // In a real app, this would generate and download the file
+    toast.info(`Export as ${format.toUpperCase()} - coming soon!`)
+    // TODO: Implement export via Cloud Function
   }
 
   const handleEmail = (applicationId: string) => {
-    console.log('Email application:', applicationId)
-    // In a real app, this would open email dialog
+    toast.info('Email sending - coming soon!')
+    // TODO: Implement email dialog
   }
 
-  const handleSubmit = (applicationId: string) => {
-    setApplications(prevApps =>
-      prevApps.map(app =>
-        app.id === applicationId
-          ? { ...app, status: 'submitted' as const, submittedAt: new Date().toISOString() }
-          : app
-      )
-    )
-    console.log('Submit application:', applicationId)
-    // In a real app, this would submit to backend and create tracker entry
-    navigate('/tracker')
+  const handleSubmit = async (applicationId: string) => {
+    try {
+      await updateApplication(applicationId, {
+        status: 'submitted',
+        submittedAt: new Date().toISOString()
+      })
+      toast.success('Application submitted!')
+      navigate('/tracker')
+    } catch (error) {
+      toast.error('Failed to submit application')
+      console.error(error)
+    }
   }
 
-  const handleDelete = (applicationId: string) => {
-    setApplications(prevApps =>
-      prevApps.filter(app => app.id !== applicationId)
+  const handleDelete = async (applicationId: string) => {
+    try {
+      await deleteApplication(applicationId)
+      toast.success('Application deleted')
+    } catch (error) {
+      toast.error('Failed to delete application')
+      console.error(error)
+    }
+  }
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-lime-400 mx-auto mb-4"></div>
+          <p className="text-slate-600 dark:text-slate-400">Loading applications...</p>
+        </div>
+      </div>
     )
-    console.log('Delete application:', applicationId)
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-red-600 dark:text-red-400 mb-2">
+            Error Loading Applications
+          </h1>
+          <p className="text-slate-600 dark:text-slate-400 mb-4">
+            {error.message}
+          </p>
+        </div>
+      </div>
+    )
   }
 
   // If jobId is in URL, show message to generate

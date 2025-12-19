@@ -1,0 +1,415 @@
+[
+  {
+    "id": "TC001",
+    "title": "LinkedIn OAuth Authentication Success",
+    "description": "Verify that the user can successfully authenticate via LinkedIn OAuth and import their profile data accurately.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to LinkedIn OAuth login page through the import wizard."
+      },
+      {
+        "type": "action",
+        "description": "Authenticate using valid LinkedIn credentials."
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm OAuth authentication is successful and the import wizard proceeds to profile import."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify that the imported LinkedIn profile data (work experience, education, skills) is displayed correctly in the profile overview."
+      }
+    ]
+  },
+  {
+    "id": "TC002",
+    "title": "LinkedIn OAuth Authentication Failure",
+    "description": "Verify system behavior when LinkedIn OAuth authentication fails or is cancelled by the user.",
+    "category": "error handling",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to LinkedIn OAuth login page through the import wizard."
+      },
+      {
+        "type": "action",
+        "description": "Cancel the LinkedIn authentication process or input invalid credentials."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify that user is notified of authentication failure with an appropriate error message."
+      },
+      {
+        "type": "assertion",
+        "description": "Assert that the import wizard remains on the OAuth step or allows retry."
+      }
+    ]
+  },
+  {
+    "id": "TC003",
+    "title": "AI-Generated Resume Optimization",
+    "description": "Verify AI-driven resume optimization suggestions are generated and presented correctly in the resume editor.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Open resume editor for an existing user profile."
+      },
+      {
+        "type": "action",
+        "description": "Trigger AI optimization suggestions."
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm AI suggestions are relevant, visible, and actionable inside the optimization sidebar."
+      },
+      {
+        "type": "action",
+        "description": "Apply one or more AI suggestions and save changes."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify that the resume content updates accordingly."
+      }
+    ]
+  },
+  {
+    "id": "TC004",
+    "title": "Resume Preview and Multi-Format Download",
+    "description": "Ensure the user can preview the resume and download it successfully in PDF and DOCX formats.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the resume preview page."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify resume preview renders correctly with all sections and formatting."
+      },
+      {
+        "type": "action",
+        "description": "Download the resume in PDF format."
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm the downloaded PDF matches the preview content and is correctly formatted."
+      },
+      {
+        "type": "action",
+        "description": "Download the resume in DOCX format."
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm the downloaded DOCX file matches the preview content and opens correctly."
+      }
+    ]
+  },
+  {
+    "id": "TC005",
+    "title": "Job Listing with AI-Powered Match Scores",
+    "description": "Verify that job listings display properly with accurate AI-powered compatibility scores and filtering functionality.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Open job discovery page and load job listings."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify each job entry includes a compatibility score reflecting user profile matching."
+      },
+      {
+        "type": "action",
+        "description": "Apply filters (e.g., location, job type, score range) to job listings."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify job list updates accordingly and filtering is accurate and performant."
+      }
+    ]
+  },
+  {
+    "id": "TC006",
+    "title": "Job Detail and Skill Gap Analysis",
+    "description": "Verify detailed job information displays correctly along with AI-analyzed skill gap assessment relevant to the user.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Select a job from the job listing page."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify detailed job information including description, requirements, and company details is visible."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a compatibility breakdown and skill gap analysis relative to the user's profile is displayed."
+      },
+      {
+        "type": "action",
+        "description": "Check that skill gap explanations provide actionable insights."
+      }
+    ]
+  },
+  {
+    "id": "TC007",
+    "title": "AI-Generated Tailored Application Materials",
+    "description": "Verify that users can generate tailored resumes and cover letters for specific jobs using AI and that multiple variants are available.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Open application generator for a selected job."
+      },
+      {
+        "type": "action",
+        "description": "Request AI to generate tailored resumes and cover letters."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify multiple variants of resume and cover letter are generated with relevant tailoring to the job."
+      },
+      {
+        "type": "action",
+        "description": "Review and edit generated documents."
+      },
+      {
+        "type": "assertion",
+        "description": "Ensure edits are saved correctly without data loss."
+      }
+    ]
+  },
+  {
+    "id": "TC008",
+    "title": "Application Tracking and Status Lifecycle Management",
+    "description": "Verify the application tracking system properly reflects status updates, lifecycle flows, notes, timelines, and sends follow-up reminders.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Add a new job application entry after submission."
+      },
+      {
+        "type": "action",
+        "description": "Update application status through all lifecycle states (e.g., Applied, Interviewing, Offer, Rejected)."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify status transitions are enforced correctly and lifecycle rules are respected."
+      },
+      {
+        "type": "action",
+        "description": "Add notes and schedule follow-up reminders for the application."
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm notes are displayed correctly and reminders trigger notifications on schedule."
+      },
+      {
+        "type": "action",
+        "description": "View application analytics dashboard."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify analytics data reflects current application statuses and timelines accurately."
+      }
+    ]
+  },
+  {
+    "id": "TC009",
+    "title": "Subscription Usage Limits and Upgrade Prompts",
+    "description": "Verify that subscription usage limits for Basic and Premium plans are enforced, upgrades/downgrades are triggered correctly, and payment processing flows provide confirmation feedback.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Perform actions that count towards usage limits (e.g., number of AI-generated docs or application submissions) under a Basic plan."
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm that once usage limits are reached, the system prompts the user to upgrade."
+      },
+      {
+        "type": "action",
+        "description": "Initiate subscription upgrade process."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify billing information is collected securely and payment is processed successfully."
+      },
+      {
+        "type": "assertion",
+        "description": "Ensure user receives confirmation feedback and premium features unlock accordingly."
+      },
+      {
+        "type": "action",
+        "description": "Test subscription downgrade and verify usage restrictions are reapplied."
+      }
+    ]
+  },
+  {
+    "id": "TC010",
+    "title": "User Account Management and Security",
+    "description": "Verify user can manage profile, security settings including 2FA setup, notification preferences, and privacy controls with compliance.",
+    "category": "security",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Access account settings page."
+      },
+      {
+        "type": "action",
+        "description": "Update profile personal information fields."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify changes are saved and reflected immediately."
+      },
+      {
+        "type": "action",
+        "description": "Enable two-factor authentication using supported methods."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify 2FA setup completes successfully and is enforced on next login."
+      },
+      {
+        "type": "action",
+        "description": "Modify notification preferences."
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm preference changes are saved and applied."
+      },
+      {
+        "type": "action",
+        "description": "Review and modify privacy settings."
+      },
+      {
+        "type": "assertion",
+        "description": "Validate that privacy controls comply with relevant regulations and changes propagate correctly."
+      }
+    ]
+  },
+  {
+    "id": "TC011",
+    "title": "Error Handling on Network Failures and API Issues",
+    "description": "Verify that the system handles network errors gracefully across LinkedIn import, AI generation, job listing, and subscription APIs with appropriate user feedback.",
+    "category": "error handling",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Simulate network failure or API timeout during LinkedIn OAuth authentication or profile import."
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm system shows appropriate error message and allows retry."
+      },
+      {
+        "type": "action",
+        "description": "Simulate AI service failure when generating resumes/cover letters."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify error is surfaced clearly and user can retry generation."
+      },
+      {
+        "type": "action",
+        "description": "Simulate failure when loading job listings or compatibility scores."
+      },
+      {
+        "type": "assertion",
+        "description": "Ensure user is informed and basic fallback UI is presented."
+      },
+      {
+        "type": "action",
+        "description": "Simulate payment API failure during subscription upgrade."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify error feedback is provided and no subscription changes occur."
+      }
+    ]
+  },
+  {
+    "id": "TC012",
+    "title": "UI Responsiveness and Accessibility Verification",
+    "description": "Verify that the UI is responsive and accessible across supported devices, screen sizes, and browsers with compliance to accessibility guidelines.",
+    "category": "ui",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Access all main pages (LinkedIn import wizard, profile overview, resume editor, job discovery, application tracker, account settings) on desktop, tablet, and mobile viewport sizes."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify UI layout adapts gracefully and is usable without overlap or cutoff."
+      },
+      {
+        "type": "action",
+        "description": "Test keyboard navigation across all interactive elements."
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm all controls and inputs are accessible and operable via keyboard."
+      },
+      {
+        "type": "action",
+        "description": "Use screen reader to navigate key pages and components."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify content is read correctly and meaningful ARIA roles and labels are present."
+      },
+      {
+        "type": "action",
+        "description": "Conduct color contrast checks to ensure compliance with WCAG standards."
+      },
+      {
+        "type": "assertion",
+        "description": "Validate all text and UI elements meet minimum contrast ratios."
+      }
+    ]
+  },
+  {
+    "id": "TC013",
+    "title": "Job Search Effectiveness Analytics Accuracy",
+    "description": "Verify that the analytics feature accurately reflects job search metrics such as applications submitted, status distribution, and follow-ups completed.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Submit multiple job applications and update their statuses in application tracker."
+      },
+      {
+        "type": "action",
+        "description": "Schedule and complete follow-up actions."
+      },
+      {
+        "type": "action",
+        "description": "Access analytics dashboard."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify displayed metrics (application counts, status breakdowns, follow-ups) match actual application data."
+      }
+    ]
+  }
+]

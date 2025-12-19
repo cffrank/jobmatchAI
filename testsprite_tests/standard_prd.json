@@ -1,0 +1,166 @@
+{
+  "meta": {
+    "project": "JobMatch AI",
+    "date": "2025-12-18",
+    "prepared_by": "Software Development Manager"
+  },
+  "product_overview": "JobMatch AI is a comprehensive intelligent job application assistant designed to streamline the job seeking process by integrating LinkedIn profile import, AI-powered resume generation, job matching with compatibility scoring, tailored application material creation, and detailed application tracking alongside subscription management.",
+  "core_goals": [
+    "Automate and personalize job application materials using AI to save time.",
+    "Provide accurate AI-powered job matching with skill gap analysis to improve application relevance.",
+    "Offer an integrated application tracking system with status management and smart follow-up reminders.",
+    "Enable seamless LinkedIn profile integration and resume management.",
+    "Support tiered subscription plans with usage limits and premium feature unlocking."
+  ],
+  "key_features": [
+    "LinkedIn OAuth integration and profile import wizard for easy start.",
+    "AI-driven resume optimization and multi-format resume export.",
+    "Automated job scraping with a centralized database and compatibility scoring.",
+    "Custom AI-generated tailored resumes and cover letters per job application.",
+    "Comprehensive application tracker with status lifecycle, notes, and timelines.",
+    "Tiered subscription and billing system with usage enforcement for Basic and Premium plans.",
+    "User account management including security (2FA), notification preferences, and privacy controls."
+  ],
+  "user_flow_summary": [
+    "User imports LinkedIn profile via step-by-step wizard and manages/edit resume with AI suggestions.",
+    "Browse and filter jobs with real-time match scores and detailed compatibility breakdowns.",
+    "Generate tailored application materials with AI and submit applications tracked automatically.",
+    "Manage and update application statuses, schedule follow-ups, and analyze job search effectiveness.",
+    "Handle subscription upgrades/downgrades triggered by usage limits and payment processing with confirmation feedback."
+  ],
+  "validation_criteria": [
+    "Successful LinkedIn OAuth authentication and accurate profile import.",
+    "AI-generated resume and cover letter relevance with multiple variants available.",
+    "Job matching scores correlate with user feedback and skill gap accuracy.",
+    "Application tracker reflects real-time status updates and follows lifecycle flow.",
+    "Subscription usage limits enforced correctly with upgrade prompts and billing handled securely.",
+    "User account settings are editable, secure, and reflect privacy/compliance requirements.",
+    "UI responsiveness and accessibility confirmed across supported devices and browsers."
+  ],
+  "code_summary": {
+    "tech_stack": [
+      "TypeScript",
+      "React 19",
+      "Vite 7",
+      "React Router DOM 7",
+      "Tailwind CSS 3",
+      "Radix UI",
+      "Lucide React Icons"
+    ],
+    "features": [
+      {
+        "name": "App Shell & Layout",
+        "description": "Main application shell with navigation, user menu, and layout components",
+        "files": [
+          "src/App.tsx",
+          "src/main.tsx",
+          "src/components/AppShell.tsx",
+          "src/components/AppLayout.tsx",
+          "src/components/MainNav.tsx",
+          "src/components/UserMenu.tsx",
+          "src/lib/router.tsx"
+        ]
+      },
+      {
+        "name": "LinkedIn Import Wizard",
+        "description": "Step-by-step wizard for connecting LinkedIn account and importing profile data",
+        "files": [
+          "src/sections/profile-resume-management/LinkedInImportWizardPage.tsx",
+          "src/sections/profile-resume-management/components/LinkedInImportWizard.tsx"
+        ]
+      },
+      {
+        "name": "Profile Overview",
+        "description": "Display user profile with personal info, work experience, education, and skills",
+        "files": [
+          "src/sections/profile-resume-management/ProfileOverviewPage.tsx",
+          "src/sections/profile-resume-management/components/ProfileOverview.tsx",
+          "src/sections/profile-resume-management/components/ProfileHeader.tsx",
+          "src/sections/profile-resume-management/components/ExperienceTimeline.tsx",
+          "src/sections/profile-resume-management/components/EducationList.tsx",
+          "src/sections/profile-resume-management/components/SkillsGrid.tsx"
+        ]
+      },
+      {
+        "name": "Resume Editor",
+        "description": "Interactive resume editor with AI optimization suggestions",
+        "files": [
+          "src/sections/profile-resume-management/ResumeEditorPage.tsx",
+          "src/sections/profile-resume-management/components/ResumeEditor.tsx",
+          "src/sections/profile-resume-management/components/OptimizationSidebar.tsx"
+        ]
+      },
+      {
+        "name": "Resume Preview & Download",
+        "description": "Preview and download resume in multiple formats (PDF, DOCX)",
+        "files": [
+          "src/sections/profile-resume-management/ResumePreviewPage.tsx",
+          "src/sections/profile-resume-management/components/ResumePreview.tsx",
+          "src/sections/profile-resume-management/components/ResumeActions.tsx"
+        ]
+      },
+      {
+        "name": "Job Discovery & Listing",
+        "description": "Browse and search jobs with AI-powered match scores and filtering",
+        "files": [
+          "src/sections/job-discovery-matching/JobListPage.tsx",
+          "src/sections/job-discovery-matching/components/JobList.tsx",
+          "src/sections/job-discovery-matching/types.ts"
+        ]
+      },
+      {
+        "name": "Job Detail & Matching",
+        "description": "View detailed job information with compatibility analysis and skill gap assessment",
+        "files": [
+          "src/sections/job-discovery-matching/JobDetailPage.tsx",
+          "src/sections/job-discovery-matching/components/JobDetail.tsx"
+        ]
+      },
+      {
+        "name": "Application Generator",
+        "description": "AI-powered generation of tailored resumes and cover letters for specific jobs",
+        "files": [
+          "src/sections/application-generator/ApplicationListPage.tsx",
+          "src/sections/application-generator/ApplicationEditorPage.tsx",
+          "src/sections/application-generator/components/ApplicationList.tsx",
+          "src/sections/application-generator/components/ApplicationEditor.tsx",
+          "src/sections/application-generator/types.ts"
+        ]
+      },
+      {
+        "name": "Application Tracker",
+        "description": "Track job applications with status management, follow-ups, and analytics",
+        "files": [
+          "src/sections/application-tracker/ApplicationTrackerListPage.tsx",
+          "src/sections/application-tracker/ApplicationDetailPage.tsx",
+          "src/sections/application-tracker/components/ApplicationList.tsx",
+          "src/sections/application-tracker/components/ApplicationDetail.tsx",
+          "src/sections/application-tracker/types.ts"
+        ]
+      },
+      {
+        "name": "Account Settings",
+        "description": "Manage user profile, security settings, notifications, and privacy preferences",
+        "files": [
+          "src/sections/account-billing/SettingsPage.tsx",
+          "src/sections/account-billing/components/AccountSettings.tsx"
+        ]
+      },
+      {
+        "name": "Subscription & Billing",
+        "description": "Manage subscription plans (Basic/Premium), payment methods, and billing history",
+        "files": [
+          "src/sections/account-billing/components/SubscriptionOverview.tsx",
+          "src/sections/account-billing/types.ts"
+        ]
+      },
+      {
+        "name": "Utilities & Helpers",
+        "description": "Common utility functions and helpers for styling and data manipulation",
+        "files": [
+          "src/lib/utils.ts"
+        ]
+      }
+    ]
+  }
+}
