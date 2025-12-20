@@ -2,14 +2,14 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { JobList } from './components/JobList'
 import { JobSearchForm } from './components/JobSearchForm'
+import { useJobs } from '../../hooks/useJobs'
 import { useJobScraping } from '../../hooks/useJobScraping'
 import { toast } from 'sonner'
-import data from './data.json'
-import type { Job, JobFilters, JobSearchParams } from './types'
+import type { JobFilters, JobSearchParams } from './types'
 
 export default function JobListPage() {
   const navigate = useNavigate()
-  const [jobs, setJobs] = useState<Job[]>(data.jobs)
+  const { jobs, loading, error, saveJob, unsaveJob } = useJobs()
   const [filters, setFilters] = useState<JobFilters>({
     matchScoreMin: 0,
     workArrangement: 'All',
@@ -22,22 +22,24 @@ export default function JobListPage() {
     navigate(`/jobs/${jobId}`)
   }
 
-  const handleSaveJob = (jobId: string) => {
-    setJobs(prevJobs =>
-      prevJobs.map(job =>
-        job.id === jobId ? { ...job, isSaved: true } : job
-      )
-    )
-    console.log('Save job:', jobId)
+  const handleSaveJob = async (jobId: string) => {
+    try {
+      await saveJob(jobId)
+      toast.success('Job saved successfully')
+    } catch (err) {
+      console.error('Failed to save job:', err)
+      toast.error('Failed to save job')
+    }
   }
 
-  const handleUnsaveJob = (jobId: string) => {
-    setJobs(prevJobs =>
-      prevJobs.map(job =>
-        job.id === jobId ? { ...job, isSaved: false } : job
-      )
-    )
-    console.log('Unsave job:', jobId)
+  const handleUnsaveJob = async (jobId: string) => {
+    try {
+      await unsaveJob(jobId)
+      toast.success('Job removed from saved')
+    } catch (err) {
+      console.error('Failed to unsave job:', err)
+      toast.error('Failed to unsave job')
+    }
   }
 
   const handleApply = (jobId: string) => {
@@ -57,29 +59,12 @@ export default function JobListPage() {
     const result = await scrapeJobs(params)
 
     if (result) {
-      // Add scraped jobs to the list
-      const scrapedJobs: Job[] = result.jobs.map(job => ({
-        ...job,
-        id: job.id || `scraped-${Date.now()}-${Math.random()}`,
-        compatibilityBreakdown: job.compatibilityBreakdown || {
-          skillMatch: 0,
-          experienceMatch: 0,
-          industryMatch: 0,
-          locationMatch: 0,
-        },
-        requiredSkills: job.requiredSkills || [],
-        missingSkills: job.missingSkills || [],
-        recommendations: job.recommendations || [],
-      }))
-
-      setJobs(prevJobs => [...scrapedJobs, ...prevJobs])
-
       toast.success(
         `Found ${result.jobCount} jobs!`,
         {
           description: result.errors
             ? `Some sources had errors: ${result.errors.join(', ')}`
-            : 'Jobs have been added to your list',
+            : 'Jobs have been added to your list and ranked by compatibility',
         }
       )
 
@@ -98,11 +83,18 @@ export default function JobListPage() {
     // In a real app, this would filter jobs based on the filters
   }
 
+  // Show error toast if jobs fetch fails
+  if (error) {
+    toast.error('Failed to load jobs', {
+      description: error.message || 'Please try refreshing the page',
+    })
+  }
+
   // Apply filters to jobs
   const filteredJobs = jobs.filter(job => {
     if (filters.showSavedOnly && !job.isSaved) return false
-    if (filters.matchScoreMin && job.matchScore < filters.matchScoreMin) return false
-    if (filters.matchScoreMax && job.matchScore > filters.matchScoreMax) return false
+    if (filters.matchScoreMin && job.matchScore && job.matchScore < filters.matchScoreMin) return false
+    if (filters.matchScoreMax && job.matchScore && job.matchScore > filters.matchScoreMax) return false
     if (filters.workArrangement && filters.workArrangement !== 'All' && job.workArrangement !== filters.workArrangement) return false
     if (filters.salaryMin && job.salaryMax < filters.salaryMin) return false
     if (filters.salaryMax && job.salaryMin > filters.salaryMax) return false
@@ -141,6 +133,7 @@ export default function JobListPage() {
       {/* Job List */}
       <JobList
         jobs={filteredJobs}
+        loading={loading}
         onViewDetails={handleViewDetails}
         onSaveJob={handleSaveJob}
         onUnsaveJob={handleUnsaveJob}

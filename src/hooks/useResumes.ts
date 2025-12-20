@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { db } from '@/lib/firebase'
 import { collection, addDoc, updateDoc, deleteDoc, doc, query, orderBy, where } from 'firebase/firestore'
@@ -20,9 +21,12 @@ export function useResumes() {
   // Subscribe to resumes collection
   const [snapshot, loading, error] = useCollection(resumesRef)
 
-  const resumes: Resume[] = snapshot
-    ? snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Resume))
-    : []
+  // Memoize resumes array to prevent infinite loops
+  const resumes: Resume[] = useMemo(() => {
+    return snapshot
+      ? snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Resume))
+      : []
+  }, [snapshot])
 
   /**
    * Add new resume
@@ -61,14 +65,18 @@ export function useResumes() {
   }
 
   /**
-   * Get master resume
+   * Get master resume - memoized to prevent infinite loops
    */
-  const masterResume = resumes.find((r) => r.type === 'master')
+  const masterResume = useMemo(() => {
+    return resumes.find((r) => r.type === 'master')
+  }, [resumes])
 
   /**
-   * Get tailored resumes
+   * Get tailored resumes - memoized to prevent infinite loops
    */
-  const tailoredResumes = resumes.filter((r) => r.type === 'tailored')
+  const tailoredResumes = useMemo(() => {
+    return resumes.filter((r) => r.type === 'tailored')
+  }, [resumes])
 
   return {
     resumes,

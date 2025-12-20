@@ -233,26 +233,75 @@ async function scrapeIndeed(params) {
 }
 /**
  * Save jobs to Firestore
+ *
+ * Jobs are stored in two locations:
+ * 1. users/{userId}/jobSearches/{searchId}/jobs - Full search history with all job details
+ * 2. users/{userId}/jobs - Flattened collection for easy querying and ranking
+ *
+ * This dual storage allows for:
+ * - Search history tracking (jobSearches)
+ * - Efficient job listing and filtering (jobs)
+ * - Per-user data isolation
  */
 async function saveJobsToFirestore(userId, searchId, jobs) {
     const db = admin.firestore();
-    const batch = db.batch();
-    // Create search document
+
+    // Use multiple batches if needed (Firestore batch limit is 500 operations)
+    const BATCH_SIZE = 400; // Leave room for metadata operations
+    const batches = [];
+    let currentBatch = db.batch();
+    let operationCount = 0;
+
+    // Create search metadata document
     const searchRef = db
         .collection('users')
         .doc(userId)
         .collection('jobSearches')
         .doc(searchId);
-    batch.set(searchRef, {
+    currentBatch.set(searchRef, {
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
         jobCount: jobs.length,
     });
-    // Save each job
+    operationCount++;
+
+    // Save each job to both locations
     jobs.forEach((job) => {
-        const jobRef = searchRef.collection('jobs').doc();
-        batch.set(jobRef, job);
+        // Check if we need a new batch
+        if (operationCount >= BATCH_SIZE) {
+            batches.push(currentBatch);
+            currentBatch = db.batch();
+            operationCount = 0;
+        }
+
+        // 1. Save to search history (with auto-generated ID)
+        const searchJobRef = searchRef.collection('jobs').doc();
+        currentBatch.set(searchJobRef, job);
+        operationCount++;
+
+        // 2. Save to flattened jobs collection for querying
+        // Use a unique ID combining searchId and timestamp to prevent collisions
+        const flatJobId = `${searchId}_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+        const flatJobRef = db
+            .collection('users')
+            .doc(userId)
+            .collection('jobs')
+            .doc(flatJobId);
+
+        currentBatch.set(flatJobRef, {
+            ...job,
+            searchId, // Reference back to the search that found this job
+            addedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        operationCount++;
     });
-    await batch.commit();
+
+    // Add the last batch
+    if (operationCount > 0) {
+        batches.push(currentBatch);
+    }
+
+    // Commit all batches
+    await Promise.all(batches.map(batch => batch.commit()));
 }
 // =============================================================================
 // Cloud Function

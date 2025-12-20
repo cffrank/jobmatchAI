@@ -15,8 +15,5 @@
   "compileOnSave": true,
   "include": [
     "src"
-  ],
-  "exclude": [
-    "src/sendApplicationEmail.ts"
   ]
 }

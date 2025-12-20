@@ -4,6 +4,7 @@ import type { JobDiscoveryProps, JobFilters, Job } from '../types'
 
 export function JobList({
   jobs,
+  loading,
   onViewDetails,
   onSaveJob,
   onUnsaveJob,
@@ -53,7 +54,7 @@ export function JobList({
 
   const filteredJobs = jobs.filter(job => {
     if (filters.showSavedOnly && !job.isSaved) return false
-    if (filters.matchScoreMin && job.matchScore < filters.matchScoreMin) return false
+    if (filters.matchScoreMin && job.matchScore && job.matchScore < filters.matchScoreMin) return false
     if (filters.workArrangement && filters.workArrangement !== 'All' && job.workArrangement !== filters.workArrangement) return false
     if (filters.location && !job.location.toLowerCase().includes(filters.location.toLowerCase())) return false
     if (searchQuery) {
@@ -61,7 +62,7 @@ export function JobList({
       return (
         job.title.toLowerCase().includes(query) ||
         job.company.toLowerCase().includes(query) ||
-        job.requiredSkills.some(skill => skill.toLowerCase().includes(query))
+        job.requiredSkills?.some(skill => skill.toLowerCase().includes(query))
       )
     }
     return true
@@ -195,13 +196,53 @@ export function JobList({
         </div>
 
         {/* Job Cards Grid */}
-        {filteredJobs.length === 0 ? (
+        {loading ? (
+          <div className="text-center py-16">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-100 dark:bg-blue-900/30 mb-4 animate-pulse">
+              <Sparkles className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+            </div>
+            <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-50 mb-2">Finding your perfect matches...</h3>
+            <p className="text-slate-600 dark:text-slate-400">Analyzing jobs based on your profile</p>
+          </div>
+        ) : jobs.length === 0 ? (
+          // New user with no jobs yet
+          <div className="text-center py-20">
+            <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-br from-blue-100 to-emerald-100 dark:from-blue-900/30 dark:to-emerald-900/30 mb-6">
+              <Search className="w-10 h-10 text-blue-600 dark:text-blue-400" />
+            </div>
+            <h3 className="text-2xl font-bold text-slate-900 dark:text-slate-50 mb-3">Start Your Job Search</h3>
+            <p className="text-slate-600 dark:text-slate-400 text-lg mb-8 max-w-md mx-auto">
+              Click the search bar above to find jobs tailored to your profile
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+              <div className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+                <Sparkles className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                <span className="text-sm font-medium text-slate-700 dark:text-slate-300">AI-powered matching</span>
+              </div>
+              <div className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+                <TrendingUp className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Real-time updates</span>
+              </div>
+            </div>
+          </div>
+        ) : filteredJobs.length === 0 ? (
+          // Jobs exist but filters excluded them all
           <div className="text-center py-16">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-800 mb-4">
               <Search className="w-8 h-8 text-slate-400" />
             </div>
-            <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-50 mb-2">No jobs found</h3>
-            <p className="text-slate-600 dark:text-slate-400">Try adjusting your search or filters</p>
+            <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-50 mb-2">No jobs match your filters</h3>
+            <p className="text-slate-600 dark:text-slate-400 mb-4">Try adjusting your search or filters</p>
+            <button
+              onClick={() => {
+                setSearchQuery('')
+                setFilters({ matchScoreMin: 0, workArrangement: 'All', location: '', showSavedOnly: false })
+                onFilter?.({ matchScoreMin: 0, workArrangement: 'All', location: '', showSavedOnly: false })
+              }}
+              className="px-6 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors shadow-sm"
+            >
+              Clear all filters
+            </button>
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -245,17 +286,19 @@ function JobCard({ job, onViewDetails, onSave, onApply, getMatchScoreColor, getM
       onClick={onViewDetails}
     >
       {/* Match Score Badge */}
-      <div className="absolute -top-3 -right-3">
-        <div className={`relative px-4 py-2 rounded-xl border-2 font-bold text-sm ${getMatchScoreColor(job.matchScore)} shadow-lg`}>
-          <div className="flex items-center gap-1.5">
-            <Sparkles className="w-4 h-4" />
-            <span>{job.matchScore}%</span>
-          </div>
-          <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 text-xs font-medium whitespace-nowrap opacity-90">
-            {getMatchScoreLabel(job.matchScore)}
+      {job.matchScore !== undefined && (
+        <div className="absolute -top-3 -right-3">
+          <div className={`relative px-4 py-2 rounded-xl border-2 font-bold text-sm ${getMatchScoreColor(job.matchScore)} shadow-lg`}>
+            <div className="flex items-center gap-1.5">
+              <Sparkles className="w-4 h-4" />
+              <span>{job.matchScore}%</span>
+            </div>
+            <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 text-xs font-medium whitespace-nowrap opacity-90">
+              {getMatchScoreLabel(job.matchScore)}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Bookmark Button */}
       <button
@@ -308,31 +351,33 @@ function JobCard({ job, onViewDetails, onSave, onApply, getMatchScoreColor, getM
       </div>
 
       {/* Skills */}
-      <div className="mb-4">
-        <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2">
-          Required Skills
-        </p>
-        <div className="flex flex-wrap gap-2">
-          {job.requiredSkills.slice(0, 5).map((skill) => {
-            const isMissing = job.missingSkills.includes(skill)
-            return (
-              <span
-                key={skill}
-                className={`px-3 py-1 rounded-lg text-xs font-medium border ${
-                  isMissing
-                    ? 'bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800'
-                    : 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800'
-                }`}
-              >
-                {skill}
-              </span>
-            )
-          })}
+      {job.requiredSkills && job.requiredSkills.length > 0 && (
+        <div className="mb-4">
+          <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2">
+            Required Skills
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {job.requiredSkills.slice(0, 5).map((skill) => {
+              const isMissing = job.missingSkills?.includes(skill) ?? false
+              return (
+                <span
+                  key={skill}
+                  className={`px-3 py-1 rounded-lg text-xs font-medium border ${
+                    isMissing
+                      ? 'bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800'
+                      : 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800'
+                  }`}
+                >
+                  {skill}
+                </span>
+              )
+            })}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Missing Skills Alert */}
-      {job.missingSkills.length > 0 && (
+      {job.missingSkills && job.missingSkills.length > 0 && (
         <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg mb-4">
           <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
           <p className="text-sm text-amber-700 dark:text-amber-300">

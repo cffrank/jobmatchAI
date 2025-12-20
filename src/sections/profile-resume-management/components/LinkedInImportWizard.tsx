@@ -29,8 +29,8 @@ export function LinkedInImportWizard({
   onComplete,
   onCancel,
   onAuthorizeLinkedIn,
+  isAuthorizing = false,
 }: LinkedInImportWizardProps) {
-  const [isAuthorizing, setIsAuthorizing] = useState(false)
   const [selectedSections, setSelectedSections] = useState({
     basicInfo: true,
     experience: true,
@@ -39,13 +39,8 @@ export function LinkedInImportWizard({
   })
 
   const handleAuthorize = async () => {
-    setIsAuthorizing(true)
-    // Simulate authorization delay
-    setTimeout(() => {
-      setIsAuthorizing(false)
-      onAuthorizeLinkedIn?.()
-      onNext?.()
-    }, 1500)
+    // Trigger the real LinkedIn OAuth flow
+    onAuthorizeLinkedIn?.()
   }
 
   const toggleSection = (section: keyof typeof selectedSections) => {

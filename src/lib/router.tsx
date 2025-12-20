@@ -2,6 +2,7 @@ import { createBrowserRouter, Navigate } from 'react-router-dom'
 import AppLayout from '@/components/AppLayout'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import LoginPage from '@/pages/LoginPage'
+import SignupPage from '@/pages/SignupPage'
 
 // Profile & Resume Management
 import ProfileOverviewPage from '@/sections/profile-resume-management/ProfileOverviewPage'
@@ -33,6 +34,10 @@ export const router = createBrowserRouter([
   {
     path: '/login',
     element: <LoginPage />,
+  },
+  {
+    path: '/signup',
+    element: <SignupPage />,
   },
   {
     path: '/',

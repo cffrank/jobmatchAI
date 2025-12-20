@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { db } from '@/lib/firebase'
 import { collection, addDoc, updateDoc, deleteDoc, doc, query, orderBy } from 'firebase/firestore'
@@ -20,9 +21,12 @@ export function useWorkExperience() {
   // Subscribe to work experience collection
   const [snapshot, loading, error] = useCollection(workExperienceRef)
 
-  const workExperience: WorkExperience[] = snapshot
-    ? snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as WorkExperience))
-    : []
+  // Memoize work experience array to prevent infinite loops
+  const workExperience: WorkExperience[] = useMemo(() => {
+    return snapshot
+      ? snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as WorkExperience))
+      : []
+  }, [snapshot])
 
   /**
    * Add new work experience entry

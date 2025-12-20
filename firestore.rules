@@ -39,13 +39,41 @@ service cloud.firestore {
       }
 
       // Saved jobs subcollection
+      // Users can save/bookmark jobs they're interested in
       match /savedJobs/{jobId} {
         allow read, write: if isAuthenticated() && isOwner(userId);
+      }
+
+      // Jobs collection - user's discovered jobs from searches
+      // Populated by scrapeJobs Cloud Function, user has full control
+      match /jobs/{jobId} {
+        allow read, write: if isAuthenticated() && isOwner(userId);
+      }
+
+      // Job searches history - metadata about past searches
+      match /jobSearches/{searchId} {
+        allow read: if isAuthenticated() && isOwner(userId);
+        // Write restricted to Cloud Functions
+        allow write: if false;
+
+        // Individual jobs from each search
+        match /jobs/{jobId} {
+          allow read: if isAuthenticated() && isOwner(userId);
+          // Write restricted to Cloud Functions
+          allow write: if false;
+        }
       }
 
       // Generated applications subcollection
       match /applications/{applicationId} {
         allow read, write: if isAuthenticated() && isOwner(userId);
+
+        // Email history for each application
+        match /emails/{emailId} {
+          allow read: if isAuthenticated() && isOwner(userId);
+          // Write restricted to Cloud Functions
+          allow write: if false;
+        }
       }
 
       // Tracked applications subcollection
@@ -80,15 +108,36 @@ service cloud.firestore {
         // Write restricted to Cloud Functions (Stripe API)
         allow write: if false;
       }
+
+      // Notifications subcollection
+      match /notifications/{notificationId} {
+        allow read: if isAuthenticated() && isOwner(userId);
+        // Write restricted to Cloud Functions (system notifications)
+        allow write: if false;
+      }
+
+      // Email history subcollection (for rate limiting)
+      match /emails/{emailId} {
+        allow read: if isAuthenticated() && isOwner(userId);
+        // Write restricted to Cloud Functions
+        allow write: if false;
+      }
     }
 
-    // Jobs collection - top level (read-only for users)
+    // Legacy global jobs collection - DEPRECATED
+    // This collection is no longer used. Jobs are now stored per-user at users/{userId}/jobs
+    // Keeping this rule to prevent accidental access to any legacy data
     match /jobs/{jobId} {
-      // All authenticated users can read jobs
-      allow read: if isAuthenticated();
-      // TEMPORARY: Allow authenticated users to write jobs for development
-      // TODO: Change back to "if false" in production (only Cloud Functions should write)
-      allow write: if isAuthenticated();
+      // Deny all access - jobs are now user-scoped
+      allow read, write: if false;
+    }
+
+    // OAuth state tokens (temporary, cleaned up after use)
+    // Used for LinkedIn OAuth CSRF protection
+    match /_oauth_states/{stateId} {
+      // Only Cloud Functions can read/write
+      // These tokens are created by linkedInAuth and consumed by linkedInCallback
+      allow read, write: if false;
     }
   }
 }

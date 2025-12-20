@@ -26,15 +26,21 @@ OPENAI_API_KEY=sk-your-api-key-here
 ```
 
 **For Production (Firebase):**
-Set the API key using Firebase CLI:
+Set secrets using Firebase CLI:
 
 ```bash
-firebase functions:config:set openai.api_key="sk-your-api-key-here"
+# OpenAI API key
+firebase functions:secrets:set OPENAI_API_KEY
+
+# LinkedIn OAuth credentials
+firebase functions:secrets:set LINKEDIN_CLIENT_ID
+firebase functions:secrets:set LINKEDIN_CLIENT_SECRET
 ```
 
 View current configuration:
 ```bash
 firebase functions:config:get
+firebase functions:secrets:access OPENAI_API_KEY
 ```
 
 ### 3. Test Locally
@@ -53,6 +59,22 @@ http://localhost:5001/ai-career-os-139db/us-central1/generateApplication
 ```
 
 ## Available Functions
+
+### `generateApplication` (Callable)
+
+Generates AI-powered tailored resumes and cover letters for job applications.
+
+### `linkedInAuth` (Callable)
+
+Initiates LinkedIn OAuth flow and returns authorization URL.
+
+### `linkedInCallback` (HTTP Request)
+
+Handles LinkedIn OAuth callback, exchanges authorization code for access token, and imports profile data to Firestore.
+
+---
+
+## Function Details
 
 ### `generateApplication`
 
@@ -106,6 +128,151 @@ See `AI_MODEL_COMPARISON.md` for detailed comparison and switching instructions.
 2. **Keyword-Optimized**: Maximizes ATS keyword matches from job description
 3. **Concise**: Streamlined one-page version for senior roles
 
+---
+
+### `linkedInAuth`
+
+**Type:** Callable HTTPS function
+**Authentication:** Required
+**Parameters:** None
+
+**Returns:**
+```typescript
+{
+  authUrl: string  // LinkedIn authorization URL to redirect user to
+  state: string    // CSRF protection state token
+}
+```
+
+**Usage:**
+```typescript
+import { httpsCallable } from 'firebase/functions'
+import { functions } from '@/lib/firebase'
+
+const linkedInAuth = httpsCallable(functions, 'linkedInAuth')
+const result = await linkedInAuth()
+window.location.href = result.data.authUrl
+```
+
+---
+
+### `linkedInCallback`
+
+**Type:** HTTP Request function (onRequest)
+**Authentication:** Via OAuth state token
+**Triggered by:** LinkedIn OAuth redirect after user authorization
+
+**Flow:**
+1. User initiates LinkedIn connection from the app
+2. App calls `linkedInAuth` to get authorization URL
+3. User is redirected to LinkedIn for authorization
+4. LinkedIn redirects to this function with authorization code
+5. Function exchanges code for access token
+6. Function fetches LinkedIn profile data
+7. Function imports data to Firestore under the user's profile
+8. User is redirected back to app with success/error status
+
+**Data Imported:**
+- Basic profile information (firstName, lastName, email)
+- Profile photo URL
+- LinkedIn profile headline
+- LinkedIn profile URL
+
+**Query Parameters:**
+- `code`: Authorization code from LinkedIn
+- `state`: CSRF state token for validation
+- `error`: Error code if authorization failed
+
+**Redirects:**
+- Success: `{APP_URL}/profile?linkedin=success`
+- Error: `{APP_URL}/profile?linkedin=error&error={errorCode}`
+
+**Important Notes:**
+- Work experience, education, and skills require LinkedIn Partner API access
+- Current implementation imports basic profile data only
+- Users can manually add work experience or upload resume for parsing
+
+## LinkedIn OAuth Setup
+
+### 1. Create LinkedIn Application
+
+1. Go to [LinkedIn Developers](https://www.linkedin.com/developers/apps)
+2. Click "Create app"
+3. Fill in the required information:
+   - **App name**: JobMatch AI
+   - **LinkedIn Page**: Your company page (or create one)
+   - **Privacy policy URL**: Your privacy policy URL
+   - **App logo**: Upload your application logo
+4. Click "Create app"
+
+### 2. Configure OAuth Settings
+
+1. Navigate to the **Auth** tab in your LinkedIn app
+2. Under **OAuth 2.0 settings**, add **Authorized redirect URLs**:
+   - Development: `https://us-central1-ai-career-os-139db.cloudfunctions.net/linkedInCallback`
+   - Production: Replace `ai-career-os-139db` with your Firebase project ID
+3. Request **OAuth 2.0 scopes**:
+   - `openid` - Required for authentication
+   - `profile` - Access to basic profile data
+   - `email` - Access to email address
+
+### 3. Get Client Credentials
+
+1. Go to the **Auth** tab
+2. Copy the **Client ID**
+3. Copy the **Client Secret** (click "Show" to reveal it)
+4. Set these as Firebase secrets:
+   ```bash
+   firebase functions:secrets:set LINKEDIN_CLIENT_ID
+   # Paste your Client ID when prompted
+
+   firebase functions:secrets:set LINKEDIN_CLIENT_SECRET
+   # Paste your Client Secret when prompted
+   ```
+
+### 4. Set Application URL
+
+Set the application URL for OAuth redirects:
+
+```bash
+# For development
+firebase functions:config:set app.url="http://localhost:5173"
+
+# For production
+firebase functions:config:set app.url="https://ai-career-os-139db.web.app"
+```
+
+Or add to `.env` file:
+```env
+APP_URL=http://localhost:5173
+```
+
+### 5. Test OAuth Flow
+
+1. Deploy the functions: `firebase deploy --only functions`
+2. In your app, navigate to `/linkedin/import`
+3. Click "Connect with LinkedIn"
+4. Authorize the app on LinkedIn
+5. You should be redirected back to `/profile?linkedin=success`
+6. Check your Firestore console to verify the profile data was imported
+
+### Troubleshooting LinkedIn OAuth
+
+**Error: `invalid_redirect_uri`**
+- Ensure the redirect URL in LinkedIn app matches exactly: `https://us-central1-YOUR_PROJECT_ID.cloudfunctions.net/linkedInCallback`
+- No trailing slashes
+- Must use HTTPS (not HTTP)
+
+**Error: `invalid_state`**
+- State token expired (10-minute timeout)
+- Try the OAuth flow again
+
+**Error: `token_exchange_failed`**
+- Verify LinkedIn Client ID and Client Secret are set correctly
+- Check function logs: `firebase functions:log --only linkedInCallback`
+
+---
+
 ## Deployment
 
 Deploy all functions:
@@ -118,6 +285,8 @@ firebase deploy --only functions
 Deploy specific function:
 ```bash
 firebase deploy --only functions:generateApplication
+firebase deploy --only functions:linkedInAuth
+firebase deploy --only functions:linkedInCallback
 ```
 
 ## Monitoring

@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { db } from '@/lib/firebase'
 import { collection, addDoc, updateDoc, deleteDoc, doc, query, orderBy } from 'firebase/firestore'
@@ -20,9 +21,12 @@ export function useSkills() {
   // Subscribe to skills collection
   const [snapshot, loading, error] = useCollection(skillsRef)
 
-  const skills: Skill[] = snapshot
-    ? snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Skill))
-    : []
+  // Memoize skills array to prevent infinite loops
+  const skills: Skill[] = useMemo(() => {
+    return snapshot
+      ? snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Skill))
+      : []
+  }, [snapshot])
 
   /**
    * Add new skill

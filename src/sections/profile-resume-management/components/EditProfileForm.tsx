@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { X, Save, User } from 'lucide-react'
+import { X, Save, User, Linkedin } from 'lucide-react'
 import { toast } from 'sonner'
 import { useProfile } from '@/hooks/useProfile'
+import { functions } from '@/lib/firebase'
+import { httpsCallable } from 'firebase/functions'
 import type { User as UserType } from '../types'
 
 export function EditProfileForm() {
@@ -38,6 +40,44 @@ export function EditProfileForm() {
       })
     }
   }, [profile])
+
+  // Handle LinkedIn OAuth callback
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const linkedInStatus = params.get('linkedin')
+    const errorCode = params.get('error')
+
+    if (linkedInStatus === 'success') {
+      toast.success('LinkedIn profile imported successfully!', {
+        description: 'Your basic profile information has been updated. Please complete any missing details.',
+        duration: 6000
+      })
+      // Clean up URL
+      window.history.replaceState({}, document.title, window.location.pathname)
+    } else if (linkedInStatus === 'error') {
+      // Map error codes to user-friendly messages
+      const errorMessages: Record<string, string> = {
+        user_cancelled: 'LinkedIn import was cancelled.',
+        oauth_error: 'LinkedIn authorization failed. Please try again.',
+        missing_parameters: 'Invalid OAuth response. Please try again.',
+        invalid_state: 'Security validation failed. Please try again.',
+        expired_state: 'LinkedIn session expired. Please try again.',
+        token_exchange_failed: 'Failed to connect to LinkedIn. Please try again.',
+        profile_fetch_failed: 'Failed to retrieve your LinkedIn profile. Please try again.',
+        internal_error: 'An unexpected error occurred. Please try again or contact support.'
+      }
+
+      const errorMessage = errorMessages[errorCode || 'internal_error'] || 'LinkedIn import failed. Please try again.'
+
+      toast.error('LinkedIn Import Failed', {
+        description: errorMessage,
+        duration: 6000
+      })
+
+      // Clean up URL
+      window.history.replaceState({}, document.title, window.location.pathname)
+    }
+  }, [])
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {}
@@ -96,24 +136,81 @@ export function EditProfileForm() {
     navigate('/profile')
   }
 
+  const handleLinkedInImport = async () => {
+    try {
+      toast.loading('Connecting to LinkedIn...', { id: 'linkedin-auth' })
+
+      const linkedInAuth = httpsCallable(functions, 'linkedInAuth')
+      const result = await linkedInAuth()
+      const data = result.data as { authUrl: string; state: string }
+
+      toast.dismiss('linkedin-auth')
+      toast.success('Redirecting to LinkedIn...')
+
+      // Redirect to LinkedIn OAuth
+      window.location.href = data.authUrl
+    } catch (error: any) {
+      console.error('LinkedIn auth error:', error)
+      toast.dismiss('linkedin-auth')
+
+      // Show user-friendly error messages based on error type
+      if (error.code === 'functions/not-found') {
+        toast.error('LinkedIn import is not yet configured. Please contact support or fill out the form manually.', {
+          duration: 5000
+        })
+      } else if (error.code === 'functions/unauthenticated') {
+        toast.error('You must be signed in to import from LinkedIn.', {
+          duration: 4000
+        })
+      } else if (error.code === 'functions/failed-precondition') {
+        toast.error('LinkedIn integration is not available. Please contact support.', {
+          duration: 5000
+        })
+      } else {
+        toast.error(error.message || 'Failed to start LinkedIn import. Please try again.', {
+          duration: 4000
+        })
+      }
+    }
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
       <div className="max-w-4xl mx-auto p-6 lg:p-8">
         {/* Header */}
         <div className="mb-8">
-          <div className="flex items-center gap-4 mb-4">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700 flex items-center justify-center shadow-lg">
-              <User className="w-6 h-6 text-white" />
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700 flex items-center justify-center shadow-lg">
+                <User className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">
+                  {profile ? 'Edit Profile' : 'Create Profile'}
+                </h1>
+                <p className="text-slate-600 dark:text-slate-400">
+                  {profile ? 'Update your professional information' : 'Start by adding your professional information'}
+                </p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">
-                Edit Profile
-              </h1>
-              <p className="text-slate-600 dark:text-slate-400">
-                Update your professional information
+            {!profile && (
+              <button
+                type="button"
+                onClick={handleLinkedInImport}
+                className="px-4 py-2 bg-[#0A66C2] hover:bg-[#004182] text-white rounded-lg font-medium transition-colors flex items-center gap-2"
+              >
+                <Linkedin className="w-5 h-5" />
+                Import from LinkedIn
+              </button>
+            )}
+          </div>
+          {!profile && (
+            <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
+              <p className="text-sm text-blue-900 dark:text-blue-100">
+                <strong>New here?</strong> Save time by importing your profile from LinkedIn, or fill out the form manually below.
               </p>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Form */}

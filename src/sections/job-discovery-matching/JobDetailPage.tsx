@@ -1,15 +1,35 @@
-import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { JobDetail } from './components/JobDetail'
-import data from './data.json'
-import type { Job } from './types'
+import { useJob } from '../../hooks/useJobs'
+import { toast } from 'sonner'
 
 export default function JobDetailPage() {
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
-  const [job, setJob] = useState<Job | undefined>(
-    data.jobs.find(j => j.id === id)
-  )
+  const { job, loading, error, saveJob, unsaveJob } = useJob(id)
+
+  if (error) {
+    toast.error('Failed to load job details', {
+      description: error.message || 'Please try again',
+    })
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-100 dark:bg-blue-900/30 mb-4 animate-pulse">
+            <svg className="w-8 h-8 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+          <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-50 mb-2">
+            Loading job details...
+          </h1>
+        </div>
+      </div>
+    )
+  }
 
   if (!job) {
     return (
@@ -36,14 +56,24 @@ export default function JobDetailPage() {
     navigate('/jobs')
   }
 
-  const handleSaveJob = () => {
-    setJob({ ...job, isSaved: true })
-    console.log('Save job:', job.id)
+  const handleSaveJob = async () => {
+    try {
+      await saveJob(job.id)
+      toast.success('Job saved successfully')
+    } catch (err) {
+      console.error('Failed to save job:', err)
+      toast.error('Failed to save job')
+    }
   }
 
-  const handleUnsaveJob = () => {
-    setJob({ ...job, isSaved: false })
-    console.log('Unsave job:', job.id)
+  const handleUnsaveJob = async () => {
+    try {
+      await unsaveJob(job.id)
+      toast.success('Job removed from saved')
+    } catch (err) {
+      console.error('Failed to unsave job:', err)
+      toast.error('Failed to unsave job')
+    }
   }
 
   const handleApply = () => {

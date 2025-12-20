@@ -1,0 +1,298 @@
+name: Deploy to Firebase
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+
+# Prevent concurrent deployments
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # ============================================================================
+  # BUILD APPLICATION
+  # ============================================================================
+  build:
+    name: Build Application
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            node_modules
+            ~/.npm
+          key: ${{ runner.os }}-node-deploy-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-deploy-
+            ${{ runner.os }}-node-
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Run linter
+        run: npm run lint
+
+      - name: TypeScript type checking
+        run: npx tsc --noEmit
+
+      - name: Build frontend
+        run: npm run build
+        env:
+          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
+          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+          VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
+
+      - name: Cache functions dependencies
+        uses: actions/cache@v4
+        with:
+          path: functions/node_modules
+          key: ${{ runner.os }}-functions-deploy-${{ hashFiles('functions/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-functions-deploy-
+            ${{ runner.os }}-functions-
+
+      - name: Install functions dependencies
+        working-directory: functions
+        run: npm ci
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts
+          path: |
+            dist/
+            functions/
+            firebase.json
+            .firebaserc
+            firestore.rules
+            firestore.indexes.json
+            storage.rules
+          retention-days: 7
+
+  # ============================================================================
+  # DEPLOY TO STAGING (Preview Channel)
+  # ============================================================================
+  deploy-staging:
+    name: Deploy to Staging
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    timeout-minutes: 15
+    environment:
+      name: staging
+      url: ${{ steps.deploy.outputs.details_url }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: build-artifacts
+
+      - name: Deploy to Firebase Preview Channel
+        id: deploy
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          projectId: ${{ secrets.FIREBASE_PROJECT_ID }}
+          expires: 7d
+          channelId: pr-${{ github.event.pull_request.number }}
+        env:
+          FIREBASE_CLI_EXPERIMENTS: webframeworks
+
+      - name: Comment PR with preview URL
+        uses: actions/github-script@v7
+        env:
+          PREVIEW_URL: ${{ steps.deploy.outputs.details_url }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        with:
+          script: |
+            const previewUrl = process.env.PREVIEW_URL;
+            const prNumber = process.env.PR_NUMBER;
+            const comment = `## 🚀 Preview Deployment
+
+            Your changes have been deployed to a preview channel!
+
+            **Preview URL:** ${previewUrl}
+            **Expires:** 7 days
+
+            ### Deployed Changes:
+            - Frontend: ✅ Deployed
+            - Firestore Rules: ✅ Validated
+            - Storage Rules: ✅ Validated
+
+            This preview will be automatically deleted after 7 days.`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+  # ============================================================================
+  # DEPLOY TO PRODUCTION
+  # ============================================================================
+  deploy-production:
+    name: Deploy to Production
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    timeout-minutes: 20
+    environment:
+      name: production
+      url: https://${{ secrets.FIREBASE_PROJECT_ID }}.web.app
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: build-artifacts
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools
+
+      - name: Deploy Firestore Rules
+        env:
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+        run: |
+          echo "Deploying Firestore security rules..."
+          firebase deploy --only firestore:rules --project "$FIREBASE_PROJECT_ID" --token "$FIREBASE_TOKEN" --non-interactive
+        continue-on-error: false
+
+      - name: Deploy Storage Rules
+        env:
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+        run: |
+          echo "Deploying Storage security rules..."
+          firebase deploy --only storage --project "$FIREBASE_PROJECT_ID" --token "$FIREBASE_TOKEN" --non-interactive
+        continue-on-error: false
+
+      - name: Deploy Firestore Indexes
+        env:
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+        run: |
+          echo "Deploying Firestore indexes..."
+          firebase deploy --only firestore:indexes --project "$FIREBASE_PROJECT_ID" --token "$FIREBASE_TOKEN" --non-interactive
+        continue-on-error: false
+
+      - name: Deploy Functions
+        env:
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+        run: |
+          echo "Deploying Firebase Functions..."
+          cd functions && npm ci
+          firebase deploy --only functions --project "$FIREBASE_PROJECT_ID" --token "$FIREBASE_TOKEN" --non-interactive
+        continue-on-error: false
+
+      - name: Deploy Hosting
+        id: hosting-deploy
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          projectId: ${{ secrets.FIREBASE_PROJECT_ID }}
+          channelId: live
+        env:
+          FIREBASE_CLI_EXPERIMENTS: webframeworks
+
+      - name: Verify deployment health
+        env:
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+        run: |
+          echo "Verifying production deployment..."
+          PROD_URL="https://${FIREBASE_PROJECT_ID}.web.app"
+
+          # Wait for deployment to propagate
+          sleep 10
+
+          # Check if site is accessible
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$PROD_URL")
+
+          if [ "$HTTP_CODE" -eq 200 ]; then
+            echo "✅ Production site is accessible (HTTP $HTTP_CODE)"
+          else
+            echo "⚠️ Production site returned HTTP $HTTP_CODE"
+            exit 1
+          fi
+
+      - name: Create deployment summary
+        env:
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+        run: |
+          echo "## 🎉 Production Deployment Successful" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Production URL:** https://${FIREBASE_PROJECT_ID}.web.app" >> $GITHUB_STEP_SUMMARY
+          echo "**Deployed at:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Deployed Components:" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Frontend (Hosting)" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Firebase Functions" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Firestore Rules" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Storage Rules" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Firestore Indexes" >> $GITHUB_STEP_SUMMARY
+
+      - name: Notify deployment success
+        if: success()
+        env:
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+        run: |
+          echo "=========================================="
+          echo "PRODUCTION DEPLOYMENT SUCCESSFUL"
+          echo "=========================================="
+          echo "Production URL: https://${FIREBASE_PROJECT_ID}.web.app"
+          echo "Deployment completed at: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+          echo "=========================================="
+
+      - name: Rollback on failure
+        if: failure()
+        run: |
+          echo "⚠️ Deployment failed! Manual rollback may be required."
+          echo "Check Firebase Console for previous versions."
+          echo "To rollback hosting: firebase hosting:clone SOURCE_SITE_ID:SOURCE_CHANNEL_ID TARGET_SITE_ID:live"

@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ProfileOverview } from './components/ProfileOverview'
 import { useProfile } from '@/hooks/useProfile'
 import { useWorkExperience } from '@/hooks/useWorkExperience'
@@ -25,6 +25,13 @@ export default function ProfileOverviewPage() {
   const [resumeFiles, setResumeFiles] = useState<ResumeFile[]>([])
 
   const loading = profileLoading || workExpLoading || educationLoading || skillsLoading || resumesLoading
+
+  // Redirect new users to create profile page if no profile exists
+  useEffect(() => {
+    if (!profileLoading && !profile) {
+      navigate('/profile/edit-profile')
+    }
+  }, [profile, profileLoading, navigate])
 
   const handleEditProfile = () => {
     navigate('/profile/edit-profile')
@@ -158,7 +165,7 @@ export default function ProfileOverviewPage() {
       education={education}
       skills={skills}
       resume={resumes?.[0]}
-      optimizationSuggestions={data.optimizationSuggestions}
+      optimizationSuggestions={[]} // TODO: Build real AI suggestion feature in future phase
       resumeFiles={resumeFiles}
       onEditProfile={handleEditProfile}
       onEditExperience={handleEditExperience}

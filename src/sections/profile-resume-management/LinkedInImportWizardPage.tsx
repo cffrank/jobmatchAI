@@ -1,26 +1,12 @@
-import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useLinkedInAuth } from '@/hooks/useLinkedInAuth'
 import { LinkedInImportWizard } from './components/LinkedInImportWizard'
 
 export default function LinkedInImportWizardPage() {
   const navigate = useNavigate()
-  const [currentStep, setCurrentStep] = useState(0)
-  const totalSteps = 3
-
-  const handleNext = () => {
-    if (currentStep < totalSteps - 1) {
-      setCurrentStep(currentStep + 1)
-    }
-  }
-
-  const handleBack = () => {
-    if (currentStep > 0) {
-      setCurrentStep(currentStep - 1)
-    }
-  }
+  const { initiateLinkedInAuth, isLoading } = useLinkedInAuth()
 
   const handleComplete = () => {
-    console.log('LinkedIn import completed')
     navigate('/profile')
   }
 
@@ -28,24 +14,21 @@ export default function LinkedInImportWizardPage() {
     navigate('/profile')
   }
 
-  const handleAuthorizeLinkedIn = () => {
-    console.log('Authorize LinkedIn clicked')
-    // In a real app, this would trigger OAuth flow
-    // For now, just move to next step
-    setTimeout(() => {
-      handleNext()
-    }, 1000)
+  const handleAuthorizeLinkedIn = async () => {
+    // Trigger the real LinkedIn OAuth flow via Cloud Function
+    await initiateLinkedInAuth()
+    // After successful authorization, user will be redirected back to /profile
+    // The useLinkedInAuth hook will handle the success/error toast notifications
   }
 
   return (
     <LinkedInImportWizard
-      currentStep={currentStep}
-      totalSteps={totalSteps}
-      onNext={handleNext}
-      onBack={handleBack}
+      currentStep={0}
+      totalSteps={1}
       onComplete={handleComplete}
       onCancel={handleCancel}
       onAuthorizeLinkedIn={handleAuthorizeLinkedIn}
+      isAuthorizing={isLoading}
     />
   )
 }

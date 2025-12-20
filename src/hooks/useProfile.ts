@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { db } from '@/lib/firebase'
 import { doc, setDoc, updateDoc, getDoc } from 'firebase/firestore'
@@ -18,7 +19,11 @@ export function useProfile() {
   // Subscribe to profile document
   const [snapshot, loading, error] = useDocument(profileRef)
 
-  const profile = snapshot?.exists() ? { id: snapshot.id, ...snapshot.data() } as User : null
+  // Memoize profile object to prevent infinite loops in consuming components
+  const profile = useMemo(() => {
+    if (!snapshot?.exists()) return null
+    return { id: snapshot.id, ...snapshot.data() } as User
+  }, [snapshot])
 
   /**
    * Create or update user profile
@@ -29,15 +34,21 @@ export function useProfile() {
     const profileRef = doc(db, 'users', userId)
     const profileDoc = await getDoc(profileRef)
 
+    const timestamp = new Date().toISOString()
+
     if (profileDoc.exists()) {
       // Update existing profile
-      await updateDoc(profileRef, data)
+      await updateDoc(profileRef, {
+        ...data,
+        updatedAt: timestamp,
+      })
     } else {
       // Create new profile
       await setDoc(profileRef, {
         ...data,
         id: userId,
-        createdAt: new Date().toISOString(),
+        createdAt: timestamp,
+        updatedAt: timestamp,
       })
     }
   }

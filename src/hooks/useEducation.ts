@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { db } from '@/lib/firebase'
 import { collection, addDoc, updateDoc, deleteDoc, doc, query, orderBy } from 'firebase/firestore'
@@ -20,9 +21,12 @@ export function useEducation() {
   // Subscribe to education collection
   const [snapshot, loading, error] = useCollection(educationRef)
 
-  const education: Education[] = snapshot
-    ? snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Education))
-    : []
+  // Memoize education array to prevent infinite loops
+  const education: Education[] = useMemo(() => {
+    return snapshot
+      ? snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Education))
+      : []
+  }, [snapshot])
 
   /**
    * Add new education entry

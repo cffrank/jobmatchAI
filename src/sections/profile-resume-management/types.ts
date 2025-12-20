@@ -2,6 +2,35 @@
 // Data Types
 // =============================================================================
 
+export interface JobPreferences {
+  desiredRoles: string[]
+  locations: string[]
+  salaryMin?: number
+  salaryMax?: number
+  remotePreference: 'remote' | 'hybrid' | 'on-site' | 'any'
+  employmentTypes: ('full-time' | 'part-time' | 'contract' | 'internship')[]
+  experienceLevel?: 'entry' | 'mid' | 'senior' | 'executive'
+  industries?: string[]
+  companySize?: ('startup' | 'small' | 'medium' | 'large' | 'enterprise')[]
+  updatedAt?: string
+}
+
+export interface SearchSettings {
+  searchFrequency: 'daily' | 'weekly' | 'manual'
+  autoSearchEnabled: boolean
+  autoApplyEnabled: boolean
+  autoApplyFilters?: {
+    minMatchScore: number
+    maxApplicationsPerDay: number
+  }
+  notificationPreferences: {
+    email: boolean
+    inApp: boolean
+    matchScoreThreshold: number
+  }
+  lastSearchAt?: string
+}
+
 export interface User {
   id: string
   firstName: string
@@ -13,6 +42,8 @@ export interface User {
   profileImageUrl: string | null
   headline: string
   summary: string
+  jobPreferences?: JobPreferences
+  searchSettings?: SearchSettings
 }
 
 export interface WorkExperience {
@@ -162,6 +193,8 @@ export interface LinkedInImportWizardProps {
   onCancel?: () => void
   /** Called when user authorizes LinkedIn connection */
   onAuthorizeLinkedIn?: () => void
+  /** Whether the authorization is in progress */
+  isAuthorizing?: boolean
 }
 
 export interface ResumeEditorProps {

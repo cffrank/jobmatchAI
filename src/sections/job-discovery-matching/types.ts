@@ -40,6 +40,8 @@ export interface Job {
 export interface JobDiscoveryProps {
   /** The list of jobs to display */
   jobs: Job[]
+  /** Whether jobs are currently loading */
+  loading?: boolean
   /** Called when user wants to view a job's full details */
   onViewDetails?: (jobId: string) => void
   /** Called when user saves/bookmarks a job */

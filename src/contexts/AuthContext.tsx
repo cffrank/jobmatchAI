@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
+import { createContext, useContext, useEffect, useState, useMemo, ReactNode } from 'react'
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
@@ -136,7 +136,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }
 
-  const value: AuthContextType = {
+  // Memoize the context value to prevent unnecessary re-renders
+  const value: AuthContextType = useMemo(() => ({
     user,
     loading,
     signUp,
@@ -147,7 +148,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     resetPassword,
     verifyEmail,
     updateUserProfile,
-  }
+  }), [user, loading])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

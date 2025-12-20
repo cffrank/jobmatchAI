@@ -1,0 +1,410 @@
+LinkedIn OAuth Integration - Complete Flow Diagram
+==================================================
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          INITIALIZATION PHASE                                │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+  User navigates to:
+  https://ai-career-os-139db.web.app/profile/edit
+                │
+                │ (EditProfileForm.tsx loads)
+                │
+                ↓
+  ┌───────────────────────────────────────┐
+  │  "Import from LinkedIn" button shown  │
+  │  (only if no profile exists)          │
+  └───────────────────────────────────────┘
+                │
+                │ User clicks button
+                │
+                ↓
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          OAUTH INITIATION PHASE                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+  Frontend (EditProfileForm.tsx)
+  handleLinkedInImport() function
+                │
+                │ Shows loading toast
+                │
+                ↓
+  Call: httpsCallable(functions, 'linkedInAuth')
+                │
+                │
+                ↓
+  ┌─────────────────────────────────────────┐
+  │   CLOUD FUNCTION: linkedInAuth          │
+  │   (functions/index.js:345-425)          │
+  ├─────────────────────────────────────────┤
+  │ 1. Validate user authenticated          │
+  │ 2. Load LINKEDIN_CLIENT_ID secret       │
+  │ 3. Generate state token:                │
+  │    - userId                             │
+  │    - timestamp                          │
+  │    - cryptographic nonce                │
+  │ 4. Store in Firestore:                  │
+  │    _oauth_states/{state}                │
+  │    - userId                             │
+  │    - createdAt                          │
+  │    - expiresAt (now + 10 min)           │
+  │ 5. Build LinkedIn OAuth URL:            │
+  │    - response_type: code                │
+  │    - client_id: {LINKEDIN_CLIENT_ID}    │
+  │    - redirect_uri: {CALLBACK_URL}       │
+  │    - state: {state_token}               │
+  │    - scope: openid profile email        │
+  │ 6. Return URL to frontend               │
+  └─────────────────────────────────────────┘
+                │
+                │ Returns: { authUrl, state }
+                │
+                ↓
+  Frontend receives OAuth URL
+                │
+                │ Dismiss loading toast
+                │ Show "Redirecting..." toast
+                │
+                ↓
+  window.location.href = authUrl
+                │
+                │
+                ↓
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                      LINKEDIN AUTHORIZATION PHASE                            │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+  User redirected to:
+  https://www.linkedin.com/oauth/v2/authorization
+    ?response_type=code
+    &client_id={CLIENT_ID}
+    &redirect_uri={CALLBACK_URL}
+    &state={STATE_TOKEN}
+    &scope=openid profile email
+                │
+                │
+                ↓
+  ┌───────────────────────────────────────┐
+  │   LinkedIn Authorization Page         │
+  │                                       │
+  │   "JobMatch AI would like to:"        │
+  │   ☑ Access your basic profile        │
+  │   ☑ Access your email address         │
+  │                                       │
+  │   [Cancel]  [Allow]                   │
+  └───────────────────────────────────────┘
+                │
+                │ User clicks "Allow"
+                │
+                ↓
+  LinkedIn generates authorization code
+                │
+                │
+                ↓
+  LinkedIn redirects to callback URL:
+  https://us-central1-ai-career-os-139db
+    .cloudfunctions.net/linkedInCallback
+    ?code={AUTH_CODE}
+    &state={STATE_TOKEN}
+                │
+                │
+                ↓
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          OAUTH CALLBACK PHASE                                │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+  ┌─────────────────────────────────────────┐
+  │   CLOUD FUNCTION: linkedInCallback      │
+  │   (functions/index.js:439-524)          │
+  ├─────────────────────────────────────────┤
+  │                                         │
+  │ STEP 1: Validate Request                │
+  │   ├─ Check for error parameter          │
+  │   ├─ Validate code exists               │
+  │   └─ Validate state exists              │
+  │                                         │
+  │ STEP 2: Verify CSRF State Token         │
+  │   ├─ Fetch from Firestore:              │
+  │   │   _oauth_states/{state}             │
+  │   ├─ Verify exists (not already used)   │
+  │   ├─ Check not expired (< 10 min old)   │
+  │   ├─ Extract userId from state          │
+  │   └─ Delete state token (one-time use)  │
+  │                                         │
+  │ STEP 3: Exchange Code for Token         │
+  │   ├─ POST to LinkedIn:                  │
+  │   │   /oauth/v2/accessToken             │
+  │   ├─ Parameters:                        │
+  │   │   - grant_type: authorization_code  │
+  │   │   - code: {AUTH_CODE}               │
+  │   │   - client_id: {CLIENT_ID}          │
+  │   │   - client_secret: {CLIENT_SECRET}  │
+  │   │   - redirect_uri: {CALLBACK_URL}    │
+  │   └─ Receive access_token               │
+  │                                         │
+  │ STEP 4: Fetch LinkedIn Profile          │
+  │   ├─ Primary endpoint:                  │
+  │   │   GET /v2/userinfo                  │
+  │   │   Authorization: Bearer {token}     │
+  │   │   Returns:                          │
+  │   │   - sub (user ID)                   │
+  │   │   - given_name                      │
+  │   │   - family_name                     │
+  │   │   - email                           │
+  │   │   - picture                         │
+  │   │   - locale                          │
+  │   └─ Secondary endpoint (optional):     │
+  │       GET /v2/me                        │
+  │       Returns:                          │
+  │       - localizedHeadline               │
+  │       - localizedFirstName              │
+  │       - localizedLastName               │
+  │                                         │
+  │ STEP 5: Import to Firestore             │
+  │   ├─ Update users/{userId}:             │
+  │   │   - firstName: {given_name}         │
+  │   │   - lastName: {family_name}         │
+  │   │   - email: {email}                  │
+  │   │   - profileImageUrl: {picture}      │
+  │   │   - linkedInUrl: (from sub)         │
+  │   │   - headline: {localizedHeadline}   │
+  │   │   - linkedInImported: true          │
+  │   │   - linkedInImportedAt: timestamp   │
+  │   │   - linkedInLimitedAccess: true     │
+  │   │   - updatedAt: timestamp            │
+  │   └─ Create notification:               │
+  │       users/{userId}/notifications/{id} │
+  │       - type: linkedin_import_limited   │
+  │       - title: LinkedIn Import Complete │
+  │       - message: Basic profile imported │
+  │       - actionUrl: /profile/edit        │
+  │                                         │
+  │ STEP 6: Redirect to App                 │
+  │   └─ Redirect to:                       │
+  │       {APP_URL}/profile?linkedin=success│
+  └─────────────────────────────────────────┘
+                │
+                │ 302 Redirect
+                │
+                ↓
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          SUCCESS HANDLING PHASE                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+  User arrives at:
+  https://ai-career-os-139db.web.app
+    /profile?linkedin=success
+                │
+                │
+                ↓
+  EditProfileForm.tsx loads
+                │
+                │ useEffect hook detects
+                │ linkedin=success parameter
+                │
+                ↓
+  ┌───────────────────────────────────────┐
+  │   Success Toast Notification          │
+  │                                       │
+  │   ✓ LinkedIn profile imported         │
+  │     successfully!                     │
+  │                                       │
+  │   Your basic profile information      │
+  │   has been updated. Please complete   │
+  │   any missing details.                │
+  └───────────────────────────────────────┘
+                │
+                │ Clean up URL parameters
+                │ (remove ?linkedin=success)
+                │
+                ↓
+  Profile form auto-populates:
+    - First Name: {imported firstName}
+    - Last Name: {imported lastName}
+    - Email: {imported email}
+    - Headline: {imported headline}
+                │
+                │
+                ↓
+  User completes profile:
+    - Add phone number
+    - Add location
+    - Add professional summary
+    - Add work experience (manual)
+    - Add education (manual)
+    - Add skills (manual)
+                │
+                │
+                ↓
+  User clicks "Save Changes"
+                │
+                │
+                ↓
+  Profile complete! ✓
+
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          ERROR HANDLING FLOWS                                │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+ERROR: User Cancels OAuth
+  LinkedIn page → User clicks "Cancel"
+    ↓
+  LinkedIn redirects:
+    {CALLBACK_URL}?error=user_cancelled_authorize&state={STATE}
+    ↓
+  linkedInCallback detects error parameter
+    ↓
+  Redirects: {APP_URL}/profile?linkedin=error&error=user_cancelled
+    ↓
+  Frontend shows: "LinkedIn import was cancelled"
+
+
+ERROR: Invalid State Token
+  linkedInCallback validates state
+    ↓
+  State not found in Firestore (already used or invalid)
+    ↓
+  Redirects: {APP_URL}/profile?linkedin=error&error=invalid_state
+    ↓
+  Frontend shows: "Security validation failed. Please try again."
+
+
+ERROR: Expired State Token
+  linkedInCallback validates state
+    ↓
+  State found but expiresAt < now (> 10 minutes old)
+    ↓
+  Redirects: {APP_URL}/profile?linkedin=error&error=expired_state
+    ↓
+  Frontend shows: "LinkedIn session expired. Please try again."
+
+
+ERROR: Token Exchange Failed
+  exchangeCodeForToken() calls LinkedIn API
+    ↓
+  LinkedIn returns error (invalid code, expired, etc.)
+    ↓
+  Redirects: {APP_URL}/profile?linkedin=error&error=token_exchange_failed
+    ↓
+  Frontend shows: "Failed to connect to LinkedIn. Please try again."
+
+
+ERROR: Profile Fetch Failed
+  fetchLinkedInProfile() calls LinkedIn API
+    ↓
+  API returns error (permissions denied, etc.)
+    ↓
+  Redirects: {APP_URL}/profile?linkedin=error&error=profile_fetch_failed
+    ↓
+  Frontend shows: "Failed to retrieve your LinkedIn profile. Please try again."
+
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          FIRESTORE DATA STRUCTURE                            │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+Firestore
+│
+├── _oauth_states (temporary)
+│   └── {base64_state_token}
+│       ├── userId: string
+│       ├── createdAt: timestamp
+│       └── expiresAt: timestamp
+│       (Deleted after successful callback)
+│
+└── users
+    └── {userId}
+        ├── firstName: string (from LinkedIn)
+        ├── lastName: string (from LinkedIn)
+        ├── email: string (from LinkedIn)
+        ├── profileImageUrl: string (from LinkedIn)
+        ├── linkedInUrl: string (constructed)
+        ├── headline: string (from LinkedIn)
+        ├── linkedInImported: true
+        ├── linkedInImportedAt: timestamp
+        ├── linkedInLimitedAccess: true
+        ├── updatedAt: timestamp
+        │
+        └── notifications
+            └── {notificationId}
+                ├── type: "linkedin_import_limited"
+                ├── title: "LinkedIn Import Completed"
+                ├── message: "Basic profile information..."
+                ├── createdAt: timestamp
+                ├── read: false
+                ├── actionUrl: "/profile/edit"
+                └── actionText: "Complete Profile"
+
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          SECURITY FEATURES                                   │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+1. CSRF Protection
+   └─ State token includes:
+      - Random nonce (crypto.randomBytes(16))
+      - User ID (binds to authenticated user)
+      - Timestamp (for expiration)
+      └─ Stored in Firestore for server-side validation
+
+2. Token Expiration
+   └─ State tokens expire after 10 minutes
+   └─ Prevents replay attacks
+
+3. One-Time Use
+   └─ State token deleted immediately after use
+   └─ Cannot be reused even if intercepted
+
+4. Secrets Management
+   └─ LINKEDIN_CLIENT_ID: Firebase Secret Manager
+   └─ LINKEDIN_CLIENT_SECRET: Firebase Secret Manager
+   └─ Never exposed to client-side code
+
+5. HTTPS Only
+   └─ All OAuth endpoints use HTTPS
+   └─ Redirect URIs must be HTTPS in production
+
+6. Authentication Required
+   └─ User must be logged in to initiate OAuth
+   └─ State token binds OAuth flow to specific user
+
+7. Firestore Security Rules
+   └─ _oauth_states: Only Cloud Functions can access
+   └─ users/{userId}: Only owner can read/write
+   └─ notifications: Only Cloud Functions can write
+
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          CONFIGURATION SUMMARY                               │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+LinkedIn App Settings:
+  ✓ App Name: JobMatch AI
+  ✓ Redirect URL: https://us-central1-ai-career-os-139db
+                   .cloudfunctions.net/linkedInCallback
+  ✓ OAuth Scopes: openid, profile, email
+  ✓ Verified: Yes (with company page)
+
+Firebase Secrets:
+  ✓ LINKEDIN_CLIENT_ID: {from LinkedIn app}
+  ✓ LINKEDIN_CLIENT_SECRET: {from LinkedIn app}
+
+Firebase Functions:
+  ✓ linkedInAuth: Deployed to us-central1
+  ✓ linkedInCallback: Deployed to us-central1
+
+Firebase Config:
+  ✓ app.url: https://ai-career-os-139db.web.app
+
+Firestore Rules:
+  ✓ _oauth_states: Configured
+  ✓ users: Configured
+  ✓ notifications: Configured
+
+
+END OF FLOW DIAGRAM

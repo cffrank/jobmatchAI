@@ -9,7 +9,9 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "migrate": "tsx scripts/migrate-mock-data-client.ts",
-    "create-test-users": "tsx scripts/create-test-users-client.ts"
+    "create-test-users": "tsx scripts/create-test-users-client.ts",
+    "test:storage": "tsx scripts/test-storage.ts",
+    "deploy:storage": "./scripts/deploy-storage.sh"
   },
   "dependencies": {
     "@radix-ui/react-avatar": "^1.1.11",

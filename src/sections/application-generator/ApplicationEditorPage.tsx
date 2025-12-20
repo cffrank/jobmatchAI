@@ -3,11 +3,14 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ApplicationEditor } from './components/ApplicationEditor'
 import { useApplication, useApplications } from '@/hooks/useApplications'
 import { useJob } from '@/hooks/useJobs'
-import { useProfile } from '@/hooks/useProfile'
 import { generateApplicationVariants } from '@/lib/aiGenerator'
+import { exportApplication, ExportError } from '@/lib/exportApplication'
+import { EmailDialog } from './components/EmailDialog'
 import { toast } from 'sonner'
 import { Sparkles } from 'lucide-react'
-import type { GeneratedApplication, ApplicationVariant } from './types'
+import { functions } from '@/lib/firebase'
+import { httpsCallable } from 'firebase/functions'
+import type { GeneratedApplication } from './types'
 
 export default function ApplicationEditorPage() {
   const navigate = useNavigate()
@@ -22,12 +25,45 @@ export default function ApplicationEditorPage() {
   const [generating, setGenerating] = useState(false)
   const [generatedApp, setGeneratedApp] = useState<GeneratedApplication | null>(null)
 
+  // State for email dialog
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false)
+  const [currentApplicationId, setCurrentApplicationId] = useState<string | null>(null)
+
   // Use Firestore hook to fetch application (skip if creating new)
   const { application, loading, error } = useApplication(isNewApplication ? undefined : id)
-  const { updateApplication, createApplication } = useApplications()
+  const { updateApplication } = useApplications()
 
   // Fetch job details if generating new application
   const { job, loading: jobLoading } = useJob(jobId || undefined)
+
+  // Email sending function (shared between new and existing applications)
+  const handleSendEmail = async (recipientEmail: string) => {
+    if (!currentApplicationId) {
+      throw new Error('No application selected')
+    }
+
+    const sendApplicationEmail = httpsCallable(functions, 'sendApplicationEmail')
+
+    try {
+      const result = await sendApplicationEmail({
+        applicationId: currentApplicationId,
+        recipientEmail,
+      })
+
+      const data = result.data as { success: boolean; message: string; emailId?: string }
+
+      if (data.success) {
+        toast.success('Email sent successfully!')
+      } else {
+        throw new Error(data.message || 'Failed to send email')
+      }
+    } catch (error: any) {
+      console.error('Email send error:', error)
+      // Extract user-friendly error message
+      const errorMessage = error.message || 'Failed to send email. Please try again.'
+      throw new Error(errorMessage)
+    }
+  }
 
   // Generate application when data is ready
   useEffect(() => {
@@ -55,42 +91,8 @@ export default function ApplicationEditorPage() {
     generateApp()
   }, [isNewApplication, jobId, job, generating, generatedApp, navigate])
 
-  // Loading state
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-lime-400 mx-auto mb-4"></div>
-          <p className="text-slate-600 dark:text-slate-400">Loading application...</p>
-        </div>
-      </div>
-    )
-  }
-
-  // Error state
-  if (error) {
-    return (
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-red-600 dark:text-red-400 mb-2">
-            Error Loading Application
-          </h1>
-          <p className="text-slate-600 dark:text-slate-400 mb-4">
-            {error.message}
-          </p>
-          <button
-            onClick={() => navigate('/applications')}
-            className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90"
-          >
-            Back to Applications
-          </button>
-        </div>
-      </div>
-    )
-  }
-
-  // Handle new application generation
-  if (!application && isNewApplication) {
+  // Handle new application generation FIRST (before loading/error checks)
+  if (isNewApplication) {
     if (!jobId) {
       return (
         <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center">
@@ -158,45 +160,108 @@ export default function ApplicationEditorPage() {
       ) || generatedApp.variants[0]
 
       return (
-        <ApplicationEditor
-          application={generatedApp}
-          selectedVariant={selectedVariant}
-          onBack={() => navigate('/applications')}
-          onSelectVariant={async (variantId: string) => {
-            try {
-              await updateApplication(generatedApp.id, { selectedVariantId: variantId })
-              setGeneratedApp({ ...generatedApp, selectedVariantId: variantId })
-              toast.success('Variant selected')
-            } catch (error) {
-              toast.error('Failed to select variant')
-            }
-          }}
-          onEdit={() => {/* handled by ApplicationEditor */}}
-          onSave={async () => {
-            toast.success('Application saved')
-            navigate('/applications')
-          }}
-          onExport={(format) => {
-            toast.info(`Export as ${format.toUpperCase()} - coming soon!`)
-          }}
-          onEmail={() => {
-            toast.info('Email sending - coming soon!')
-          }}
-          onSubmit={async () => {
-            try {
-              await updateApplication(generatedApp.id, {
-                status: 'submitted',
-                submittedAt: new Date().toISOString()
-              })
-              toast.success('Application submitted!')
-              navigate('/tracker')
-            } catch (error) {
-              toast.error('Failed to submit application')
-            }
-          }}
-        />
+        <>
+          <ApplicationEditor
+            application={generatedApp}
+            selectedVariant={selectedVariant}
+            onBack={() => navigate('/applications')}
+            onSelectVariant={async (variantId: string) => {
+              try {
+                await updateApplication(generatedApp.id, { selectedVariantId: variantId })
+                setGeneratedApp({ ...generatedApp, selectedVariantId: variantId })
+                toast.success('Variant selected')
+              } catch (error) {
+                toast.error('Failed to select variant')
+              }
+            }}
+            onEdit={() => {/* handled by ApplicationEditor */}}
+            onSave={async () => {
+              toast.success('Application saved')
+              navigate('/applications')
+            }}
+            onExport={async (format) => {
+              const toastId = toast.loading(`Generating ${format.toUpperCase()}...`)
+              try {
+                await exportApplication(generatedApp.id, format)
+                toast.success(`${format.toUpperCase()} downloaded successfully!`, { id: toastId })
+              } catch (error) {
+                console.error('Export error:', error)
+                const message = error instanceof ExportError
+                  ? error.message
+                  : `Failed to export ${format.toUpperCase()}. Please try again.`
+                toast.error(message, { id: toastId })
+              }
+            }}
+            onEmail={() => {
+              setCurrentApplicationId(generatedApp.id)
+              setEmailDialogOpen(true)
+            }}
+            onSubmit={async () => {
+              try {
+                await updateApplication(generatedApp.id, {
+                  status: 'submitted',
+                  submittedAt: new Date().toISOString()
+                })
+                toast.success('Application submitted!')
+                navigate('/tracker')
+              } catch (error) {
+                toast.error('Failed to submit application')
+              }
+            }}
+          />
+          <EmailDialog
+            application={generatedApp}
+            selectedVariant={selectedVariant}
+            open={emailDialogOpen}
+            onClose={() => setEmailDialogOpen(false)}
+          />
+        </>
       )
     }
+
+    // Catch-all: waiting for generation to start (prevents falling through to "Not Found")
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-lime-400 mx-auto mb-4"></div>
+          <p className="text-slate-600 dark:text-slate-400">Preparing application...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Loading state for existing applications
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-lime-400 mx-auto mb-4"></div>
+          <p className="text-slate-600 dark:text-slate-400">Loading application...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Error state for existing applications
+  if (error) {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-red-600 dark:text-red-400 mb-2">
+            Error Loading Application
+          </h1>
+          <p className="text-slate-600 dark:text-slate-400 mb-4">
+            {error.message}
+          </p>
+          <button
+            onClick={() => navigate('/applications')}
+            className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90"
+          >
+            Back to Applications
+          </button>
+        </div>
+      </div>
+    )
   }
 
   // Not found state for existing applications
@@ -276,14 +341,23 @@ export default function ApplicationEditorPage() {
     }
   }
 
-  const handleExport = (format: 'pdf' | 'docx') => {
-    toast.info(`Export as ${format.toUpperCase()} - coming soon!`)
-    // TODO: Implement export functionality via Cloud Function
+  const handleExport = async (format: 'pdf' | 'docx') => {
+    const toastId = toast.loading(`Generating ${format.toUpperCase()}...`)
+    try {
+      await exportApplication(application.id, format)
+      toast.success(`${format.toUpperCase()} downloaded successfully!`, { id: toastId })
+    } catch (error) {
+      console.error('Export error:', error)
+      const message = error instanceof ExportError
+        ? error.message
+        : `Failed to export ${format.toUpperCase()}. Please try again.`
+      toast.error(message, { id: toastId })
+    }
   }
 
   const handleEmail = () => {
-    toast.info('Email sending - coming soon!')
-    // TODO: Implement email dialog
+    setCurrentApplicationId(application.id)
+    setEmailDialogOpen(true)
   }
 
   const handleSubmit = async () => {
@@ -301,16 +375,24 @@ export default function ApplicationEditorPage() {
   }
 
   return (
-    <ApplicationEditor
-      application={application}
-      selectedVariant={selectedVariant}
-      onBack={handleBack}
-      onSelectVariant={handleSelectVariant}
-      onEdit={handleEdit}
-      onSave={handleSave}
-      onExport={handleExport}
-      onEmail={handleEmail}
-      onSubmit={handleSubmit}
-    />
+    <>
+      <ApplicationEditor
+        application={application}
+        selectedVariant={selectedVariant}
+        onBack={handleBack}
+        onSelectVariant={handleSelectVariant}
+        onEdit={handleEdit}
+        onSave={handleSave}
+        onExport={handleExport}
+        onEmail={handleEmail}
+        onSubmit={handleSubmit}
+      />
+      <EmailDialog
+        application={application}
+        selectedVariant={selectedVariant}
+        open={emailDialogOpen}
+        onClose={() => setEmailDialogOpen(false)}
+      />
+    </>
   )
 }
