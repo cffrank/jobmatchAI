@@ -1,28 +1,82 @@
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { db } from '@/lib/firebase'
-import { collection, addDoc, updateDoc, deleteDoc, doc, query, orderBy, where } from 'firebase/firestore'
+import { collection, addDoc, updateDoc, deleteDoc, doc, query, orderBy, where, limit, startAfter, QueryConstraint, DocumentSnapshot } from 'firebase/firestore'
 import { useCollection, useDocument } from 'react-firebase-hooks/firestore'
 import type { TrackedApplication } from '@/sections/application-tracker/types'
 
 /**
  * Hook to manage tracked applications in Firestore
  * Collection: users/{userId}/trackedApplications
+ *
+ * PERFORMANCE: Uses cursor-based pagination (20 items per page) to reduce Firestore reads
  */
-export function useTrackedApplications() {
+export function useTrackedApplications(pageSize = 20) {
   const { user } = useAuth()
   const userId = user?.uid
 
-  // Get reference to tracked applications subcollection
-  const trackedApplicationsRef = userId
-    ? query(collection(db, 'users', userId, 'trackedApplications'), orderBy('lastUpdated', 'desc'))
-    : null
+  // Pagination state
+  const [lastDoc, setLastDoc] = useState<DocumentSnapshot | null>(null)
+  const [allApplications, setAllApplications] = useState<TrackedApplication[]>([])
+  const [hasMore, setHasMore] = useState(true)
 
-  // Subscribe to tracked applications collection
+  // Build paginated query
+  const trackedApplicationsRef = useMemo(() => {
+    if (!userId) return null
+
+    const constraints: QueryConstraint[] = [
+      orderBy('lastUpdated', 'desc'),
+      limit(pageSize)
+    ]
+
+    // Add pagination cursor
+    if (lastDoc) {
+      constraints.push(startAfter(lastDoc))
+    }
+
+    return query(collection(db, 'users', userId, 'trackedApplications'), ...constraints)
+  }, [userId, lastDoc, pageSize])
+
+  // Subscribe to current page
   const [snapshot, loading, error] = useCollection(trackedApplicationsRef)
 
-  const trackedApplications: TrackedApplication[] = snapshot
-    ? snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as TrackedApplication))
-    : []
+  // Accumulate applications across pages
+  useEffect(() => {
+    if (!snapshot) return
+
+    const newApplications = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data()
+    } as TrackedApplication))
+
+    // Check if there are more results
+    setHasMore(newApplications.length === pageSize)
+
+    if (lastDoc) {
+      // Append to existing applications
+      setAllApplications(prev => [...prev, ...newApplications])
+    } else {
+      // First page - replace all applications
+      setAllApplications(newApplications)
+    }
+  }, [snapshot, lastDoc, pageSize])
+
+  const trackedApplications: TrackedApplication[] = allApplications
+
+  // Load more callback
+  const loadMore = useCallback(() => {
+    if (snapshot && snapshot.docs.length > 0 && hasMore) {
+      const last = snapshot.docs[snapshot.docs.length - 1]
+      setLastDoc(last)
+    }
+  }, [snapshot, hasMore])
+
+  // Reset pagination
+  const reset = useCallback(() => {
+    setLastDoc(null)
+    setAllApplications([])
+    setHasMore(true)
+  }, [])
 
   /**
    * Add new tracked application
@@ -75,6 +129,9 @@ export function useTrackedApplications() {
     trackedApplications,
     loading,
     error,
+    loadMore,
+    hasMore,
+    reset,
     addTrackedApplication,
     updateTrackedApplication,
     deleteTrackedApplication,
@@ -110,28 +167,83 @@ export function useTrackedApplication(id: string | undefined) {
 
 /**
  * Hook to fetch active (non-archived) tracked applications
+ *
+ * PERFORMANCE: Uses cursor-based pagination (20 items per page) to reduce Firestore reads
  */
-export function useActiveTrackedApplications() {
+export function useActiveTrackedApplications(pageSize = 20) {
   const { user } = useAuth()
   const userId = user?.uid
 
-  const activeApplicationsRef = userId
-    ? query(
-        collection(db, 'users', userId, 'trackedApplications'),
-        where('archived', '==', false),
-        orderBy('lastUpdated', 'desc')
-      )
-    : null
+  // Pagination state
+  const [lastDoc, setLastDoc] = useState<DocumentSnapshot | null>(null)
+  const [allApplications, setAllApplications] = useState<TrackedApplication[]>([])
+  const [hasMore, setHasMore] = useState(true)
 
+  // Build paginated query with archived filter
+  const activeApplicationsRef = useMemo(() => {
+    if (!userId) return null
+
+    const constraints: QueryConstraint[] = [
+      where('archived', '==', false),
+      orderBy('lastUpdated', 'desc'),
+      limit(pageSize)
+    ]
+
+    // Add pagination cursor
+    if (lastDoc) {
+      constraints.push(startAfter(lastDoc))
+    }
+
+    return query(collection(db, 'users', userId, 'trackedApplications'), ...constraints)
+  }, [userId, lastDoc, pageSize])
+
+  // Subscribe to current page
   const [snapshot, loading, error] = useCollection(activeApplicationsRef)
 
-  const activeApplications: TrackedApplication[] = snapshot
-    ? snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as TrackedApplication))
-    : []
+  // Accumulate applications across pages
+  useEffect(() => {
+    if (!snapshot) return
+
+    const newApplications = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data()
+    } as TrackedApplication))
+
+    // Check if there are more results
+    setHasMore(newApplications.length === pageSize)
+
+    if (lastDoc) {
+      // Append to existing applications
+      setAllApplications(prev => [...prev, ...newApplications])
+    } else {
+      // First page - replace all applications
+      setAllApplications(newApplications)
+    }
+  }, [snapshot, lastDoc, pageSize])
+
+  const activeApplications: TrackedApplication[] = allApplications
+
+  // Load more callback
+  const loadMore = useCallback(() => {
+    if (snapshot && snapshot.docs.length > 0 && hasMore) {
+      const last = snapshot.docs[snapshot.docs.length - 1]
+      setLastDoc(last)
+    }
+  }, [snapshot, hasMore])
+
+  // Reset pagination
+  const reset = useCallback(() => {
+    setLastDoc(null)
+    setAllApplications([])
+    setHasMore(true)
+  }, [])
 
   return {
     activeApplications,
     loading,
     error,
+    loadMore,
+    hasMore,
+    reset,
   }
 }

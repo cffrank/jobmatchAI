@@ -315,7 +315,7 @@ export default function LoginPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   className="pl-10 h-11"
-                  minLength={6}
+                  minLength={12}
                   disabled={loading}
                 />
               </div>

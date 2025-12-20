@@ -1,8 +1,50 @@
 const {onCall, onRequest, HttpsError} = require('firebase-functions/v2/https');
 const admin = require('firebase-admin');
 const OpenAI = require('openai');
+const {
+  validateInput,
+  generateApplicationSchema,
+  exportApplicationSchema,
+  sendApplicationEmailSchema,
+  linkedInCallbackSchema,
+  sanitizeHtml,
+  sanitizeFilename
+} = require('./lib/validation');
+const {
+  storeOAuthState,
+  validateOAuthState,
+  cleanupExpiredStates
+} = require('./lib/oauthStateManagement');
+const { withRateLimit, checkRateLimit } = require('./lib/rateLimiter');
+const { securityLogger } = require('./lib/securityLogger');
+const {
+  getSafeRedirectUrl,
+  buildErrorRedirectUrl,
+  buildSuccessRedirectUrl,
+  validateRedirectParameter
+} = require('./lib/redirectValidator');
 
 admin.initializeApp();
+
+// =============================================================================
+// Automated Job Search System
+// =============================================================================
+
+// Scheduled job search (runs daily at 2 AM)
+const { searchJobsForAllUsers } = require('./scheduled/searchJobsForAllUsers');
+exports.searchJobsForAllUsers = searchJobsForAllUsers;
+
+// Scheduled OAuth state cleanup (runs hourly)
+const { cleanupOAuthStates } = require('./scheduled/cleanupOAuthStates');
+exports.cleanupOAuthStates = cleanupOAuthStates;
+
+// User creation trigger (initial job search on signup)
+const { onUserCreate } = require('./triggers/onUserCreate');
+exports.onUserCreate = onUserCreate;
+
+// File upload trigger (validation and security scanning)
+const { onFileUpload } = require('./triggers/onFileUpload');
+exports.onFileUpload = onFileUpload;
 
 // OpenAI client - initialized lazily
 let openaiClient = null;
@@ -24,17 +66,33 @@ exports.generateApplication = onCall(
     memory: '512MiB',
     secrets: ['OPENAI_API_KEY']
   },
-  async (request) => {
-    const { jobId } = request.data;
+  withRateLimit('generateApplication', async (request) => {
+    const startTime = Date.now();
     const userId = request.auth?.uid;
 
+    // Log function invocation
+    securityLogger.functionCall('generateApplication', {
+      userId,
+      params: { jobId: request.data?.jobId }
+    });
+
+    // Authentication check
     if (!userId) {
+      securityLogger.auth('Unauthenticated generateApplication attempt', {
+        success: false,
+        ip: request.rawRequest?.ip,
+        severity: 'WARNING'
+      });
       throw new HttpsError('unauthenticated', 'Must be authenticated');
     }
 
-    if (!jobId) {
-      throw new HttpsError('invalid-argument', 'jobId is required');
-    }
+    // Input validation
+    const validatedData = validateInput(
+      generateApplicationSchema,
+      request.data,
+      'Invalid input for generateApplication'
+    );
+    const { jobId } = validatedData;
 
     try {
       console.log(`Generating application for user ${userId}, job ${jobId}`);
@@ -82,6 +140,14 @@ exports.generateApplication = onCall(
 
       console.log(`Application created: ${appRef.id}`);
 
+      // Log success
+      securityLogger.functionCall('generateApplication', {
+        userId,
+        params: { jobId },
+        duration: Date.now() - startTime,
+        success: true
+      });
+
       return {
         id: appRef.id,
         jobId,
@@ -96,10 +162,20 @@ exports.generateApplication = onCall(
       };
     } catch (error) {
       console.error('Error:', error);
+
+      // Log failure
+      securityLogger.functionCall('generateApplication', {
+        userId,
+        params: { jobId },
+        duration: Date.now() - startTime,
+        success: false,
+        error: error.message
+      });
+
       if (error instanceof HttpsError) throw error;
       throw new HttpsError('internal', error.message || 'Generation failed');
     }
-  }
+  })
 );
 
 async function generateVariants(job, profile, workExperience, education, skills) {
@@ -346,12 +422,34 @@ exports.linkedInAuth = onCall(
   {
     secrets: ['LINKEDIN_CLIENT_ID', 'LINKEDIN_CLIENT_SECRET']
   },
-  async (request) => {
+  withRateLimit('linkedInAuth', async (request) => {
     const userId = request.auth?.uid;
 
     if (!userId) {
+      securityLogger.auth('Unauthenticated linkedInAuth attempt', {
+        success: false,
+        ip: request.rawRequest?.ip,
+        severity: 'WARNING'
+      });
       throw new HttpsError('unauthenticated', 'Must be authenticated to connect LinkedIn');
     }
+
+    // Validate redirect URI if provided
+    const redirectValidation = validateRedirectParameter(request);
+    if (!redirectValidation.valid) {
+      securityLogger.validation('Invalid redirect URI in linkedInAuth', {
+        userId,
+        requestedUrl: redirectValidation.originalUrl,
+        severity: 'WARNING'
+      });
+    }
+
+    securityLogger.oauth('LinkedIn auth initiated', {
+      userId,
+      provider: 'linkedin',
+      stage: 'initiate',
+      success: true
+    });
 
     try {
       const clientId = process.env.LINKEDIN_CLIENT_ID;
@@ -370,20 +468,10 @@ exports.linkedInAuth = onCall(
       const functionUrl = process.env.FUNCTION_URL ||
         `https://us-central1-${projectId}.cloudfunctions.net/linkedInCallback`;
 
-      // Generate cryptographically secure state token for CSRF protection
-      const crypto = require('crypto');
-      const stateData = {
-        userId,
-        timestamp: Date.now(),
-        nonce: crypto.randomBytes(16).toString('hex')
-      };
-      const state = Buffer.from(JSON.stringify(stateData)).toString('base64url');
-
-      // Store state in Firestore for verification (expires in 10 minutes)
-      await admin.firestore().collection('_oauth_states').doc(state).set({
-        userId,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        expiresAt: new Date(Date.now() + 10 * 60 * 1000)
+      // Generate and store state token for CSRF protection
+      const db = admin.firestore();
+      const state = await storeOAuthState(db, userId, 'linkedin', {
+        callbackUrl: functionUrl
       });
 
       // Build LinkedIn OAuth authorization URL
@@ -421,7 +509,7 @@ exports.linkedInAuth = onCall(
       // Wrap other errors
       throw new HttpsError('internal', `Failed to initiate LinkedIn OAuth: ${error.message}`);
     }
-  }
+  })
 );
 
 /**
@@ -443,47 +531,70 @@ exports.linkedInCallback = onRequest(
     timeoutSeconds: 60
   },
   async (req, res) => {
+    // Rate limiting for callback (use state or IP as identifier)
+    const identifier = req.query.state || req.ip || 'anonymous';
+
+    try {
+      await checkRateLimit(identifier, 'linkedInCallback');
+    } catch (error) {
+      securityLogger.security('linkedInCallback rate limit exceeded', {
+        identifier,
+        ip: req.ip,
+        severity: 'WARNING'
+      });
+      const appUrl = process.env.APP_URL || 'https://ai-career-os-139db.web.app';
+      const safeUrl = getSafeRedirectUrl(appUrl);
+      const errorUrl = buildErrorRedirectUrl(safeUrl, 'rate_limit_exceeded');
+      return res.redirect(302, errorUrl);
+    }
+
     let userId = null;
 
     try {
-      const { code, state, error, error_description } = req.query;
-
       // Handle OAuth errors from LinkedIn (user denied access, etc.)
-      if (error) {
-        console.error('LinkedIn OAuth error:', {
-          error,
-          description: error_description,
-          query: req.query
+      if (req.query.error) {
+        securityLogger.oauth('LinkedIn OAuth error', {
+          error: req.query.error,
+          description: req.query.error_description,
+          provider: 'linkedin',
+          stage: 'callback',
+          success: false,
+          severity: 'WARNING'
         });
-        return redirectWithError(res, error === 'user_cancelled_authorize' ? 'user_cancelled' : 'oauth_error');
+        const errorType = req.query.error === 'user_cancelled_authorize' ? 'user_cancelled' : 'oauth_error';
+        return redirectWithError(res, errorType);
       }
 
-      // Validate required parameters
-      if (!code || !state) {
-        console.error('Missing required OAuth parameters:', { code: !!code, state: !!state });
-        return redirectWithError(res, 'missing_parameters');
-      }
+      // Validate required parameters using Zod
+      const validatedQuery = validateInput(
+        linkedInCallbackSchema,
+        req.query,
+        'Invalid LinkedIn OAuth callback parameters'
+      );
+
+      const { code, state } = validatedQuery;
 
       // Verify state token to prevent CSRF attacks
-      const stateDoc = await admin.firestore().collection('_oauth_states').doc(state).get();
-      if (!stateDoc.exists) {
-        console.error('Invalid or already-used state token:', state.substring(0, 20));
+      const db = admin.firestore();
+      const stateData = await validateOAuthState(db, state, 'linkedin');
+
+      if (!stateData) {
+        securityLogger.security('Invalid OAuth state token', {
+          state: state.substring(0, 20),
+          provider: 'linkedin',
+          severity: 'WARNING'
+        });
         return redirectWithError(res, 'invalid_state');
       }
 
-      const stateData = stateDoc.data();
       userId = stateData.userId;
 
-      // Delete used state token (one-time use)
-      await stateDoc.ref.delete().catch(err => {
-        console.warn('Failed to delete state token:', err);
+      securityLogger.oauth('LinkedIn callback processing', {
+        userId,
+        provider: 'linkedin',
+        stage: 'callback',
+        success: true
       });
-
-      // Check if state has expired (10 minute window)
-      if (stateData.expiresAt.toDate() < new Date()) {
-        console.error('Expired state token for user:', userId);
-        return redirectWithError(res, 'expired_state');
-      }
 
       console.log(`Processing LinkedIn callback for user ${userId}`);
 
@@ -508,8 +619,16 @@ exports.linkedInCallback = onRequest(
 
       console.log(`Successfully imported LinkedIn data for user ${userId}`);
 
+      // Log successful OAuth completion
+      securityLogger.oauth('LinkedIn OAuth completed successfully', {
+        userId,
+        provider: 'linkedin',
+        stage: 'complete',
+        success: true
+      });
+
       // Redirect to success page in the app
-      return redirectWithSuccess(res);
+      return redirectWithSuccess(res, { userId });
 
     } catch (error) {
       console.error('LinkedIn callback error:', {
@@ -518,7 +637,15 @@ exports.linkedInCallback = onRequest(
         stack: error.stack,
         code: error.code
       });
-      return redirectWithError(res, 'internal_error');
+
+      securityLogger.error('LinkedIn callback error', {
+        userId,
+        error: error.message,
+        provider: 'linkedin',
+        severity: 'ERROR'
+      });
+
+      return redirectWithError(res, 'internal_error', { userId });
     }
   }
 );
@@ -806,15 +933,23 @@ async function importProfileToFirestore(userId, linkedInData) {
  * Redirect user to success page in the app after LinkedIn import
  *
  * @param {Object} res - HTTP response object
+ * @param {Object} context - Additional context for logging
  */
-function redirectWithSuccess(res) {
+function redirectWithSuccess(res, context = {}) {
   // Get app URL from environment or use default
-  // For local development, set: firebase functions:config:set app.url="http://localhost:5173"
   const appUrl = process.env.APP_URL ||
     process.env.FIREBASE_CONFIG?.appUrl ||
     'https://ai-career-os-139db.web.app';
 
-  const redirectUrl = `${appUrl}/profile?linkedin=success`;
+  // Validate redirect URL
+  const safeUrl = getSafeRedirectUrl(appUrl);
+  const redirectUrl = buildSuccessRedirectUrl(safeUrl, {}, context);
+
+  securityLogger.debug('Redirecting to success page', {
+    redirectUrl,
+    ...context
+  });
+
   console.log(`Redirecting to success page: ${redirectUrl}`);
 
   // 302 temporary redirect
@@ -833,16 +968,27 @@ function redirectWithSuccess(res) {
  * - token_exchange_failed: Failed to exchange code for access token
  * - profile_fetch_failed: Failed to fetch profile from LinkedIn
  * - internal_error: Unexpected server error
+ * - rate_limit_exceeded: Rate limit exceeded
  *
  * @param {Object} res - HTTP response object
  * @param {string} errorCode - Error code to display to user
+ * @param {Object} context - Additional context for logging
  */
-function redirectWithError(res, errorCode) {
+function redirectWithError(res, errorCode, context = {}) {
   const appUrl = process.env.APP_URL ||
     process.env.FIREBASE_CONFIG?.appUrl ||
     'https://ai-career-os-139db.web.app';
 
-  const redirectUrl = `${appUrl}/profile?linkedin=error&error=${encodeURIComponent(errorCode)}`;
+  // Validate redirect URL
+  const safeUrl = getSafeRedirectUrl(appUrl);
+  const redirectUrl = buildErrorRedirectUrl(safeUrl, errorCode, context);
+
+  securityLogger.debug('Redirecting to error page', {
+    errorCode,
+    redirectUrl,
+    ...context
+  });
+
   console.log(`Redirecting to error page: ${redirectUrl}`);
 
   // 302 temporary redirect
@@ -871,24 +1017,30 @@ exports.exportApplication = onCall(
     timeoutSeconds: 120,
     memory: '1GiB', // Need more memory for document generation
   },
-  async (request) => {
-    const { applicationId, format } = request.data;
+  withRateLimit('exportApplication', async (request) => {
+    // Authentication check
     const userId = request.auth?.uid;
-
-    // Validation
     if (!userId) {
+      securityLogger.auth('Unauthenticated exportApplication attempt', {
+        success: false,
+        ip: request.rawRequest?.ip,
+        severity: 'WARNING'
+      });
       throw new HttpsError('unauthenticated', 'Must be authenticated to export applications');
     }
 
-    if (!applicationId) {
-      throw new HttpsError('invalid-argument', 'applicationId is required');
-    }
+    // Input validation
+    const validatedData = validateInput(
+      exportApplicationSchema,
+      request.data,
+      'Invalid input for exportApplication'
+    );
+    const { applicationId, format: normalizedFormat } = validatedData;
 
-    if (!format || !['pdf', 'docx'].includes(format.toLowerCase())) {
-      throw new HttpsError('invalid-argument', 'format must be "pdf" or "docx"');
-    }
-
-    const normalizedFormat = format.toLowerCase();
+    securityLogger.functionCall('exportApplication', {
+      userId,
+      params: { applicationId, format: normalizedFormat }
+    });
 
     try {
       console.log(`Export request: user=${userId}, app=${applicationId}, format=${normalizedFormat}`);
@@ -945,12 +1097,10 @@ exports.exportApplication = onCall(
         fileExtension = 'docx';
       }
 
-      // Generate filename
+      // Generate filename (sanitized to prevent path traversal)
       const timestamp = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-      const sanitizedJobTitle = application.jobTitle
-        .replace(/[^a-z0-9]/gi, '_')
-        .substring(0, 50);
-      const fileName = `${sanitizedJobTitle}_${timestamp}.${fileExtension}`;
+      const baseName = `${application.jobTitle}_${timestamp}`;
+      const fileName = sanitizeFilename(baseName) + `.${fileExtension}`;
 
       // Upload to Firebase Storage
       const bucket = admin.storage().bucket();
@@ -1013,7 +1163,7 @@ exports.exportApplication = onCall(
         `Failed to export application: ${error.message || 'Unknown error'}`
       );
     }
-  }
+  })
 );
 
 // =============================================================================
@@ -1029,7 +1179,8 @@ const RATE_LIMIT_WINDOW = 60 * 60 * 1000; // 1 hour in milliseconds
 const RATE_LIMIT_MAX_EMAILS = 10;
 
 /**
- * Validates email address format
+ * Validates email address format (now handled by Zod validation)
+ * Kept for backward compatibility with existing code
  */
 function isValidEmail(email) {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -1037,9 +1188,11 @@ function isValidEmail(email) {
 }
 
 /**
- * Checks if user has exceeded rate limit
+ * Checks if user has exceeded rate limit for emails (legacy function)
+ * Note: This function is kept for backward compatibility but is no longer used
+ * since rate limiting is now handled by the unified rateLimiter module
  */
-async function checkRateLimit(userId) {
+async function checkEmailRateLimit(userId) {
   const db = admin.firestore();
   const now = Date.now();
   const windowStart = now - RATE_LIMIT_WINDOW;
@@ -1061,16 +1214,10 @@ async function checkRateLimit(userId) {
 
 /**
  * Sanitizes HTML content to prevent XSS
+ * Note: This uses the imported sanitizeHtml from validation module
  */
-function sanitizeHtml(html) {
-  if (!html) return '';
-  return String(html)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#x27;')
-    .replace(/\//g, '&#x2F;');
+function sanitizeHtmlLocal(html) {
+  return sanitizeHtml(html);
 }
 
 /**
@@ -1094,7 +1241,7 @@ function formatResumeAsHtml(resume) {
   if (resume.summary) {
     html += `<div style="margin-bottom: 20px;">
       <h3 style="color: #2563eb; margin-bottom: 8px;">Professional Summary</h3>
-      <p style="margin: 0;">${sanitizeHtml(resume.summary)}</p>
+      <p style="margin: 0;">${sanitizeHtmlLocal(resume.summary)}</p>
     </div>`;
   }
 
@@ -1103,11 +1250,11 @@ function formatResumeAsHtml(resume) {
     html += '<div style="margin-bottom: 20px;"><h3 style="color: #2563eb; margin-bottom: 8px;">Experience</h3>';
     resume.experience.forEach(exp => {
       html += `<div style="margin-bottom: 16px;">
-        <div style="font-weight: bold; font-size: 16px;">${sanitizeHtml(exp.title)}</div>
-        <div style="color: #666; margin-bottom: 4px;">${sanitizeHtml(exp.company)} | ${sanitizeHtml(exp.location)}</div>
-        <div style="color: #666; font-size: 14px; margin-bottom: 8px;">${sanitizeHtml(exp.startDate)} - ${sanitizeHtml(exp.endDate)}</div>
+        <div style="font-weight: bold; font-size: 16px;">${sanitizeHtmlLocal(exp.title)}</div>
+        <div style="color: #666; margin-bottom: 4px;">${sanitizeHtmlLocal(exp.company)} | ${sanitizeHtmlLocal(exp.location)}</div>
+        <div style="color: #666; font-size: 14px; margin-bottom: 8px;">${sanitizeHtmlLocal(exp.startDate)} - ${sanitizeHtmlLocal(exp.endDate)}</div>
         <ul style="margin: 0; padding-left: 20px;">
-          ${exp.bullets.map(bullet => `<li style="margin-bottom: 4px;">${sanitizeHtml(bullet)}</li>`).join('')}
+          ${exp.bullets.map(bullet => `<li style="margin-bottom: 4px;">${sanitizeHtmlLocal(bullet)}</li>`).join('')}
         </ul>
       </div>`;
     });
@@ -1118,7 +1265,7 @@ function formatResumeAsHtml(resume) {
   if (resume.skills && resume.skills.length > 0) {
     html += `<div style="margin-bottom: 20px;">
       <h3 style="color: #2563eb; margin-bottom: 8px;">Skills</h3>
-      <p style="margin: 0;">${resume.skills.map(s => sanitizeHtml(s)).join(' • ')}</p>
+      <p style="margin: 0;">${resume.skills.map(s => sanitizeHtmlLocal(s)).join(' • ')}</p>
     </div>`;
   }
 
@@ -1127,10 +1274,10 @@ function formatResumeAsHtml(resume) {
     html += '<div style="margin-bottom: 20px;"><h3 style="color: #2563eb; margin-bottom: 8px;">Education</h3>';
     resume.education.forEach(edu => {
       html += `<div style="margin-bottom: 12px;">
-        <div style="font-weight: bold;">${sanitizeHtml(edu.degree)}</div>
-        <div style="color: #666;">${sanitizeHtml(edu.school)} | ${sanitizeHtml(edu.location)}</div>
-        <div style="color: #666; font-size: 14px;">${sanitizeHtml(edu.graduation)}</div>
-        ${edu.focus ? `<div style="font-size: 14px; margin-top: 4px;">Focus: ${sanitizeHtml(edu.focus)}</div>` : ''}
+        <div style="font-weight: bold;">${sanitizeHtmlLocal(edu.degree)}</div>
+        <div style="color: #666;">${sanitizeHtmlLocal(edu.school)} | ${sanitizeHtmlLocal(edu.location)}</div>
+        <div style="color: #666; font-size: 14px;">${sanitizeHtmlLocal(edu.graduation)}</div>
+        ${edu.focus ? `<div style="font-size: 14px; margin-top: 4px;">Focus: ${sanitizeHtmlLocal(edu.focus)}</div>` : ''}
       </div>`;
     });
     html += '</div>';
@@ -1161,16 +1308,34 @@ exports.sendApplicationEmail = onCall(
     timeoutSeconds: 60,
     memory: '256MiB'
   },
-  async (request) => {
-    const data = request.data;
-
-    // Ensure user is authenticated
+  withRateLimit('sendApplicationEmail', async (request) => {
+    // Authentication check
     if (!request.auth) {
+      securityLogger.auth('Unauthenticated sendApplicationEmail attempt', {
+        success: false,
+        ip: request.rawRequest?.ip,
+        severity: 'WARNING'
+      });
       throw new HttpsError(
         'unauthenticated',
         'User must be authenticated to send emails'
       );
     }
+
+    const userId = request.auth.uid;
+
+    // Input validation
+    const validatedData = validateInput(
+      sendApplicationEmailSchema,
+      request.data,
+      'Invalid input for sendApplicationEmail'
+    );
+    const { applicationId, recipientEmail } = validatedData;
+
+    securityLogger.functionCall('sendApplicationEmail', {
+      userId,
+      params: { applicationId, recipientEmail }
+    });
 
     // Initialize SendGrid with API key from environment
     const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY;
@@ -1182,34 +1347,10 @@ exports.sendApplicationEmail = onCall(
     }
     sgMail.setApiKey(SENDGRID_API_KEY);
 
-    const userId = request.auth.uid;
-    const { applicationId, recipientEmail = 'carl.f.frank@gmail.com' } = data;
-
     try {
-      // Validate required fields
-      if (!applicationId) {
-        throw new HttpsError(
-          'invalid-argument',
-          'Missing required field: applicationId'
-        );
-      }
-
-      // Validate email address
-      if (!isValidEmail(recipientEmail)) {
-        throw new HttpsError(
-          'invalid-argument',
-          'Invalid recipient email address format'
-        );
-      }
-
-      // Check rate limiting
-      const rateLimit = await checkRateLimit(userId);
-      if (!rateLimit.allowed) {
-        throw new HttpsError(
-          'resource-exhausted',
-          `Rate limit exceeded. You can send ${RATE_LIMIT_MAX_EMAILS} emails per hour. Please try again later.`
-        );
-      }
+      // Note: Rate limiting is now handled by withRateLimit wrapper
+      // The local checkRateLimit function is kept for backward compatibility
+      // but is not called since withRateLimit handles it
 
       const db = admin.firestore();
 
@@ -1257,7 +1398,7 @@ exports.sendApplicationEmail = onCall(
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${sanitizeHtml(subject)}</title>
+  <title>${sanitizeHtmlLocal(subject)}</title>
 </head>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 700px; margin: 0 auto; padding: 20px; background-color: #f9fafb;">
   <div style="background-color: white; padding: 40px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
@@ -1276,10 +1417,10 @@ exports.sendApplicationEmail = onCall(
 
     <!-- Signature -->
     <div style="margin-top: 40px; padding-top: 20px; border-top: 2px solid #e5e7eb;">
-      <p style="margin: 0 0 12px 0; font-weight: bold; font-size: 16px;">${sanitizeHtml(fromName)}</p>
-      <p style="margin: 0 0 4px 0; color: #6b7280;">Email: ${sanitizeHtml(fromEmail)}</p>
-      ${userProfile?.phone ? `<p style="margin: 0 0 4px 0; color: #6b7280;">Phone: ${sanitizeHtml(userProfile.phone)}</p>` : ''}
-      ${userProfile?.linkedinUrl ? `<p style="margin: 0 0 4px 0;"><a href="${sanitizeHtml(userProfile.linkedinUrl)}" style="color: #2563eb; text-decoration: none;">LinkedIn Profile</a></p>` : ''}
+      <p style="margin: 0 0 12px 0; font-weight: bold; font-size: 16px;">${sanitizeHtmlLocal(fromName)}</p>
+      <p style="margin: 0 0 4px 0; color: #6b7280;">Email: ${sanitizeHtmlLocal(fromEmail)}</p>
+      ${userProfile?.phone ? `<p style="margin: 0 0 4px 0; color: #6b7280;">Phone: ${sanitizeHtmlLocal(userProfile.phone)}</p>` : ''}
+      ${userProfile?.linkedinUrl ? `<p style="margin: 0 0 4px 0;"><a href="${sanitizeHtmlLocal(userProfile.linkedinUrl)}" style="color: #2563eb; text-decoration: none;">LinkedIn Profile</a></p>` : ''}
     </div>
 
   </div>
@@ -1432,5 +1573,5 @@ ${userProfile?.linkedinUrl || ''}
         `Failed to send email: ${error.message}`
       );
     }
-  }
+  })
 );

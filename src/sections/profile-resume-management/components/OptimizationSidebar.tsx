@@ -1,5 +1,5 @@
 import { Sparkles, CheckCircle2, X, AlertTriangle, Info, Zap } from 'lucide-react'
-import type { OptimizationSuggestion } from '@/../product/sections/profile-resume-management/types'
+import type { OptimizationSuggestion } from '../types'
 
 interface OptimizationSidebarProps {
   suggestions: OptimizationSuggestion[]

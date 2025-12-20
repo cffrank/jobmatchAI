@@ -1,5 +1,5 @@
 import { Briefcase, MapPin, Calendar, Edit2, Trash2, Plus } from 'lucide-react'
-import type { WorkExperience } from '@/../product/sections/profile-resume-management/types'
+import type { WorkExperience } from '../types'
 
 interface ExperienceTimelineProps {
   experiences: WorkExperience[]

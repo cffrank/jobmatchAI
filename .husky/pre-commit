@@ -1,0 +1,135 @@
+#!/bin/sh
+. "$(dirname "$0")/_/husky.sh"
+
+# Pre-commit hook to prevent accidental credential commits
+# This hook scans staged files for potential secrets before allowing commits
+
+echo "🔒 Running security checks..."
+
+# Color codes
+RED='\033[0;31m'
+YELLOW='\033[1;33m'
+GREEN='\033[0;32m'
+NC='\033[0m' # No Color
+
+# Patterns to detect secrets (case-insensitive)
+SECRET_PATTERNS=(
+  "AIzaSy[A-Za-z0-9_-]{33}"                    # Firebase API keys
+  "sk-proj-[A-Za-z0-9]{20,}"                   # OpenAI API keys (project)
+  "sk-[A-Za-z0-9]{32,}"                        # OpenAI API keys (legacy)
+  "ghp_[A-Za-z0-9]{36,}"                       # GitHub Personal Access Tokens
+  "gho_[A-Za-z0-9]{36,}"                       # GitHub OAuth tokens
+  "ghs_[A-Za-z0-9]{36,}"                       # GitHub Server tokens
+  "github_pat_[A-Za-z0-9]{22}_[A-Za-z0-9]{59}" # GitHub Fine-grained PAT
+  "AKIA[A-Z0-9]{16}"                           # AWS Access Keys
+  "[0-9]+-[A-Za-z0-9_]{32}\.apps\.googleusercontent\.com" # Google OAuth
+  "ya29\.[A-Za-z0-9_-]{100,}"                  # Google OAuth Access Token
+  "xox[baprs]-[A-Za-z0-9-]{10,}"              # Slack tokens
+  "-----BEGIN (RSA |DSA |EC )?PRIVATE KEY-----" # Private keys
+)
+
+# Files that should never be committed
+FORBIDDEN_FILES=(
+  ".env.local"
+  ".env.production"
+  ".env.development"
+  "github-secrets-reference.txt"
+  "firebase-secrets.txt"
+  "*service-account*.json"
+  "*-adminsdk-*.json"
+  "*.env.backup"
+)
+
+# Check for forbidden files
+echo "📄 Checking for forbidden files..."
+BLOCKED_FILES=()
+
+for pattern in "${FORBIDDEN_FILES[@]}"; do
+  files=$(git diff --cached --name-only --diff-filter=ACM | grep -E "$pattern" || true)
+  if [ -n "$files" ]; then
+    BLOCKED_FILES+=($files)
+  fi
+done
+
+if [ ${#BLOCKED_FILES[@]} -gt 0 ]; then
+  echo "${RED}❌ COMMIT BLOCKED: Forbidden files detected${NC}"
+  echo ""
+  echo "The following files should NEVER be committed:"
+  for file in "${BLOCKED_FILES[@]}"; do
+    echo "  - $file"
+  done
+  echo ""
+  echo "To fix:"
+  echo "  git reset HEAD $file"
+  echo "  Ensure the file is in .gitignore"
+  echo ""
+  exit 1
+fi
+
+# Check for secret patterns in staged files
+echo "🔍 Scanning for secrets in staged files..."
+SECRETS_FOUND=false
+
+# Get list of staged files (text files only)
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(js|ts|jsx|tsx|json|txt|md|yml|yaml|sh|env)$' || true)
+
+if [ -n "$STAGED_FILES" ]; then
+  for file in $STAGED_FILES; do
+    if [ -f "$file" ]; then
+      for pattern in "${SECRET_PATTERNS[@]}"; do
+        matches=$(git diff --cached "$file" | grep -E "^\+" | grep -iE "$pattern" || true)
+        if [ -n "$matches" ]; then
+          if [ "$SECRETS_FOUND" = false ]; then
+            echo "${RED}❌ POTENTIAL SECRETS DETECTED${NC}"
+            echo ""
+            SECRETS_FOUND=true
+          fi
+          echo "File: $file"
+          echo "Pattern: $pattern"
+          echo "$matches" | sed 's/^/  /'
+          echo ""
+        fi
+      done
+    fi
+  done
+fi
+
+if [ "$SECRETS_FOUND" = true ]; then
+  echo "${RED}════════════════════════════════════════════════════════════════${NC}"
+  echo "${RED}  COMMIT BLOCKED: Potential secrets detected in staged files${NC}"
+  echo "${RED}════════════════════════════════════════════════════════════════${NC}"
+  echo ""
+  echo "${YELLOW}If these are false positives, you can:${NC}"
+  echo "  1. Remove the secret from the code"
+  echo "  2. Use environment variables instead"
+  echo "  3. Add to .gitignore if it's a file"
+  echo ""
+  echo "${YELLOW}To bypass this check (NOT RECOMMENDED):${NC}"
+  echo "  git commit --no-verify"
+  echo ""
+  echo "${RED}⚠️  NEVER commit real secrets to version control!${NC}"
+  echo ""
+  exit 1
+fi
+
+# Check for large files (> 10MB)
+echo "📏 Checking for large files..."
+LARGE_FILES=$(git diff --cached --name-only --diff-filter=ACM | while read file; do
+  if [ -f "$file" ]; then
+    size=$(stat -f%z "$file" 2>/dev/null || stat -c%s "$file" 2>/dev/null || echo 0)
+    if [ "$size" -gt 10485760 ]; then
+      echo "$file ($((size / 1048576))MB)"
+    fi
+  fi
+done)
+
+if [ -n "$LARGE_FILES" ]; then
+  echo "${YELLOW}⚠️  Warning: Large files detected:${NC}"
+  echo "$LARGE_FILES" | sed 's/^/  /'
+  echo ""
+  echo "Consider using Git LFS for large files."
+  echo ""
+fi
+
+echo "${GREEN}✅ Security checks passed${NC}"
+echo ""

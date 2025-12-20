@@ -1,14 +1,33 @@
 import { initializeApp } from 'firebase/app'
 import { getAuth, signInWithEmailAndPassword, deleteUser, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth'
 
-// Firebase config
+// SECURITY: Firebase configuration must come from environment variables
+const requiredEnvVars = [
+  'VITE_FIREBASE_API_KEY',
+  'VITE_FIREBASE_AUTH_DOMAIN',
+  'VITE_FIREBASE_PROJECT_ID',
+  'VITE_FIREBASE_STORAGE_BUCKET',
+  'VITE_FIREBASE_MESSAGING_SENDER_ID',
+  'VITE_FIREBASE_APP_ID',
+]
+
+// Validate all required environment variables are present
+const missingVars = requiredEnvVars.filter(varName => !process.env[varName])
+if (missingVars.length > 0) {
+  console.error('❌ Missing required environment variables:')
+  missingVars.forEach(varName => console.error(`   - ${varName}`))
+  console.error('\n📝 Please create a .env.local file with these variables.')
+  console.error('   See .env.example for the required format.\n')
+  process.exit(1)
+}
+
 const firebaseConfig = {
-  apiKey: "AIzaSyAaC_RUJUVgJThUOe4GmAChHhd-Du9CvhU",
-  authDomain: "ai-career-os-139db.firebaseapp.com",
-  projectId: "ai-career-os-139db",
-  storageBucket: "ai-career-os-139db.firebasestorage.app",
-  messagingSenderId: "785333175773",
-  appId: "1:785333175773:web:c00c7f30e9dd73bc5c56c0"
+  apiKey: process.env.VITE_FIREBASE_API_KEY!,
+  authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN!,
+  projectId: process.env.VITE_FIREBASE_PROJECT_ID!,
+  storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET!,
+  messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID!,
+  appId: process.env.VITE_FIREBASE_APP_ID!,
 }
 
 const app = initializeApp(firebaseConfig)

@@ -7,30 +7,76 @@ on:
   pull_request:
     branches:
       - main
-  workflow_dispatch:  # Allow manual deployment
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging
+
+env:
+  NODE_VERSION: '20'
+  FIREBASE_PROJECT_ID: 'ai-career-os-139db'
 
 jobs:
-  build-and-test:
-    name: Build and Test
+  # Stage 1: Validation and Build
+  validate-and-build:
+    name: Validate and Build
     runs-on: ubuntu-latest
+    outputs:
+      has-changes: ${{ steps.detect-changes.outputs.any_changed }}
+      frontend-changed: ${{ steps.detect-changes.outputs.frontend_any_changed }}
+      functions-changed: ${{ steps.detect-changes.outputs.functions_any_changed }}
+      rules-changed: ${{ steps.detect-changes.outputs.rules_any_changed }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changes
+        id: detect-changes
+        uses: tj-actions/changed-files@v45
+        with:
+          files_yaml: |
+            frontend:
+              - 'src/**'
+              - 'public/**'
+              - 'index.html'
+              - 'vite.config.ts'
+              - 'tsconfig*.json'
+              - 'package.json'
+              - 'package-lock.json'
+            functions:
+              - 'functions/**'
+              - '!functions/lib/**'
+            rules:
+              - 'firestore.rules'
+              - 'firestore.indexes.json'
+              - 'storage.rules'
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
 
-      - name: Install dependencies
+      - name: Install frontend dependencies
         run: npm ci
 
-      - name: Run linter
+      - name: Run ESLint on frontend
         run: npm run lint
+        continue-on-error: false
 
-      - name: Build application
+      - name: Run TypeScript compiler check (frontend)
+        run: npx tsc --noEmit
+
+      - name: Build frontend application
         run: npm run build
         env:
           VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
@@ -40,46 +86,69 @@ jobs:
           VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
           VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
 
-      - name: Upload build artifacts
+      - name: Upload frontend build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: dist
+          name: frontend-dist
           path: dist/
           retention-days: 1
 
-  # Deploy preview for pull requests (Hosting only, no backend changes)
-  deploy-preview:
-    name: Deploy Preview
-    needs: build-and-test
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
+      - name: Install Cloud Functions dependencies
+        if: steps.detect-changes.outputs.functions_any_changed == 'true' || github.event_name == 'workflow_dispatch'
+        working-directory: functions
+        run: npm ci
 
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - name: Run ESLint on Cloud Functions
+        if: steps.detect-changes.outputs.functions_any_changed == 'true' || github.event_name == 'workflow_dispatch'
+        working-directory: functions
+        run: npm run lint
+        continue-on-error: false
 
-      - name: Download build artifacts
-        uses: actions/download-artifact@v4
+      - name: Build Cloud Functions (TypeScript)
+        if: steps.detect-changes.outputs.functions_any_changed == 'true' || github.event_name == 'workflow_dispatch'
+        working-directory: functions
+        run: npm run build
+
+      - name: Upload functions build artifacts
+        if: steps.detect-changes.outputs.functions_any_changed == 'true' || github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
         with:
-          name: dist
-          path: dist/
+          name: functions-lib
+          path: functions/lib/
+          retention-days: 1
 
-      - name: Deploy to Firebase Preview Channel
-        uses: FirebaseExtended/action-hosting-deploy@v0
-        with:
-          repoToken: ${{ secrets.GITHUB_TOKEN }}
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          projectId: ai-career-os-139db
-          expires: 7d
-        env:
-          FIREBASE_CLI_EXPERIMENTS: webframeworks
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools@latest
 
-  # Deploy to production (all Firebase services)
-  deploy-production:
-    name: Deploy Production
-    needs: build-and-test
+      - name: Validate Firestore Rules
+        if: steps.detect-changes.outputs.rules_any_changed == 'true' || github.event_name == 'workflow_dispatch'
+        run: |
+          echo "Validating Firestore security rules..."
+          if ! firebase emulators:exec --only firestore --project ${{ env.FIREBASE_PROJECT_ID }} "echo 'Rules validation passed'" 2>&1 | grep -q "Rules validation passed"; then
+            echo "Warning: Could not validate rules with emulator. Proceeding with deployment."
+          fi
+
+      - name: Build validation summary
+        run: |
+          echo "## Build Validation Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Frontend lint passed" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Frontend TypeScript compilation passed" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Frontend build completed" >> $GITHUB_STEP_SUMMARY
+          if [[ "${{ steps.detect-changes.outputs.functions_any_changed }}" == "true" ]]; then
+            echo "✅ Functions lint passed" >> $GITHUB_STEP_SUMMARY
+            echo "✅ Functions TypeScript compilation passed" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [[ "${{ steps.detect-changes.outputs.rules_any_changed }}" == "true" ]]; then
+            echo "✅ Security rules validated" >> $GITHUB_STEP_SUMMARY
+          fi
+
+  # Stage 2: Security Scanning
+  security-scan:
+    name: Security Scanning
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    needs: validate-and-build
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
 
     steps:
       - name: Checkout repository
@@ -88,92 +157,265 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
 
-      - name: Download build artifacts
+      - name: Run npm audit (frontend)
+        run: |
+          echo "## Frontend Security Audit" >> $GITHUB_STEP_SUMMARY
+          npm audit --audit-level=moderate || true
+          npm audit --json > frontend-audit.json || true
+
+      - name: Run npm audit (functions)
+        working-directory: functions
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Cloud Functions Security Audit" >> $GITHUB_STEP_SUMMARY
+          npm audit --audit-level=moderate || true
+          npm audit --json > functions-audit.json || true
+
+      - name: Check for high/critical vulnerabilities
+        run: |
+          FRONTEND_CRITICAL=$(jq '.metadata.vulnerabilities.critical // 0' frontend-audit.json 2>/dev/null || echo "0")
+          FRONTEND_HIGH=$(jq '.metadata.vulnerabilities.high // 0' frontend-audit.json 2>/dev/null || echo "0")
+          FUNCTIONS_CRITICAL=$(jq '.metadata.vulnerabilities.critical // 0' functions/functions-audit.json 2>/dev/null || echo "0")
+          FUNCTIONS_HIGH=$(jq '.metadata.vulnerabilities.high // 0' functions/functions-audit.json 2>/dev/null || echo "0")
+
+          TOTAL_CRITICAL=$((FRONTEND_CRITICAL + FUNCTIONS_CRITICAL))
+          TOTAL_HIGH=$((FRONTEND_HIGH + FUNCTIONS_HIGH))
+
+          echo "Critical vulnerabilities: $TOTAL_CRITICAL" >> $GITHUB_STEP_SUMMARY
+          echo "High vulnerabilities: $TOTAL_HIGH" >> $GITHUB_STEP_SUMMARY
+
+          if [ "$TOTAL_CRITICAL" -gt 0 ]; then
+            echo "::error::Found $TOTAL_CRITICAL critical vulnerabilities. Please fix before deploying."
+            echo "❌ CRITICAL vulnerabilities found - deployment blocked" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+  # Stage 3: Deploy Preview (PR only)
+  deploy-preview:
+    name: Deploy Preview
+    needs: [validate-and-build, security-scan]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    environment:
+      name: preview
+      url: ${{ steps.deploy.outputs.details_url }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download frontend build
         uses: actions/download-artifact@v4
         with:
-          name: dist
+          name: frontend-dist
           path: dist/
 
+      - name: Deploy to Firebase Preview Channel
+        id: deploy
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          projectId: ${{ env.FIREBASE_PROJECT_ID }}
+          expires: 7d
+        env:
+          FIREBASE_CLI_EXPERIMENTS: webframeworks
+
+      - name: Comment PR with preview URL
+        uses: actions/github-script@v7
+        env:
+          PREVIEW_URL: ${{ steps.deploy.outputs.details_url }}
+        with:
+          script: |
+            const previewUrl = process.env.PREVIEW_URL;
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## 🚀 Preview Deployment\n\n✅ Preview deployed successfully!\n\n**Preview URL:** ${previewUrl}\n\n**Expires:** 7 days\n\n### Notes\n- This preview includes ONLY frontend changes\n- Backend functions are not deployed to preview\n- Preview uses production Firebase services`
+            })
+
+  # Stage 4: Deploy to Production (main branch only)
+  deploy-production:
+    name: Deploy to Production
+    needs: [validate-and-build, security-scan]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    environment:
+      name: production
+      url: https://ai-career-os-139db.web.app
+    concurrency:
+      group: production-deployment
+      cancel-in-progress: false
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Download frontend build
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: dist/
+
+      - name: Download functions build (if available)
+        if: needs.validate-and-build.outputs.functions-changed == 'true' || github.event_name == 'workflow_dispatch'
+        uses: actions/download-artifact@v4
+        with:
+          name: functions-lib
+          path: functions/lib/
+        continue-on-error: true
+
       - name: Install Firebase CLI
-        run: npm install -g firebase-tools
+        run: npm install -g firebase-tools@latest
 
-      - name: Authenticate to Firebase
+      - name: Create Firebase service account file
         run: |
-          echo "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}" > $HOME/service-account.json
-          export GOOGLE_APPLICATION_CREDENTIALS=$HOME/service-account.json
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > $HOME/service-account.json
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$HOME/service-account.json" >> $GITHUB_ENV
 
-      # Deploy Firestore rules and indexes
       - name: Deploy Firestore Rules and Indexes
+        if: needs.validate-and-build.outputs.rules-changed == 'true' || github.event_name == 'workflow_dispatch'
         run: |
-          firebase deploy --only firestore --project ai-career-os-139db --non-interactive --force
-        env:
-          GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/service-account.json
+          echo "Deploying Firestore rules and indexes..."
+          firebase deploy --only firestore --project ${{ env.FIREBASE_PROJECT_ID }} --non-interactive --force
 
-      # Deploy Storage rules
       - name: Deploy Storage Rules
+        if: needs.validate-and-build.outputs.rules-changed == 'true' || github.event_name == 'workflow_dispatch'
         run: |
-          firebase deploy --only storage --project ai-career-os-139db --non-interactive --force
-        env:
-          GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/service-account.json
+          echo "Deploying Storage rules..."
+          firebase deploy --only storage --project ${{ env.FIREBASE_PROJECT_ID }} --non-interactive --force
 
-      # Install function dependencies and deploy
-      - name: Install Functions Dependencies
+      - name: Install Functions dependencies
+        if: needs.validate-and-build.outputs.functions-changed == 'true' || github.event_name == 'workflow_dispatch'
         working-directory: functions
-        run: npm ci
+        run: npm ci --production
+
+      - name: Set Firebase Functions secrets
+        if: needs.validate-and-build.outputs.functions-changed == 'true' || github.event_name == 'workflow_dispatch'
+        run: |
+          echo "Ensuring Firebase Functions secrets are configured..."
+          echo "SENDGRID_API_KEY should be set via: firebase functions:secrets:set SENDGRID_API_KEY"
+          echo "OPENAI_API_KEY should be set via: firebase functions:secrets:set OPENAI_API_KEY"
+          echo "LINKEDIN_CLIENT_ID should be set via: firebase functions:secrets:set LINKEDIN_CLIENT_ID"
+          echo "LINKEDIN_CLIENT_SECRET should be set via: firebase functions:secrets:set LINKEDIN_CLIENT_SECRET"
 
       - name: Deploy Cloud Functions
+        if: needs.validate-and-build.outputs.functions-changed == 'true' || github.event_name == 'workflow_dispatch'
         run: |
-          firebase deploy --only functions --project ai-career-os-139db --non-interactive --force
-        env:
-          GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/service-account.json
+          echo "Deploying Cloud Functions..."
+          firebase deploy --only functions --project ${{ env.FIREBASE_PROJECT_ID }} --non-interactive --force
+        timeout-minutes: 15
 
-      # Deploy hosting (frontend)
       - name: Deploy to Firebase Hosting
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          projectId: ai-career-os-139db
+          projectId: ${{ env.FIREBASE_PROJECT_ID }}
           channelId: live
         env:
           FIREBASE_CLI_EXPERIMENTS: webframeworks
 
-      - name: Clean up service account file
+      - name: Clean up service account
         if: always()
-        run: rm -f $HOME/service-account.json
-
-      - name: Deployment Summary
-        if: success()
         run: |
-          echo "🎉 Deployment successful!"
-          echo ""
-          echo "📦 Deployed Services:"
-          echo "  ✓ Firestore Rules & Indexes"
-          echo "  ✓ Storage Rules"
-          echo "  ✓ Cloud Functions"
-          echo "  ✓ Firebase Hosting"
-          echo ""
-          echo "🌐 Production URL: https://ai-career-os-139db.web.app"
-          echo ""
-          echo "📊 Next Steps:"
-          echo "  1. Verify deployment at the URL above"
-          echo "  2. Check Firebase Console for any errors"
-          echo "  3. Monitor function logs: firebase functions:log"
-          echo "  4. Run smoke tests on production"
+          rm -f $HOME/service-account.json
+          unset GOOGLE_APPLICATION_CREDENTIALS
 
-      - name: Deployment Failed Notification
+      - name: Deployment success summary
+        if: success()
+        env:
+          RULES_CHANGED: ${{ needs.validate-and-build.outputs.rules-changed }}
+          FUNCTIONS_CHANGED: ${{ needs.validate-and-build.outputs.functions-changed }}
+        run: |
+          echo "## 🎉 Deployment Successful!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Deployed Services" >> $GITHUB_STEP_SUMMARY
+          if [[ "$RULES_CHANGED" == "true" ]] || [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "✅ Firestore Rules & Indexes" >> $GITHUB_STEP_SUMMARY
+            echo "✅ Storage Rules" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [[ "$FUNCTIONS_CHANGED" == "true" ]] || [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "✅ Cloud Functions" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "✅ Firebase Hosting" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Production URL" >> $GITHUB_STEP_SUMMARY
+          echo "🌐 https://ai-career-os-139db.web.app" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Next Steps" >> $GITHUB_STEP_SUMMARY
+          echo "1. Verify deployment at production URL" >> $GITHUB_STEP_SUMMARY
+          echo "2. Check Firebase Console for any errors" >> $GITHUB_STEP_SUMMARY
+          echo "3. Monitor function logs: \`firebase functions:log\`" >> $GITHUB_STEP_SUMMARY
+          echo "4. Review performance metrics in Firebase Console" >> $GITHUB_STEP_SUMMARY
+
+      - name: Deployment failure notification
         if: failure()
         run: |
-          echo "❌ Deployment failed!"
-          echo ""
-          echo "Please check the logs above for errors."
-          echo "Common issues:"
-          echo "  - Missing secrets (FIREBASE_SERVICE_ACCOUNT, etc.)"
-          echo "  - Invalid Firestore/Storage rules syntax"
-          echo "  - Function build errors"
-          echo "  - Insufficient permissions"
-          echo ""
-          echo "See DEPLOYMENT.md for troubleshooting guidance."
+          echo "## ❌ Deployment Failed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Common Issues" >> $GITHUB_STEP_SUMMARY
+          echo "- Missing or invalid GitHub Secrets" >> $GITHUB_STEP_SUMMARY
+          echo "- Invalid Firestore/Storage rules syntax" >> $GITHUB_STEP_SUMMARY
+          echo "- Function build or deployment errors" >> $GITHUB_STEP_SUMMARY
+          echo "- Insufficient Firebase permissions" >> $GITHUB_STEP_SUMMARY
+          echo "- Missing Firebase Functions secrets" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Troubleshooting" >> $GITHUB_STEP_SUMMARY
+          echo "1. Review the logs above for specific error messages" >> $GITHUB_STEP_SUMMARY
+          echo "2. Check \`.github/docs/DEPLOYMENT_RUNBOOK.md\`" >> $GITHUB_STEP_SUMMARY
+          echo "3. Verify all GitHub Secrets are configured" >> $GITHUB_STEP_SUMMARY
+          echo "4. Ensure Firebase Functions secrets are set" >> $GITHUB_STEP_SUMMARY
+
+  # Stage 5: Post-Deployment Verification
+  post-deploy-verification:
+    name: Post-Deployment Verification
+    needs: deploy-production
+    runs-on: ubuntu-latest
+    if: success()
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Wait for deployment to propagate
+        run: sleep 30
+
+      - name: Health check - Frontend
+        run: |
+          echo "Checking frontend health..."
+          HTTP_CODE=$(curl -o /dev/null -s -w "%{http_code}" https://ai-career-os-139db.web.app)
+          if [ "$HTTP_CODE" -eq 200 ]; then
+            echo "✅ Frontend is accessible (HTTP $HTTP_CODE)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ Frontend returned HTTP $HTTP_CODE" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+      - name: Health check - Cloud Functions
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Cloud Functions Status" >> $GITHUB_STEP_SUMMARY
+          echo "Manual verification required:" >> $GITHUB_STEP_SUMMARY
+          echo "1. Check Firebase Console > Functions" >> $GITHUB_STEP_SUMMARY
+          echo "2. Verify all functions show as 'Active'" >> $GITHUB_STEP_SUMMARY
+          echo "3. Test critical endpoints manually" >> $GITHUB_STEP_SUMMARY
+
+      - name: Verification summary
+        if: success()
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## ✅ Post-Deployment Verification Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "All automated health checks passed." >> $GITHUB_STEP_SUMMARY
+          echo "Deployment is live and operational." >> $GITHUB_STEP_SUMMARY

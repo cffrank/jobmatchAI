@@ -284,7 +284,11 @@ async function scrapeIndeed(params: JobSearchParams): Promise<ScrapedJob[]> {
 }
 
 /**
- * Save jobs to Firestore
+ * Save jobs to Firestore with batch safety
+ *
+ * PERFORMANCE: Implements batch splitting to handle > 500 operations
+ * Firestore batch limit is 500 operations. This function splits large
+ * job lists into multiple batches to prevent failures.
  */
 async function saveJobsToFirestore(
   userId: string,
@@ -292,27 +296,47 @@ async function saveJobsToFirestore(
   jobs: NormalizedJob[]
 ): Promise<void> {
   const db = admin.firestore();
-  const batch = db.batch();
 
-  // Create search document
+  // Create search document first (separate from job batches)
   const searchRef = db
     .collection('users')
     .doc(userId)
     .collection('jobSearches')
     .doc(searchId);
 
-  batch.set(searchRef, {
+  await searchRef.set({
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
     jobCount: jobs.length,
   });
 
-  // Save each job
-  jobs.forEach((job) => {
-    const jobRef = searchRef.collection('jobs').doc();
-    batch.set(jobRef, job);
-  });
+  // Also save to main jobs collection for easier querying
+  const mainJobsRef = db
+    .collection('users')
+    .doc(userId)
+    .collection('jobs');
 
-  await batch.commit();
+  // Batch jobs in chunks of 500 to respect Firestore batch limit
+  const BATCH_SIZE = 500;
+  for (let i = 0; i < jobs.length; i += BATCH_SIZE) {
+    const batch = db.batch();
+    const chunk = jobs.slice(i, i + BATCH_SIZE);
+
+    chunk.forEach((job) => {
+      // Save to jobSearches subcollection
+      const searchJobRef = searchRef.collection('jobs').doc();
+      batch.set(searchJobRef, job);
+
+      // Save to main jobs collection with searchId reference
+      const mainJobRef = mainJobsRef.doc();
+      batch.set(mainJobRef, {
+        ...job,
+        searchId: searchId,
+        addedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    });
+
+    await batch.commit();
+  }
 }
 
 // =============================================================================

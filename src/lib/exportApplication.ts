@@ -36,13 +36,18 @@ interface ExportRequest {
  * Error class for export failures
  */
 export class ExportError extends Error {
+  code?: string;
+  details?: unknown;
+
   constructor(
     message: string,
-    public code?: string,
-    public details?: unknown
+    code?: string,
+    details?: unknown
   ) {
     super(message);
     this.name = 'ExportError';
+    this.code = code;
+    this.details = details;
   }
 }
 

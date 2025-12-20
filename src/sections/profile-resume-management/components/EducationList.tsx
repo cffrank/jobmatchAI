@@ -1,5 +1,5 @@
 import { GraduationCap, Calendar, MapPin, Edit2, Trash2, Plus } from 'lucide-react'
-import type { Education } from '@/../product/sections/profile-resume-management/types'
+import type { Education } from '../types'
 
 interface EducationListProps {
   education: Education[]

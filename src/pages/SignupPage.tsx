@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { toast } from 'sonner'
@@ -7,22 +7,54 @@ import { getAuthErrorMessage } from '../lib/authErrors'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
+import { validatePassword, checkPasswordRequirements, type PasswordStrength, type PasswordRequirements } from '../lib/passwordValidation'
+import { PasswordStrengthIndicator } from '../components/ui/password-strength-indicator'
 
 export default function SignupPage() {
   const [displayName, setDisplayName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
+  const [passwordStrength, setPasswordStrength] = useState<PasswordStrength | null>(null)
+  const [passwordRequirements, setPasswordRequirements] = useState<PasswordRequirements | null>(null)
+  const [showPasswordStrength, setShowPasswordStrength] = useState(false)
   const { signUp, signInWithGoogle, signInWithLinkedIn } = useAuth()
   const navigate = useNavigate()
 
+  // Validate password on change
+  useEffect(() => {
+    if (password.length > 0) {
+      setShowPasswordStrength(true)
+      const userInputs = [displayName, email].filter(Boolean)
+      const strength = validatePassword(password, userInputs)
+      const requirements = checkPasswordRequirements(password)
+      setPasswordStrength(strength)
+      setPasswordRequirements(requirements)
+    } else {
+      setShowPasswordStrength(false)
+      setPasswordStrength(null)
+      setPasswordRequirements(null)
+    }
+  }, [password, displayName, email])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    // Validate password strength before submitting
+    if (!passwordStrength || !passwordStrength.isValid) {
+      toast.error('Password does not meet security requirements', {
+        description: 'Please ensure your password meets all requirements listed below'
+      })
+      return
+    }
+
     setLoading(true)
 
     try {
       await signUp(email, password, displayName)
-      toast.success('Account created! Please check your email to verify your account.')
+      toast.success('Account created! Please check your email to verify your account.', {
+        description: 'You must verify your email before accessing all features.'
+      })
       navigate('/')
     } catch (error: any) {
       console.error('Signup error:', error)
@@ -256,13 +288,21 @@ export default function SignupPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   className="pl-10 h-11"
-                  minLength={6}
+                  minLength={12}
                   disabled={loading}
                 />
               </div>
-              <p className="text-xs text-muted-foreground">
-                Must be at least 6 characters
-              </p>
+
+              {/* Password Strength Indicator */}
+              {showPasswordStrength && passwordStrength && passwordRequirements && (
+                <div className="mt-3 p-3 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800">
+                  <PasswordStrengthIndicator
+                    strength={passwordStrength}
+                    requirements={passwordRequirements}
+                    showRequirements={true}
+                  />
+                </div>
+              )}
             </div>
 
             <Button

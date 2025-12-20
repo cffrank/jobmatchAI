@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { ChevronLeft, ChevronRight, Linkedin, CheckCircle2, Loader2, X } from 'lucide-react'
-import type { LinkedInImportWizardProps } from '@/../product/sections/profile-resume-management/types'
+import type { LinkedInImportWizardProps } from '../types'
 
 const steps = [
   {

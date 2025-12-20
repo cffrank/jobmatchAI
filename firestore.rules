@@ -45,9 +45,13 @@ service cloud.firestore {
       }
 
       // Jobs collection - user's discovered jobs from searches
-      // Populated by scrapeJobs Cloud Function, user has full control
+      // Populated by scrapeJobs Cloud Function and automated search, user has full control
       match /jobs/{jobId} {
-        allow read, write: if isAuthenticated() && isOwner(userId);
+        allow read: if isAuthenticated() && isOwner(userId);
+        // Users can update saved status and notes
+        allow update: if isAuthenticated() && isOwner(userId);
+        // Only Cloud Functions can create/delete jobs
+        allow create, delete: if false;
       }
 
       // Job searches history - metadata about past searches
@@ -122,6 +126,19 @@ service cloud.firestore {
         // Write restricted to Cloud Functions
         allow write: if false;
       }
+
+      // Job matches with calculated scores (denormalized for quick access)
+      match /jobMatches/{matchId} {
+        allow read: if isAuthenticated() && isOwner(userId);
+        // Write restricted to Cloud Functions
+        allow write: if false;
+      }
+    }
+
+    // Notification queue for batch processing
+    // Only Cloud Functions can access this collection
+    match /notificationQueue/{notificationId} {
+      allow read, write: if false;
     }
 
     // Legacy global jobs collection - DEPRECATED
