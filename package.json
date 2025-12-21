@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "build:check": "tsc -b && vite build",
-    "start": "serve -s dist -p ${PORT:-3000}",
+    "start": "serve -s dist",
     "lint": "eslint .",
     "preview": "vite preview",
     "migrate": "tsx scripts/migrate-mock-data-client.ts",

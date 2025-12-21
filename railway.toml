@@ -16,8 +16,8 @@ watchPatterns = ["src/**/*", "index.html", "package.json", "vite.config.ts", "Do
 
 [deploy]
 # Command to serve the static files from dist/
-# Using npx serve to serve the built files
-startCommand = "npx serve dist -s -p $PORT"
+# serve automatically uses PORT env var from Railway
+startCommand = "npx serve dist -s"
 
 # Disable health check - static sites don't need /health endpoint
 healthcheckPath = ""

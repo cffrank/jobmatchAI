@@ -32,5 +32,5 @@ COPY --from=builder /app/dist ./dist
 # Expose port
 EXPOSE 3000
 
-# Start serve - Railway will set PORT env var
-CMD ["sh", "-c", "serve -s dist -p ${PORT:-3000}"]
+# Start serve - automatically uses PORT env var from Railway
+CMD ["serve", "-s", "dist"]
