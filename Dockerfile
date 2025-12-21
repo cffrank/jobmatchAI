@@ -23,14 +23,12 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Install serve globally
-RUN npm install -g serve
-
-# Copy built files from builder stage
+# Copy built files and server from builder stage
 COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/server.js ./server.js
 
 # Expose port
 EXPOSE 3000
 
-# Start serve - automatically uses PORT env var from Railway
-CMD ["serve", "-s", "dist"]
+# Start custom Node server that explicitly reads PORT env var
+CMD ["node", "server.js"]
