@@ -17,12 +17,15 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error(
-    'Missing Supabase environment variables. Please check your .env.local file.\n' +
+  console.error(
+    '❌ Missing Supabase environment variables!\n' +
     'Required variables:\n' +
     '- VITE_SUPABASE_URL\n' +
-    '- VITE_SUPABASE_ANON_KEY'
+    '- VITE_SUPABASE_ANON_KEY\n\n' +
+    'App will not function correctly until these are set.'
   )
+  // Use dummy values to prevent import-time crashes
+  // The app will show error states when actually trying to use Supabase
 }
 
 /**
@@ -43,7 +46,10 @@ if (!supabaseUrl || !supabaseAnonKey) {
  *   .eq('user_id', userId)
  * ```
  */
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
+export const supabase = createClient<Database>(
+  supabaseUrl || 'https://placeholder.supabase.co',
+  supabaseAnonKey || 'placeholder-anon-key',
+  {
   auth: {
     // Auto-refresh session before it expires
     autoRefreshToken: true,
@@ -70,7 +76,8 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
       return Math.min(1000 * Math.pow(2, tries), 30000)
     },
   },
-})
+  }
+)
 
 /**
  * Helper function to handle Supabase errors consistently
