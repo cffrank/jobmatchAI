@@ -6,13 +6,13 @@
 
 [build]
 # Builder to use for the deployment
-builder = "NIXPACKS"
+builder = "DOCKERFILE"
 
-# Build command - Vite production build
-buildCommand = "npm install && npm run build"
+# Path to Dockerfile (optional - Railway auto-detects if in root)
+dockerfilePath = "Dockerfile"
 
 # Watch patterns - trigger rebuild on these file changes
-watchPatterns = ["src/**/*", "index.html", "package.json", "vite.config.ts"]
+watchPatterns = ["src/**/*", "index.html", "package.json", "vite.config.ts", "Dockerfile"]
 
 [deploy]
 # Command to serve the static files from dist/
