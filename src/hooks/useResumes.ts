@@ -1,46 +1,118 @@
-import { useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
-import { db } from '@/lib/firebase'
-import { collection, addDoc, updateDoc, deleteDoc, doc, query, orderBy, where } from 'firebase/firestore'
-import { useCollection } from 'react-firebase-hooks/firestore'
+import { supabase } from '@/lib/supabase'
+import type { Database } from '@/lib/database.types'
 import type { Resume } from '@/sections/profile-resume-management/types'
 
+type DbResume = Database['public']['Tables']['resumes']['Row']
+
 /**
- * Hook to manage resumes in Firestore
- * Collection: users/{userId}/resumes
+ * Hook to manage resumes in Supabase
+ * Table: resumes
+ *
+ * ⚠️ NOTE: This table must be created before using this hook.
+ * Migration file: supabase/migrations/002_resumes_table.sql
+ *
+ * To apply: Run the migration via Supabase Dashboard > SQL Editor
  */
 export function useResumes() {
   const { user } = useAuth()
-  const userId = user?.uid
+  const userId = user?.id
 
-  // Get reference to resumes subcollection
-  const resumesRef = userId
-    ? query(collection(db, 'users', userId, 'resumes'), orderBy('updatedAt', 'desc'))
-    : null
+  const [resumes, setResumes] = useState<Resume[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<Error | null>(null)
 
-  // Subscribe to resumes collection
-  const [snapshot, loading, error] = useCollection(resumesRef)
+  // Fetch and subscribe to resumes
+  useEffect(() => {
+    if (!userId) {
+      setResumes([])
+      setLoading(false)
+      return
+    }
 
-  // Memoize resumes array to prevent infinite loops
-  const resumes: Resume[] = useMemo(() => {
-    return snapshot
-      ? snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Resume))
-      : []
-  }, [snapshot])
+    let subscribed = true
+
+    // Fetch initial resumes
+    const fetchResumes = async () => {
+      try {
+        setLoading(true)
+        const { data, error: fetchError } = await supabase
+          .from('resumes')
+          .select('*')
+          .eq('user_id', userId)
+          .order('updated_at', { ascending: false })
+
+        if (fetchError) throw fetchError
+
+        if (subscribed && data) {
+          setResumes(data.map(mapDbResume))
+          setError(null)
+        }
+      } catch (err) {
+        if (subscribed) {
+          setError(err as Error)
+        }
+      } finally {
+        if (subscribed) {
+          setLoading(false)
+        }
+      }
+    }
+
+    fetchResumes()
+
+    // Set up real-time subscription
+    const channel = supabase
+      .channel(`resumes:${userId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'resumes',
+          filter: `user_id=eq.${userId}`,
+        },
+        (payload) => {
+          if (payload.eventType === 'INSERT') {
+            setResumes((current) => [mapDbResume(payload.new as DbResume), ...current])
+          } else if (payload.eventType === 'UPDATE') {
+            setResumes((current) =>
+              current.map((resume) =>
+                resume.id === payload.new.id ? mapDbResume(payload.new as DbResume) : resume
+              )
+            )
+          } else if (payload.eventType === 'DELETE') {
+            setResumes((current) => current.filter((resume) => resume.id !== payload.old.id))
+          }
+        }
+      )
+      .subscribe()
+
+    return () => {
+      subscribed = false
+      channel.unsubscribe()
+    }
+  }, [userId])
 
   /**
    * Add new resume
    */
   const addResume = async (data: Omit<Resume, 'id' | 'createdAt' | 'updatedAt'>) => {
     if (!userId) throw new Error('User not authenticated')
-    const ref = collection(db, 'users', userId, 'resumes')
+
     const now = new Date().toISOString()
-    await addDoc(ref, {
-      ...data,
-      userId,
-      createdAt: now,
-      updatedAt: now,
+    const { error: insertError } = await supabase.from('resumes').insert({
+      user_id: userId,
+      type: data.type,
+      title: data.title,
+      sections: data.sections as any, // JSONB field
+      formats: data.formats,
+      created_at: now,
+      updated_at: now,
     })
+
+    if (insertError) throw insertError
   }
 
   /**
@@ -48,11 +120,23 @@ export function useResumes() {
    */
   const updateResume = async (id: string, data: Partial<Omit<Resume, 'id' | 'userId' | 'createdAt'>>) => {
     if (!userId) throw new Error('User not authenticated')
-    const ref = doc(db, 'users', userId, 'resumes', id)
-    await updateDoc(ref, {
-      ...data,
-      updatedAt: new Date().toISOString(),
-    })
+
+    const updateData: Partial<Database['public']['Tables']['resumes']['Update']> = {
+      updated_at: new Date().toISOString(),
+    }
+
+    if (data.type !== undefined) updateData.type = data.type
+    if (data.title !== undefined) updateData.title = data.title
+    if (data.sections !== undefined) updateData.sections = data.sections as any
+    if (data.formats !== undefined) updateData.formats = data.formats
+
+    const { error: updateError } = await supabase
+      .from('resumes')
+      .update(updateData)
+      .eq('id', id)
+      .eq('user_id', userId)
+
+    if (updateError) throw updateError
   }
 
   /**
@@ -60,8 +144,14 @@ export function useResumes() {
    */
   const deleteResume = async (id: string) => {
     if (!userId) throw new Error('User not authenticated')
-    const ref = doc(db, 'users', userId, 'resumes', id)
-    await deleteDoc(ref)
+
+    const { error: deleteError } = await supabase
+      .from('resumes')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', userId)
+
+    if (deleteError) throw deleteError
   }
 
   /**
@@ -87,5 +177,27 @@ export function useResumes() {
     addResume,
     updateResume,
     deleteResume,
+  }
+}
+
+/**
+ * Map database resume to app Resume type
+ */
+function mapDbResume(dbResume: DbResume): Resume {
+  return {
+    id: dbResume.id,
+    userId: dbResume.user_id,
+    type: dbResume.type as 'master' | 'tailored',
+    title: dbResume.title,
+    createdAt: dbResume.created_at,
+    updatedAt: dbResume.updated_at,
+    sections: (dbResume.sections as any) || {
+      header: { name: '', title: '', contact: { email: '', phone: '', location: '', linkedIn: '' } },
+      summary: '',
+      experience: [],
+      education: [],
+      skills: [],
+    },
+    formats: (dbResume.formats as ('pdf' | 'docx' | 'txt')[]) || [],
   }
 }

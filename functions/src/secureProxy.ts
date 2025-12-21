@@ -124,7 +124,7 @@ export const proxyJobSearch = functions.https.onCall(async (data, context) => {
 
     // Sanitize query to prevent injection attacks
     const sanitizedQuery = validatedData.query
-      .replace(/[<>\"']/g, '') // Remove HTML/script characters
+      .replace(/[<>"']/g, '') // Remove HTML/script characters
       .replace(/\\/g, '') // Remove backslashes
       .trim();
 
@@ -160,7 +160,7 @@ export const proxyJobSearch = functions.https.onCall(async (data, context) => {
     const result = await response.json();
 
     // Sanitize job listings (remove any potentially malicious content)
-    const sanitizedJobs = result.items?.map((job: any) => ({
+    const sanitizedJobs = result.items?.map((job: { title: string; company: string; location: string; description: string; url: string; salary: string; postedDate: string }) => ({
       title: sanitizeHtml(job.title),
       company: sanitizeHtml(job.company),
       location: sanitizeHtml(job.location),
@@ -182,14 +182,14 @@ export const proxyJobSearch = functions.https.onCall(async (data, context) => {
 
     return { jobs: sanitizedJobs };
 
-  } catch (error) {
-    if (error instanceof z.ZodError) {
+  } catch (err) {
+    if (err instanceof z.ZodError) {
       throw new functions.https.HttpsError('invalid-argument', 'Invalid request parameters');
     }
-    if (error instanceof functions.https.HttpsError) {
-      throw error;
+    if (err instanceof functions.https.HttpsError) {
+      throw err;
     }
-    console.error('Job search proxy error:', error);
+    console.error('Job search proxy error:', err);
     throw new functions.https.HttpsError('internal', 'Request failed');
   }
 });
@@ -239,7 +239,7 @@ function sanitizeUrl(url: string): string {
 
     return isAllowed ? url : '';
 
-  } catch (error) {
+  } catch {
     console.error('Invalid URL:', url);
     return '';
   }

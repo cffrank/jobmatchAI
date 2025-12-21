@@ -8,8 +8,7 @@ import { exportApplication, ExportError } from '@/lib/exportApplication'
 import { EmailDialog } from './components/EmailDialog'
 import { toast } from 'sonner'
 import { Sparkles } from 'lucide-react'
-import { functions } from '@/lib/firebase'
-import { httpsCallable } from 'firebase/functions'
+import { supabase } from '@/lib/supabase'
 import type { GeneratedApplication } from './types'
 
 export default function ApplicationEditorPage() {
@@ -37,30 +36,47 @@ export default function ApplicationEditorPage() {
   const { job, loading: jobLoading } = useJob(jobId || undefined)
 
   // Email sending function (shared between new and existing applications)
-  const handleSendEmail = async (recipientEmail: string) => {
+  const _handleSendEmail = async (recipientEmail: string) => {
     if (!currentApplicationId) {
       throw new Error('No application selected')
     }
 
-    const sendApplicationEmail = httpsCallable(functions, 'sendApplicationEmail')
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) {
+      throw new Error('You must be signed in to send emails')
+    }
 
     try {
-      const result = await sendApplicationEmail({
-        applicationId: currentApplicationId,
-        recipientEmail,
+      const backendUrl = import.meta.env.VITE_BACKEND_URL
+      const response = await fetch(`${backendUrl}/api/emails/send`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          applicationId: currentApplicationId,
+          recipientEmail
+        })
       })
 
-      const data = result.data as { success: boolean; message: string; emailId?: string }
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || 'Failed to send email')
+      }
+
+      const data = await response.json() as { success: boolean; message: string; emailId?: string }
 
       if (data.success) {
         toast.success('Email sent successfully!')
       } else {
         throw new Error(data.message || 'Failed to send email')
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Email send error:', error)
       // Extract user-friendly error message
-      const errorMessage = error.message || 'Failed to send email. Please try again.'
+      const err = error as { message?: string }
+      const errorMessage = err.message || 'Failed to send email. Please try again.'
       throw new Error(errorMessage)
     }
   }
@@ -79,7 +95,7 @@ export default function ApplicationEditorPage() {
 
         setGeneratedApp(newApp)
         toast.success('Application generated! Review and edit as needed.')
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error('Generation error:', error)
         toast.error(error.message || 'Failed to generate application. Please try again.')
         navigate('/jobs')
@@ -170,7 +186,7 @@ export default function ApplicationEditorPage() {
                 await updateApplication(generatedApp.id, { selectedVariantId: variantId })
                 setGeneratedApp({ ...generatedApp, selectedVariantId: variantId })
                 toast.success('Variant selected')
-              } catch (error) {
+              } catch {
                 toast.error('Failed to select variant')
               }
             }}
@@ -204,7 +220,7 @@ export default function ApplicationEditorPage() {
                 })
                 toast.success('Application submitted!')
                 navigate('/tracker')
-              } catch (error) {
+              } catch {
                 toast.error('Failed to submit application')
               }
             }}

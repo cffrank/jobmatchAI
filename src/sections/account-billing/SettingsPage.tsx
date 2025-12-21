@@ -6,15 +6,15 @@ import { PrivacyTab } from './components/PrivacyTab'
 import { SubscriptionOverview } from './components/SubscriptionOverview'
 import { useProfile } from '@/hooks/useProfile'
 import { useProfilePhoto } from '@/hooks/useProfilePhoto'
+import { useSecuritySettings } from '@/hooks/useSecuritySettings'
 import { useAuth } from '@/contexts/AuthContext'
 import data from './data.json'
 import type {
   UserProfile,
-  SecuritySettings,
   NotificationPreferences,
   PrivacySettings,
   Subscription,
-  Usage,
+  UsageLimits,
   BillingCycle,
   PlanTier
 } from './types'
@@ -24,6 +24,7 @@ export default function SettingsPage() {
   const { user } = useAuth()
   const { profile: firestoreProfile, loading: profileLoading, updateProfile: updateFirestoreProfile } = useProfile()
   const { uploadProfilePhoto, uploading: photoUploading, error: photoError } = useProfilePhoto()
+  const { security, loading: securityLoading, revokeSession, enable2FA, disable2FA, generateBackupCodes } = useSecuritySettings()
   const [profileInitialized, setProfileInitialized] = useState(false)
 
   // Debug logging
@@ -70,21 +71,21 @@ export default function SettingsPage() {
   } : data.userProfile
 
   console.log('SettingsPage - Using profile:', profile)
+  console.log('SettingsPage - Security data:', security)
 
-  const [security, setSecurity] = useState<SecuritySettings>(data.securitySettings)
   const [notifications, setNotifications] = useState<NotificationPreferences>(data.notificationPreferences)
   const [privacy, setPrivacy] = useState<PrivacySettings>(data.privacySettings)
 
   // Subscription state
   const [subscription, setSubscription] = useState<Subscription>(data.subscription)
-  const [usage, setUsage] = useState<Usage>(data.usage)
+  const [usage] = useState<UsageLimits>(data.usage)
 
   // Account handlers
   const handleUpdateProfile = async (updates: Partial<UserProfile>) => {
     console.log('handleUpdateProfile called with:', updates)
     try {
       // Map UserProfile fields to User fields for Firestore
-      const mappedUpdates: any = {}
+      const mappedUpdates: Record<string, unknown> = {}
 
       if (updates.fullName) {
         const [firstName, ...lastNameParts] = updates.fullName.split(' ')
@@ -106,7 +107,7 @@ export default function SettingsPage() {
     }
   }
 
-  const handleChangePassword = (currentPassword: string, newPassword: string) => {
+  const _handleChangePassword = (currentPassword: string, newPassword: string) => {
     console.log('Change password:', { currentPassword, newPassword })
   }
 
@@ -127,30 +128,47 @@ export default function SettingsPage() {
     console.log('Resend verification email')
   }
 
-  const handleEnable2FA = () => {
-    setSecurity({ ...security, twoFactorEnabled: true, twoFactorSetupComplete: true })
-    console.log('Enable 2FA')
+  const handleEnable2FA = async () => {
+    try {
+      await enable2FA()
+      alert('2FA enabled successfully!')
+    } catch (error) {
+      console.error('Failed to enable 2FA:', error)
+      alert(`Failed to enable 2FA: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
   }
 
-  const handleDisable2FA = () => {
-    setSecurity({ ...security, twoFactorEnabled: false })
-    console.log('Disable 2FA')
+  const handleDisable2FA = async () => {
+    try {
+      await disable2FA()
+      alert('2FA disabled successfully!')
+    } catch (error) {
+      console.error('Failed to disable 2FA:', error)
+      alert(`Failed to disable 2FA: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
   }
 
-  const handleGenerateBackupCodes = () => {
-    setSecurity({ ...security, backupCodesGenerated: true })
-    console.log('Generate backup codes')
+  const handleGenerateBackupCodes = async () => {
+    try {
+      await generateBackupCodes()
+      alert('Backup codes generated successfully!')
+    } catch (error) {
+      console.error('Failed to generate backup codes:', error)
+      alert(`Failed to generate backup codes: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
   }
 
-  const handleRevokeSession = (sessionId: string) => {
-    setSecurity({
-      ...security,
-      activeSessions: security.activeSessions.filter(s => s.id !== sessionId)
-    })
-    console.log('Revoke session:', sessionId)
+  const handleRevokeSession = async (sessionId: string) => {
+    try {
+      await revokeSession(sessionId)
+      alert('Session revoked successfully!')
+    } catch (error) {
+      console.error('Failed to revoke session:', error)
+      alert(`Failed to revoke session: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
   }
 
-  const handleUpdateNotifications = (updates: Partial<NotificationPreferences>) => {
+  const _handleUpdateNotifications = (updates: Partial<NotificationPreferences>) => {
     setNotifications({ ...notifications, ...updates })
     console.log('Update notifications:', updates)
   }
@@ -224,13 +242,15 @@ export default function SettingsPage() {
 
   const currentPlan = data.availablePlans.find(p => p.tier === subscription.plan)!
 
-  // Show loading state while profile is being fetched
-  if (profileLoading) {
+  // Show loading state while profile or security data is being fetched
+  if (profileLoading || securityLoading) {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-slate-600 dark:text-slate-400">Loading profile...</p>
+          <p className="text-slate-600 dark:text-slate-400">
+            {profileLoading ? 'Loading profile...' : 'Loading security settings...'}
+          </p>
         </div>
       </div>
     )

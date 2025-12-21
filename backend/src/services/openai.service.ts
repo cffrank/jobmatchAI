@@ -1,0 +1,441 @@
+/**
+ * OpenAI Application Generation Service
+ *
+ * Handles AI-powered generation of:
+ * - Resume variants (Impact-Focused, Keyword-Optimized, Concise)
+ * - Cover letters tailored to specific jobs
+ * - AI rationale explaining the optimization choices
+ *
+ * Mirrors the Firebase Cloud Function implementation with:
+ * - Comprehensive prompts for high-quality output
+ * - JSON response format for structured data
+ * - Fallback generation for API failures
+ */
+
+import { getOpenAI, MODELS, GENERATION_CONFIG, GENERATION_STRATEGIES } from '../config/openai';
+import type {
+  Job,
+  UserProfile,
+  WorkExperience,
+  Education,
+  Skill,
+  ApplicationVariant,
+  ResumeContent,
+} from '../types';
+
+// =============================================================================
+// Types
+// =============================================================================
+
+interface GenerationContext {
+  job: Job;
+  profile: UserProfile;
+  workExperience: WorkExperience[];
+  education: Education[];
+  skills: Skill[];
+}
+
+interface GeneratedApplication {
+  resume: ResumeContent;
+  coverLetter: string;
+  aiRationale: string[];
+}
+
+// =============================================================================
+// Main Generation Function
+// =============================================================================
+
+/**
+ * Generate all application variants for a job
+ *
+ * @param context - Generation context with job and user data
+ * @returns Array of application variants
+ */
+export async function generateApplicationVariants(
+  context: GenerationContext
+): Promise<ApplicationVariant[]> {
+  const { job, profile, workExperience, education, skills } = context;
+
+  // Generate all variants in parallel
+  const variantPromises = GENERATION_STRATEGIES.map((strategy) =>
+    generateVariant(job, profile, workExperience, education, skills, strategy)
+  );
+
+  const results = await Promise.allSettled(variantPromises);
+
+  // Collect successful results and fallbacks for failures
+  const variants: ApplicationVariant[] = [];
+
+  results.forEach((result, index) => {
+    const strategy = GENERATION_STRATEGIES[index];
+    if (!strategy) return;
+
+    if (result.status === 'fulfilled') {
+      variants.push({
+        id: strategy.id,
+        name: strategy.name,
+        ...result.value,
+      });
+    } else {
+      console.error(`Variant generation failed for ${strategy.name}:`, result.reason);
+      // Use fallback for failed generations
+      variants.push({
+        id: strategy.id,
+        name: strategy.name,
+        ...getFallbackVariant(job, profile, workExperience, education, skills, strategy),
+      });
+    }
+  });
+
+  return variants;
+}
+
+// =============================================================================
+// Single Variant Generation
+// =============================================================================
+
+/**
+ * Generate a single application variant using OpenAI
+ */
+async function generateVariant(
+  job: Job,
+  profile: UserProfile,
+  workExp: WorkExperience[],
+  edu: Education[],
+  skills: Skill[],
+  strategy: (typeof GENERATION_STRATEGIES)[number]
+): Promise<GeneratedApplication> {
+  const openai = getOpenAI();
+
+  const skillsList = job.requiredSkills?.join(', ') || 'various skills';
+  const skillNames = skills.map((s) => s.name).join(', ');
+
+  // Build experience details with achievements
+  const experienceWithDetails = workExp.map((exp) => ({
+    position: exp.position,
+    company: exp.company,
+    location: exp.location || 'Location not specified',
+    duration: `${exp.startDate} - ${exp.current ? 'Present' : exp.endDate || 'Present'}`,
+    achievements:
+      exp.accomplishments.length > 0 ? exp.accomplishments : ['No specific achievements listed'],
+  }));
+
+  const systemPrompt = buildSystemPrompt(strategy.prompt);
+  const userPrompt = buildUserPrompt(
+    job,
+    profile,
+    experienceWithDetails,
+    edu,
+    skillsList,
+    skillNames
+  );
+
+  const completion = await openai.chat.completions.create({
+    model: MODELS.APPLICATION_GENERATION,
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt },
+    ],
+    temperature: GENERATION_CONFIG.TEMPERATURE,
+    max_tokens: GENERATION_CONFIG.MAX_TOKENS,
+    response_format: { type: 'json_object' },
+  });
+
+  const content = completion.choices[0]?.message.content;
+  if (!content) {
+    throw new Error('No content in OpenAI response');
+  }
+
+  const result = JSON.parse(content) as GeneratedApplication;
+  return result;
+}
+
+// =============================================================================
+// Prompt Builders
+// =============================================================================
+
+function buildSystemPrompt(strategyPrompt: string): string {
+  return `You are an expert resume writer specializing in ATS-optimized applications. ${strategyPrompt}.
+
+EXAMPLES OF EXCELLENT RESUME BULLETS:
+
+Bad: "Responsible for managing kitchen staff and preparing meals"
+Good: "Led team of 20+ kitchen staff in upscale steakhouse, reducing food waste by 35% and increasing customer satisfaction scores from 4.2 to 4.8/5.0 through menu innovation and staff training"
+
+Bad: "Worked as head chef at restaurant"
+Good: "Directed all culinary operations for 200-seat fine dining establishment generating $2.5M annual revenue, earning Michelin recommendation in first year"
+
+Bad: "Created new menu items"
+Good: "Developed seasonal farm-to-table menu featuring 40+ locally-sourced dishes, resulting in 25% increase in repeat customers and $180K additional quarterly revenue"
+
+Bad: "Managed software development projects"
+Good: "Led cross-functional team of 8 engineers to deliver React-based dashboard 2 weeks ahead of schedule, improving user engagement by 45% and reducing support tickets by 60%"
+
+KEY PRINCIPLES FOR RESUME BULLETS:
+- Start with powerful action verbs (Led, Managed, Developed, Increased, Reduced, Improved, Created, Built, Designed, Implemented, Streamlined, Established)
+- Include specific, quantifiable metrics (%, $, numbers, time saved, efficiency gains)
+- Show clear impact and business results
+- Length: 50-150 characters per bullet
+- Avoid generic phrases like "responsible for" or "worked on" or "helped with"
+- Use past tense for previous roles, present tense for current role
+
+PROFESSIONAL SUMMARY REQUIREMENTS:
+- Length: 100-300 characters
+- Mention total years of experience
+- Include 2-3 most relevant skills from the job description
+- Highlight 1-2 key achievements with numbers
+- Professional tone matching the industry
+
+COVER LETTER REQUIREMENTS:
+- Length: 500-1500 characters
+- Mention company name at least twice
+- Reference specific job title in opening paragraph
+- Include 2-3 concrete achievements with metrics
+- Show genuine enthusiasm and research about the company
+- Professional greeting ("Dear Hiring Manager" or "Dear [Company] Team")
+- Strong closing with call to action
+
+QUALITY CHECKLIST (verify before returning):
+- Resume summary: 100-300 chars, mentions years of experience, includes numbers
+- Resume bullets: 70%+ include metrics, all start with action verbs, 50-150 chars each
+- At least 3 bullets per work experience position
+- Keywords from job description appear naturally in resume
+- Cover letter: mentions company name 2+ times, job title in first paragraph
+- Cover letter: includes 2-3 specific achievements with numbers
+- Cover letter: has professional greeting and closing
+- Skills section includes keywords from job requirements
+
+Return JSON with this EXACT structure:
+{
+  "resume": {
+    "summary": "Brief professional summary string (100-300 chars with metrics)",
+    "experience": [
+      {
+        "title": "Job title",
+        "company": "Company name",
+        "location": "City, State",
+        "startDate": "YYYY-MM",
+        "endDate": "YYYY-MM or Present",
+        "bullets": ["Achievement with metrics", "Another achievement with numbers", "Third achievement showing impact"]
+      }
+    ],
+    "skills": ["Skill 1", "Skill 2", "Skill 3"],
+    "education": [
+      {
+        "degree": "Degree name in Field",
+        "school": "School name",
+        "location": "City, State",
+        "graduation": "YYYY-MM"
+      }
+    ]
+  },
+  "coverLetter": "Multi-paragraph cover letter text with \\n\\n separating paragraphs. Must mention company name and job title.",
+  "aiRationale": ["Specific reason why this resume matches job requirement 1", "How achievement X addresses need Y", "Why skill Z is emphasized for this role"]
+}`;
+}
+
+interface ExperienceDetail {
+  position: string;
+  company: string;
+  location: string;
+  duration: string;
+  achievements: string[];
+}
+
+function buildUserPrompt(
+  job: Job,
+  profile: UserProfile,
+  experienceDetails: ExperienceDetail[],
+  edu: Education[],
+  skillsList: string,
+  skillNames: string
+): string {
+  const salaryRange =
+    job.salaryMin && job.salaryMax
+      ? `Salary Range: $${job.salaryMin.toLocaleString()} - $${job.salaryMax.toLocaleString()}`
+      : '';
+
+  const preferredSkills =
+    job.preferredSkills && job.preferredSkills.length > 0
+      ? `PREFERRED SKILLS: ${job.preferredSkills.join(', ')}`
+      : '';
+
+  const experienceSection = experienceDetails
+    .map(
+      (exp, i) => `
+${i + 1}. ${exp.position} at ${exp.company}
+   ${exp.duration} | ${exp.location}
+   Current achievements listed:
+${exp.achievements.map((a) => `   - ${a}`).join('\n')}
+`
+    )
+    .join('\n');
+
+  const educationSection = edu
+    .map(
+      (e) =>
+        `- ${e.degree} in ${e.field} from ${e.school}${e.graduationYear ? ` (${e.graduationYear})` : ''}`
+    )
+    .join('\n');
+
+  return `JOB POSTING DETAILS:
+
+Title: ${job.title}
+Company: ${job.company}
+Location: ${job.location || 'Not specified'}
+Work Arrangement: ${job.workArrangement || 'Not specified'}
+${salaryRange}
+
+FULL JOB DESCRIPTION:
+${job.description || 'No detailed description provided. Use job title and required skills to infer responsibilities.'}
+
+REQUIRED SKILLS: ${skillsList}
+${preferredSkills}
+
+---
+
+CANDIDATE PROFILE:
+
+Name: ${profile.firstName || ''} ${profile.lastName || ''}
+Location: ${profile.location || 'Not specified'}
+Phone: ${profile.phone || 'Not provided'}
+Email: ${profile.email || 'Not provided'}
+
+${profile.summary ? `CURRENT PROFESSIONAL SUMMARY:\n${profile.summary}\n` : ''}
+
+WORK EXPERIENCE (use as basis, but improve with metrics):
+${experienceSection}
+
+EDUCATION:
+${educationSection}
+
+SKILLS:
+${skillNames}
+
+---
+
+TASK:
+Create a tailored resume and cover letter that:
+
+1. KEYWORD OPTIMIZATION: Use keywords from the job description naturally throughout the resume. Match required skills: ${skillsList}
+
+2. QUANTIFY EVERYTHING: Transform the candidate's experience into achievement bullets with specific metrics. If exact numbers aren't provided, use reasonable estimates based on role scope (e.g., "team of 15+", "improved efficiency by ~30%", "managed $200K+ budget").
+
+3. HIGHLIGHT RELEVANCE: Emphasize the 3-5 most relevant experiences for THIS specific ${job.title} position. Less relevant experiences can be condensed or omitted.
+
+4. PROFESSIONAL SUMMARY: Write a compelling 100-300 character summary mentioning:
+   - Years of experience in the field
+   - Top 2-3 skills that match job requirements
+   - 1-2 impressive quantified achievements
+
+5. COVER LETTER: Write 500-1500 characters that:
+   - Opens by mentioning the specific job title: "${job.title}"
+   - References the company name "${job.company}" at least twice
+   - Highlights 2-3 specific achievements with metrics that match job needs
+   - Shows enthusiasm and genuine interest
+   - Ends with a call to action
+
+6. VALIDATION: Before returning, verify:
+   - At least 70% of resume bullets include numbers/metrics
+   - Every bullet starts with a strong action verb
+   - Summary is 100-300 characters
+   - Cover letter mentions company and job title
+   - Keywords from job description appear naturally
+
+Generate the complete application following the exact JSON structure specified above.`;
+}
+
+// =============================================================================
+// Fallback Generation
+// =============================================================================
+
+function getFallbackVariant(
+  job: Job,
+  profile: UserProfile,
+  workExp: WorkExperience[],
+  edu: Education[],
+  skills: Skill[],
+  strategy: (typeof GENERATION_STRATEGIES)[number]
+): GeneratedApplication {
+  const topSkills = job.requiredSkills?.slice(0, 3).join(', ') || 'various technologies';
+
+  return {
+    resume: {
+      summary: `${job.title} with expertise in ${topSkills}`,
+      experience: workExp.slice(0, 3).map((e) => ({
+        title: e.position,
+        company: e.company,
+        location: e.location || '',
+        startDate: e.startDate,
+        endDate: e.current ? 'Present' : e.endDate || '',
+        bullets: e.accomplishments.slice(0, 3),
+      })),
+      skills: skills.slice(0, 10).map((s) => s.name),
+      education: edu.map((e) => ({
+        degree: `${e.degree} in ${e.field}`,
+        school: e.school,
+        location: e.location || '',
+        graduation: e.endDate || '',
+      })),
+    },
+    coverLetter: `Dear Hiring Manager,\n\nI am interested in the ${job.title} position at ${job.company}.\n\nBest regards,\n${profile.firstName || ''} ${profile.lastName || ''}`,
+    aiRationale: ['Fallback generation used', `${strategy.name} strategy applied`],
+  };
+}
+
+// =============================================================================
+// Match Score AI Analysis
+// =============================================================================
+
+/**
+ * Generate AI-powered insights for job match analysis
+ */
+export async function generateMatchInsights(
+  job: Job,
+  profile: UserProfile,
+  skills: Skill[],
+  matchScore: number
+): Promise<{ insights: string[]; recommendations: string[] }> {
+  try {
+    const openai = getOpenAI();
+
+    const prompt = `Analyze this job match and provide insights.
+
+JOB: ${job.title} at ${job.company}
+Required Skills: ${job.requiredSkills?.join(', ') || 'Not specified'}
+Description: ${job.description?.slice(0, 500) || 'Not provided'}
+
+CANDIDATE:
+Skills: ${skills.map((s) => s.name).join(', ')}
+Summary: ${profile.summary || 'Not provided'}
+
+MATCH SCORE: ${matchScore}%
+
+Provide a JSON response with:
+{
+  "insights": ["3-5 specific insights about why this is or isn't a good match"],
+  "recommendations": ["2-3 actionable recommendations to improve candidacy"]
+}`;
+
+    const completion = await openai.chat.completions.create({
+      model: MODELS.MATCH_ANALYSIS,
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.5,
+      max_tokens: 500,
+      response_format: { type: 'json_object' },
+    });
+
+    const content = completion.choices[0]?.message.content;
+    if (!content) {
+      throw new Error('No content in response');
+    }
+
+    return JSON.parse(content) as { insights: string[]; recommendations: string[] };
+  } catch (error) {
+    console.error('Match insights generation failed:', error);
+    return {
+      insights: ['Unable to generate AI insights'],
+      recommendations: ['Review job requirements manually'],
+    };
+  }
+}

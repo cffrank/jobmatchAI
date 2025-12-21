@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { X, Save, GraduationCap, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useEducation } from '@/hooks/useEducation'
-import type { Education } from '../types'
+// Education type import available if needed for type annotations
 
 export function EducationForm() {
   const navigate = useNavigate()

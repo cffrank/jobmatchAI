@@ -54,11 +54,13 @@ async function recreateJohnFrank() {
     await deleteUser(userCredential.user)
     console.log('✅ Deleted existing John Frank account')
     await auth.signOut()
-  } catch (error: any) {
-    if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found') {
+  } catch (error) {
+    const code = error instanceof Error && 'code' in error ? (error as { code: string }).code : ''
+    if (code === 'auth/invalid-credential' || code === 'auth/user-not-found') {
       console.log('⚠️  Account does not exist or password incorrect, proceeding to create...')
     } else {
-      console.log('⚠️  Could not delete (might not exist):', error.message)
+      const message = error instanceof Error ? error.message : 'Unknown error'
+      console.log('⚠️  Could not delete (might not exist):', message)
     }
   }
 
@@ -216,12 +218,14 @@ async function recreateJohnFrank() {
     console.log('   UID:      ', userId)
     console.log('\n✅ You can now log in and test application generation!')
 
-  } catch (error: any) {
-    if (error.code === 'auth/email-already-in-use') {
+  } catch (error) {
+    const code = error instanceof Error && 'code' in error ? (error as { code: string }).code : ''
+    if (code === 'auth/email-already-in-use') {
       console.error('\n❌ Email already in use. Please manually delete from Firebase Console:')
       console.log('   https://console.firebase.google.com/project/ai-career-os-139db/authentication/users')
     } else {
-      console.error('❌ Error:', error.message)
+      const message = error instanceof Error ? error.message : 'Unknown error'
+      console.error('❌ Error:', message)
       throw error
     }
   }

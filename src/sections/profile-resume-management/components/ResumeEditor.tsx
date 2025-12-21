@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Save, X, Eye, Plus, Trash2, GripVertical } from 'lucide-react'
 import { OptimizationSidebar } from './OptimizationSidebar'
-import type { ResumeEditorProps, WorkExperience, Education, Skill } from '@/../product/sections/profile-resume-management/types'
+import type { ResumeEditorProps } from '@/../product/sections/profile-resume-management/types'
 
 export function ResumeEditor({
   resume,

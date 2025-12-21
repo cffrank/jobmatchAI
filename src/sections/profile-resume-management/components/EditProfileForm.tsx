@@ -3,9 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { X, Save, User, Linkedin } from 'lucide-react'
 import { toast } from 'sonner'
 import { useProfile } from '@/hooks/useProfile'
-import { functions } from '@/lib/firebase'
-import { httpsCallable } from 'firebase/functions'
-import type { User as UserType } from '../types'
+import { supabase } from '@/lib/supabase'
+// UserType import available if needed for type annotations
 
 export function EditProfileForm() {
   const navigate = useNavigate()
@@ -140,34 +139,53 @@ export function EditProfileForm() {
     try {
       toast.loading('Connecting to LinkedIn...', { id: 'linkedin-auth' })
 
-      const linkedInAuth = httpsCallable(functions, 'linkedInAuth')
-      const result = await linkedInAuth()
-      const data = result.data as { authUrl: string; state: string }
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        toast.dismiss('linkedin-auth')
+        toast.error('You must be signed in to import from LinkedIn.')
+        return
+      }
+
+      const backendUrl = import.meta.env.VITE_BACKEND_URL
+      const response = await fetch(`${backendUrl}/api/auth/linkedin`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`
+        }
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to start LinkedIn authentication')
+      }
+
+      const data = await response.json() as { authUrl: string; state: string }
 
       toast.dismiss('linkedin-auth')
       toast.success('Redirecting to LinkedIn...')
 
       // Redirect to LinkedIn OAuth
       window.location.href = data.authUrl
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('LinkedIn auth error:', error)
       toast.dismiss('linkedin-auth')
 
+      const err = error as { message?: string; status?: number }
+
       // Show user-friendly error messages based on error type
-      if (error.code === 'functions/not-found') {
+      if (err.status === 404) {
         toast.error('LinkedIn import is not yet configured. Please contact support or fill out the form manually.', {
           duration: 5000
         })
-      } else if (error.code === 'functions/unauthenticated') {
+      } else if (err.status === 401) {
         toast.error('You must be signed in to import from LinkedIn.', {
           duration: 4000
         })
-      } else if (error.code === 'functions/failed-precondition') {
+      } else if (err.status === 503) {
         toast.error('LinkedIn integration is not available. Please contact support.', {
           duration: 5000
         })
       } else {
-        toast.error(error.message || 'Failed to start LinkedIn import. Please try again.', {
+        toast.error(err.message || 'Failed to start LinkedIn import. Please try again.', {
           duration: 4000
         })
       }

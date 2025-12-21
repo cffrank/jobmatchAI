@@ -56,7 +56,7 @@ export default function SignupPage() {
         description: 'You must verify your email before accessing all features.'
       })
       navigate('/')
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Signup error:', error)
       toast.error(getAuthErrorMessage(error))
     } finally {
@@ -70,7 +70,7 @@ export default function SignupPage() {
       await signInWithGoogle()
       toast.success('Welcome!')
       navigate('/')
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Google sign in error:', error)
       toast.error(getAuthErrorMessage(error))
     } finally {
@@ -84,7 +84,7 @@ export default function SignupPage() {
       await signInWithLinkedIn()
       toast.success('Welcome!')
       navigate('/')
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('LinkedIn sign in error:', error)
       toast.error(getAuthErrorMessage(error))
     } finally {

@@ -1,252 +1,228 @@
-# GitHub Secrets Setup - Quick Reference
+# GitHub Secrets Setup for CICD Backend Deployment
 
-This guide shows you exactly how to set up the required GitHub Secrets for JobMatch AI deployment.
+This guide walks you through setting up GitHub Secrets for automated Railway backend deployment.
 
-## Required Secrets (7 total)
+---
 
-You need to add 7 secrets to your GitHub repository before the CI/CD pipeline will work.
+## Required GitHub Secrets
 
-## Step-by-Step Instructions
+You need to configure these secrets in your GitHub repository to enable CICD deployment.
 
-### Step 1: Get Your Firebase Configuration
+**Navigate to:**
+`https://github.com/YOUR_USERNAME/jobmatch-ai/settings/secrets/actions`
 
-1. Open [Firebase Console](https://console.firebase.google.com/project/ai-career-os-139db/settings/general)
-2. Scroll down to "Your apps" section
-3. **If you see a web app already**: Click the gear icon → Config
-4. **If no web app exists**:
-   - Click "Add app"
-   - Choose Web (</> icon)
-   - App nickname: `JobMatch AI Web`
-   - Check "Also set up Firebase Hosting" (optional)
-   - Click "Register app"
-   - Copy the config object
+---
 
-You'll see something like this:
+## 1. Railway Token (REQUIRED)
 
-```javascript
-const firebaseConfig = {
-  apiKey: "AIzaSyC_example_key_here",
-  authDomain: "ai-career-os-139db.firebaseapp.com",
-  projectId: "ai-career-os-139db",
-  storageBucket: "ai-career-os-139db.firebasestorage.app",
-  messagingSenderId: "123456789012",
-  appId: "1:123456789012:web:abc123def456"
-};
+**Secret Name:** `RAILWAY_TOKEN`
+
+**How to get it:**
+1. Login to Railway: `railway login`
+2. Generate token: `railway token`
+3. Copy the token (starts with `RL_`)
+
+**Example value:**
+```
+RL_abc123def456ghi789jkl012mno345pqr678stu
 ```
 
-**Keep this tab open** - you'll copy these values in the next step.
+## 2. Supabase Configuration (REQUIRED - 3 secrets)
 
----
+### SUPABASE_URL
+**How to get it:**
+- Go to: https://supabase.com/dashboard/project/lrzhpnsykasqrousgmdh/settings/api
+- Copy "Project URL"
 
-### Step 2: Add Secrets to GitHub
-
-1. Go to your repository: https://github.com/cffrank/jobmatchAI
-2. Click **Settings** (top navigation)
-3. In the left sidebar, click **Secrets and variables** → **Actions**
-4. Click the green **"New repository secret"** button
-
-Now add each secret one by one:
-
-#### Secret 1: VITE_FIREBASE_API_KEY
-- Name: `VITE_FIREBASE_API_KEY`
-- Value: Copy the `apiKey` from Firebase (starts with "AIza...")
-- Click "Add secret"
-
-#### Secret 2: VITE_FIREBASE_AUTH_DOMAIN
-- Click "New repository secret" again
-- Name: `VITE_FIREBASE_AUTH_DOMAIN`
-- Value: Copy the `authDomain` from Firebase (e.g., "ai-career-os-139db.firebaseapp.com")
-- Click "Add secret"
-
-#### Secret 3: VITE_FIREBASE_PROJECT_ID
-- Click "New repository secret" again
-- Name: `VITE_FIREBASE_PROJECT_ID`
-- Value: `ai-career-os-139db`
-- Click "Add secret"
-
-#### Secret 4: VITE_FIREBASE_STORAGE_BUCKET
-- Click "New repository secret" again
-- Name: `VITE_FIREBASE_STORAGE_BUCKET`
-- Value: Copy the `storageBucket` from Firebase (e.g., "ai-career-os-139db.firebasestorage.app")
-- Click "Add secret"
-
-#### Secret 5: VITE_FIREBASE_MESSAGING_SENDER_ID
-- Click "New repository secret" again
-- Name: `VITE_FIREBASE_MESSAGING_SENDER_ID`
-- Value: Copy the `messagingSenderId` from Firebase (numbers only)
-- Click "Add secret"
-
-#### Secret 6: VITE_FIREBASE_APP_ID
-- Click "New repository secret" again
-- Name: `VITE_FIREBASE_APP_ID`
-- Value: Copy the `appId` from Firebase (e.g., "1:123456789012:web:abc123")
-- Click "Add secret"
-
-#### Secret 7: FIREBASE_SERVICE_ACCOUNT
-This one is different - it's for deployment authentication.
-
-1. Go to [Firebase Console → Service Accounts](https://console.firebase.google.com/project/ai-career-os-139db/settings/serviceaccounts/adminsdk)
-2. Click **"Generate new private key"**
-3. Click **"Generate key"** in the confirmation dialog
-4. A JSON file will download to your computer
-5. Open the JSON file in a text editor (Notepad, TextEdit, VS Code, etc.)
-6. Copy the **entire contents** of the file (all the JSON)
-7. Back in GitHub, click "New repository secret"
-   - Name: `FIREBASE_SERVICE_ACCOUNT`
-   - Value: Paste the entire JSON contents
-   - Click "Add secret"
-
----
-
-### Step 3: Verify Secrets Are Added
-
-You should now see 7 secrets in the list:
-
-- ✅ FIREBASE_SERVICE_ACCOUNT
-- ✅ VITE_FIREBASE_API_KEY
-- ✅ VITE_FIREBASE_APP_ID
-- ✅ VITE_FIREBASE_AUTH_DOMAIN
-- ✅ VITE_FIREBASE_MESSAGING_SENDER_ID
-- ✅ VITE_FIREBASE_PROJECT_ID
-- ✅ VITE_FIREBASE_STORAGE_BUCKET
-
-**Note:** You won't be able to see the secret values after adding them (GitHub hides them for security). That's normal!
-
----
-
-### Step 4: Update Local .env.local
-
-For local development, you also need these values in a `.env.local` file.
-
-1. Open your project in your code editor
-2. Navigate to `/jobmatch-ai/` directory
-3. Create a file named `.env.local` (if it doesn't exist)
-4. Add the following content (replace with your actual values):
-
-```env
-VITE_FIREBASE_API_KEY=AIzaSyC_your_actual_key_here
-VITE_FIREBASE_AUTH_DOMAIN=ai-career-os-139db.firebaseapp.com
-VITE_FIREBASE_PROJECT_ID=ai-career-os-139db
-VITE_FIREBASE_STORAGE_BUCKET=ai-career-os-139db.firebasestorage.app
-VITE_FIREBASE_MESSAGING_SENDER_ID=123456789012
-VITE_FIREBASE_APP_ID=1:123456789012:web:abc123def456
+**Example value:**
+```
+https://lrzhpnsykasqrousgmdh.supabase.co
 ```
 
-5. Save the file
+### SUPABASE_ANON_KEY
+**How to get it:**
+- Same page as above
+- Copy the "anon" "public" key
 
-**Important:** Do NOT commit `.env.local` to git! It's already in `.gitignore`.
+**Example value:**
+```
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+### SUPABASE_SERVICE_ROLE_KEY ⚠️ KEEP SECRET!
+**How to get it:**
+- Same page as above
+- Click "Reveal" next to "service_role" key
+- **WARNING:** This key bypasses Row Level Security - never expose it client-side!
+
+**Example value:**
+```
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
 
 ---
 
-## Testing
+## 3. OpenAI Configuration (REQUIRED)
 
-### Test Local Development
+### OPENAI_API_KEY
+**How to get it:**
+1. Go to: https://platform.openai.com/api-keys
+2. Click "Create new secret key"
+3. Name: `JobMatch AI Backend`
+4. Copy the key (starts with `sk-`)
+
+**Example value:**
+```
+sk-proj-abc123def456...
+```
+
+**Cost:** ~$0.01-0.10 per AI-generated application
+
+---
+
+## 4. SendGrid Configuration (REQUIRED - 2 secrets)
+
+### SENDGRID_API_KEY
+**How to get it:**
+1. Go to: https://app.sendgrid.com/settings/api_keys
+2. Click "Create API Key"
+3. Name: `JobMatch AI Backend`
+4. Permissions: "Full Access" (or "Mail Send")
+5. Copy the key (starts with `SG.`)
+
+**Example value:**
+```
+SG.abc123def456...
+```
+
+**Free tier:** 100 emails/day
+
+### SENDGRID_FROM_EMAIL
+**How to get it:**
+1. Go to: https://app.sendgrid.com/settings/sender_auth
+2. Verify your email address
+3. Use the verified email
+
+**Example value:**
+```
+carl.f.frank@gmail.com
+```
+
+---
+
+## 5. JWT Secret (REQUIRED)
+
+### JWT_SECRET
+**How to generate:**
+```bash
+openssl rand -base64 32
+```
+
+**Example value:**
+```
+kL9mP2nQ4rS6tU8vW0xY2zA4bC6dE8fG0hI2jK4lM6nO8pQ0rS2tU4vW6xY8zA0b
+```
+
+**Minimum length:** 32 characters
+
+---
+
+## 6. Frontend URL (REQUIRED for CORS)
+
+### FRONTEND_URL
+**Temporary value (before frontend deployment):**
+```
+http://localhost:5173
+```
+
+**After frontend deployment:**
+```
+https://your-frontend-url.railway.app
+```
+
+**Note:** Update this after deploying frontend to enable proper CORS.
+
+---
+
+## 7. LinkedIn OAuth (OPTIONAL - skip for now)
+
+### LINKEDIN_CLIENT_ID, LINKEDIN_CLIENT_SECRET, LINKEDIN_REDIRECT_URI
+Can be configured later after getting backend URL.
+
+---
+
+## 8. Apify Job Scraping (OPTIONAL - skip for now)
+
+### APIFY_API_TOKEN
+Can be configured later.
+
+---
+
+## Setting Secrets in GitHub
+
+### Via Web UI (Recommended)
+
+1. Go to: https://github.com/YOUR_USERNAME/jobmatch-ai/settings/secrets/actions
+2. Click "New repository secret"
+3. Enter secret name and value
+4. Click "Add secret"
+5. Repeat for all required secrets
+
+### Via GitHub CLI (Alternative)
 
 ```bash
-cd jobmatch-ai
-npm run dev
-```
-
-Visit http://localhost:5173 - you should be redirected to the login page. If you see a Firebase error, check your `.env.local` values.
-
-### Test Production Build
-
-```bash
-npm run build
-```
-
-If the build succeeds, your GitHub Secrets are configured correctly.
-
-### Test GitHub Actions
-
-1. Commit and push any change to a new branch
-2. Create a pull request
-3. GitHub Actions should automatically:
-   - Build your app
-   - Deploy a preview URL
-   - Comment on the PR with the preview link
-
-If the build fails, check the Actions tab for error messages.
-
----
-
-## Troubleshooting
-
-### "Firebase configuration is missing"
-
-**Cause:** Environment variables not loading correctly.
-
-**Fix:**
-1. Verify `.env.local` file exists in `/jobmatch-ai/` directory
-2. Check that variable names are exactly: `VITE_FIREBASE_API_KEY` (not `FIREBASE_API_KEY`)
-3. Restart the dev server: `npm run dev`
-
-### GitHub Actions build fails with environment variable error
-
-**Cause:** GitHub Secrets not set correctly.
-
-**Fix:**
-1. Go to Settings → Secrets and variables → Actions
-2. Verify all 7 secrets are present
-3. Check secret names match exactly (case-sensitive)
-4. Re-run the failed workflow
-
-### "Permission denied" during deployment
-
-**Cause:** Service account secret is invalid or has wrong permissions.
-
-**Fix:**
-1. Generate a new service account key from Firebase Console
-2. Update the `FIREBASE_SERVICE_ACCOUNT` secret with the new JSON
-3. Re-run the workflow
-
----
-
-## Quick Copy-Paste Template
-
-Use this template to organize your values before adding them to GitHub:
-
-```
-VITE_FIREBASE_API_KEY=
-VITE_FIREBASE_AUTH_DOMAIN=
-VITE_FIREBASE_PROJECT_ID=
-VITE_FIREBASE_STORAGE_BUCKET=
-VITE_FIREBASE_MESSAGING_SENDER_ID=
-VITE_FIREBASE_APP_ID=
-FIREBASE_SERVICE_ACCOUNT=
+gh secret set RAILWAY_TOKEN
+gh secret set SUPABASE_URL
+gh secret set SUPABASE_ANON_KEY
+gh secret set SUPABASE_SERVICE_ROLE_KEY
+gh secret set OPENAI_API_KEY
+gh secret set SENDGRID_API_KEY
+gh secret set SENDGRID_FROM_EMAIL
+gh secret set JWT_SECRET
+gh secret set FRONTEND_URL
 ```
 
 ---
 
-## Security Notes
+## Verification Checklist
 
-✅ **Safe to use in client code:**
-- All `VITE_FIREBASE_*` values are bundled into your frontend app
-- Firebase API keys are designed to be public
-- Access is controlled by Firebase Security Rules, not API key secrecy
+- [ ] RAILWAY_TOKEN
+- [ ] SUPABASE_URL
+- [ ] SUPABASE_ANON_KEY
+- [ ] SUPABASE_SERVICE_ROLE_KEY (keep secret!)
+- [ ] OPENAI_API_KEY
+- [ ] SENDGRID_API_KEY
+- [ ] SENDGRID_FROM_EMAIL (verified in SendGrid)
+- [ ] JWT_SECRET (32+ characters)
+- [ ] FRONTEND_URL (temporary or final)
 
-❌ **Never commit to git:**
-- `.env.local` file
-- Service account JSON files
-- Any file containing actual secret values
+---
 
-✅ **Always use GitHub Secrets for:**
-- CI/CD pipelines
-- Production deployments
-- Any automated processes
+## Triggering Deployment
+
+Deployment triggers automatically when you push to `main` branch with changes in `backend/` directory, or manually via GitHub Actions tab.
+
+---
+
+## Monitoring Deployment
+
+View logs in GitHub Actions tab → Deploy Backend to Railway workflow.
+
+---
+
+## Security Best Practices
+
+✓ Never commit secrets to code
+✓ Keep SUPABASE_SERVICE_ROLE_KEY secret (server-side only)
+✓ Rotate secrets periodically
+✓ Use separate keys for development/production
 
 ---
 
 ## Next Steps
 
-After setting up secrets:
-
-1. ✅ Test local development works
-2. ✅ Create a test PR to verify preview deployments
-3. ✅ Merge to main to verify production deployment
-4. 🔜 Configure Firebase Authentication providers
-5. 🔜 Set up Firestore and Storage security rules
-
----
-
-**Need help?** Check the full [DEPLOYMENT.md](./DEPLOYMENT.md) guide for more details.
+1. Set all required GitHub Secrets
+2. Push to main or manually trigger workflow
+3. Copy backend URL from workflow output
+4. Update FRONTEND_URL secret
+5. Continue with frontend deployment

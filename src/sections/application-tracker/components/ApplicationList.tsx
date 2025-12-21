@@ -1,16 +1,16 @@
 import { Calendar, ChevronDown, ChevronUp, Clock, Filter, Search, Archive, Download, MoreVertical, Eye, CheckCircle2, XCircle, AlertCircle, MinusCircle, TrendingUp, Plus } from 'lucide-react'
 import { useState } from 'react'
-import type { ApplicationTrackerProps, TrackedApplication, ApplicationStatus, ApplicationFilters } from '../types'
+import type { ApplicationTrackerProps, TrackedApplication, ApplicationStatus } from '../types'
 
 export function ApplicationList({
   applications,
-  filters,
+  // filters: placeholder for future implementation
   onViewApplication,
-  onUpdateStatus,
-  onArchive,
-  onFilter,
+  // onUpdateStatus: placeholder for future implementation
+  // onArchive: placeholder for future implementation
+  // onFilter: placeholder for future implementation
   onSort,
-  onBulkUpdateStatus,
+  // onBulkUpdateStatus: placeholder for future implementation
   onBulkArchive,
   onExport,
   onAddNew

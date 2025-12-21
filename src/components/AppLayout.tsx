@@ -58,7 +58,7 @@ export default function AppLayout() {
       await logOut()
       toast.success('Logged out successfully')
       navigate('/login')
-    } catch (error) {
+    } catch {
       toast.error('Failed to log out')
     }
   }

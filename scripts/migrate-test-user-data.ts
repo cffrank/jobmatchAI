@@ -6,7 +6,7 @@
 
 import { initializeApp } from 'firebase/app'
 import { getAuth, signInWithEmailAndPassword } from 'firebase/auth'
-import { getFirestore, doc, setDoc, collection } from 'firebase/firestore'
+import { getFirestore, doc, setDoc } from 'firebase/firestore'
 import { readFileSync } from 'fs'
 
 // Import mock data
@@ -126,9 +126,11 @@ async function migrate() {
 
     await auth.signOut()
     process.exit(0)
-  } catch (error: any) {
-    console.error('\n❌ Migration failed:', error.message)
-    if (error.code === 'auth/invalid-credential') {
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error'
+    const code = error instanceof Error && 'code' in error ? (error as { code: string }).code : ''
+    console.error('\n❌ Migration failed:', message)
+    if (code === 'auth/invalid-credential') {
       console.error('\n💡 Make sure the test user exists with correct password:')
       console.error(`   Email: ${TEST_EMAIL}`)
       console.error(`   Password: ${TEST_PASSWORD}`)

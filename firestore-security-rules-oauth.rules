@@ -1,0 +1,126 @@
+// =============================================================================
+// Firestore Security Rules - OAuth State Management
+// =============================================================================
+//
+// Add these rules to your existing firestore.rules file to secure OAuth state tokens
+//
+// IMPORTANT: OAuth state tokens should ONLY be accessible by Firebase Functions,
+// never by client applications. This prevents CSRF attacks and token manipulation.
+//
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ==========================================================================
+    // OAuth State Tokens (Functions Only)
+    // ==========================================================================
+    //
+    // These tokens are used for CSRF protection during OAuth flows.
+    // - Created by Firebase Functions during OAuth initiation
+    // - Validated by Firebase Functions during OAuth callback
+    // - Automatically cleaned up by scheduled function
+    // - NO client access allowed
+    //
+    match /oauthStates/{stateId} {
+      // Block all client read/write operations
+      // Only Firebase Admin SDK (Functions) can access
+      allow read: if false;
+      allow write: if false;
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    // ==========================================================================
+    // Example: User Profile with OAuth Metadata
+    // ==========================================================================
+    //
+    // If you store OAuth-related metadata in user documents, ensure it's protected
+    //
+    match /users/{userId} {
+      // Users can read their own data
+      allow read: if request.auth != null && request.auth.uid == userId;
+
+      // Users can update their profile, but not OAuth-related fields
+      allow update: if request.auth != null
+                    && request.auth.uid == userId
+                    // Prevent tampering with OAuth import metadata
+                    && (!request.resource.data.diff(resource.data).affectedKeys().hasAny([
+                      'linkedInImported',
+                      'linkedInImportedAt',
+                      'linkedInLimitedAccess'
+                    ]));
+
+      // Allow creation during signup
+      allow create: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // ==========================================================================
+    // Additional Security Best Practices
+    // ==========================================================================
+
+    // Helper function: Check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Helper function: Check if user owns the resource
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Helper function: Check email verification
+    function isEmailVerified() {
+      return isAuthenticated() && request.auth.token.email_verified == true;
+    }
+
+    // Example: Require email verification for sensitive operations
+    match /sensitiveData/{userId}/{document=**} {
+      allow read: if isOwner(userId) && isEmailVerified();
+      allow write: if isOwner(userId) && isEmailVerified();
+    }
+  }
+}
+
+// =============================================================================
+// Deployment Instructions
+// =============================================================================
+//
+// 1. Backup existing rules:
+//    firebase firestore:security:get > firestore.rules.backup
+//
+// 2. Merge these rules with your existing firestore.rules file
+//
+// 3. Test rules locally (if using emulator):
+//    firebase emulators:start
+//
+// 4. Deploy to production:
+//    firebase deploy --only firestore:rules
+//
+// 5. Verify deployment:
+//    - Go to Firebase Console → Firestore → Rules
+//    - Ensure rules were updated with timestamp
+//    - Test OAuth flow to confirm state tokens are created
+//
+// =============================================================================
+// Testing
+// =============================================================================
+//
+// Test that client cannot access OAuth states:
+//
+// const db = getFirestore();
+// try {
+//   const stateDoc = await getDoc(doc(db, 'oauthStates', 'test-state'));
+//   console.error('SECURITY ISSUE: Client can read OAuth states!');
+// } catch (error) {
+//   console.log('✓ OAuth states properly secured');
+// }
+//
+// Test that Functions can access OAuth states:
+//
+// // In Firebase Function:
+// const db = admin.firestore();
+// await db.collection('oauthStates').doc('test').set({ test: true });
+// console.log('✓ Functions can write OAuth states');
+//

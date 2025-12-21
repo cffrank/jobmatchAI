@@ -1,16 +1,16 @@
-import { ArrowLeft, Calendar, Mail, Phone, Building2, MapPin, DollarSign, TrendingUp, FileText, Users, Clock, CheckCircle2, Circle, Edit3, Trash2, Plus, ExternalLink, Sparkles } from 'lucide-react'
+import { ArrowLeft, Calendar, Mail, Phone, Building2, MapPin, DollarSign, TrendingUp, Users, Clock, CheckCircle2, Circle, Trash2, Plus, ExternalLink, Sparkles } from 'lucide-react'
 import { useState } from 'react'
 import type { ApplicationDetailProps, ApplicationStatus, InterviewEntry, FollowUpAction } from '../types'
 
 export function ApplicationDetail({
   application,
   onBack,
-  onUpdateStatus,
+  // onUpdateStatus: placeholder for future implementation
   onAddNote,
-  onAddFollowUp,
+  // onAddFollowUp: placeholder for future implementation
   onCompleteAction,
-  onScheduleInterview,
-  onUpdateInterview,
+  // onScheduleInterview: placeholder for future implementation
+  // onUpdateInterview: placeholder for future implementation
   onViewJob,
   onViewApplication,
   onArchive,
@@ -62,16 +62,6 @@ export function ApplicationDetail({
     })
   }
 
-  const formatDateTime = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit'
-    })
-  }
-
   const handleAddNote = () => {
     if (noteText.trim()) {
       onAddNote?.(noteText)
@@ -81,7 +71,6 @@ export function ApplicationDetail({
   }
 
   const pendingActions = application.followUpActions.filter(a => !a.completed)
-  const completedActions = application.followUpActions.filter(a => a.completed)
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/20 to-slate-50 dark:from-slate-950 dark:via-blue-950/10 dark:to-slate-950">
@@ -185,7 +174,7 @@ export function ApplicationDetail({
                   ].map(tab => (
                     <button
                       key={tab.id}
-                      onClick={() => setActiveTab(tab.id as any)}
+                      onClick={() => setActiveTab(tab.id as typeof activeTab)}
                       className={`flex-1 px-4 py-2.5 rounded-lg font-medium transition-colors ${
                         activeTab === tab.id
                           ? 'bg-blue-100 dark:bg-blue-950/30 text-blue-700 dark:text-blue-400'

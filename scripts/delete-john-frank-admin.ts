@@ -5,7 +5,7 @@ try {
   admin.initializeApp({
     projectId: 'ai-career-os-139db',
   })
-} catch (error) {
+} catch {
   console.log('Firebase Admin already initialized')
 }
 
@@ -51,11 +51,13 @@ async function deleteJohnFrank() {
     console.log('\n✅ John Frank account completely removed')
     console.log('   You can now run: npx tsx scripts/recreate-john-frank.ts')
 
-  } catch (error: any) {
-    if (error.code === 'auth/user-not-found') {
+  } catch (error) {
+    const code = error instanceof Error && 'code' in error ? (error as { code: string }).code : ''
+    if (code === 'auth/user-not-found') {
       console.log('⚠️  User not found - already deleted or never existed')
     } else {
-      console.error('❌ Error:', error.message)
+      const message = error instanceof Error ? error.message : 'Unknown error'
+      console.error('❌ Error:', message)
       throw error
     }
   }

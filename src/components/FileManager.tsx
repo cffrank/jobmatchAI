@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { FileText, Download, Trash2, Eye, Upload, Check, AlertCircle } from 'lucide-react'
+import { FileText, Download, Trash2, Upload, AlertCircle } from 'lucide-react'
 import { useResumeExport, type ResumeFormat } from '@/hooks/useResumeExport'
 
 interface FileItem {
@@ -51,13 +51,6 @@ export function FileManager({ resumeId, files = [], onUpload, onDelete }: FileMa
     } finally {
       setDeletingFormat(null)
     }
-  }
-
-  const formatFileSize = (bytes?: number) => {
-    if (!bytes) return 'Unknown size'
-    const kb = bytes / 1024
-    if (kb < 1024) return `${kb.toFixed(1)} KB`
-    return `${(kb / 1024).toFixed(1)} MB`
   }
 
   const formatDate = (dateStr: string) => {

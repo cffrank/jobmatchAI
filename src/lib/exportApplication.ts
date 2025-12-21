@@ -2,11 +2,10 @@
  * Export Application Utility
  *
  * Client-side utility for exporting applications to PDF or DOCX format.
- * Calls the Firebase Cloud Function and handles file download.
+ * Calls the Railway backend API and handles file download.
  */
 
-import { httpsCallable } from 'firebase/functions';
-import { functions } from './firebase';
+import { supabase } from './supabase';
 
 /**
  * Export format types
@@ -56,7 +55,7 @@ export class ExportError extends Error {
  *
  * This function:
  * 1. Validates the input parameters
- * 2. Calls the Firebase Cloud Function to generate the document
+ * 2. Calls the Railway backend API to generate the document
  * 3. Receives a signed download URL
  * 4. Triggers automatic download in the browser
  *
@@ -79,18 +78,36 @@ export async function exportApplication(
   }
 
   try {
-    // Call Cloud Function
-    const exportFn = httpsCallable<ExportRequest, ExportResult>(
-      functions,
-      'exportApplication'
-    );
+    // Get auth session
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      throw new ExportError('Please log in to export applications', 'unauthenticated');
+    }
 
-    const result = await exportFn({
-      applicationId,
-      format,
+    // Call Railway backend API
+    const backendUrl = import.meta.env.VITE_BACKEND_URL;
+    const response = await fetch(`${backendUrl}/api/exports/${format}`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        applicationId
+      })
     });
 
-    if (!result.data?.downloadUrl) {
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new ExportError(
+        errorData.message || `Export failed with status ${response.status}`,
+        errorData.code || 'internal'
+      );
+    }
+
+    const result = await response.json() as ExportResult;
+
+    if (!result?.downloadUrl) {
       throw new ExportError(
         'Export function did not return a download URL',
         'internal'
@@ -98,55 +115,15 @@ export async function exportApplication(
     }
 
     // Trigger download in browser
-    await downloadFile(result.data.downloadUrl, result.data.fileName);
+    await downloadFile(result.downloadUrl, result.fileName);
 
   } catch (error: unknown) {
-    // Handle Firebase Functions errors
-    if (error && typeof error === 'object' && 'code' in error) {
-      const fbError = error as { code: string; message: string };
-
-      // Map Firebase error codes to user-friendly messages
-      switch (fbError.code) {
-        case 'unauthenticated':
-          throw new ExportError(
-            'Please log in to export applications',
-            fbError.code,
-            error
-          );
-        case 'permission-denied':
-          throw new ExportError(
-            'You do not have permission to export this application',
-            fbError.code,
-            error
-          );
-        case 'not-found':
-          throw new ExportError(
-            'Application not found',
-            fbError.code,
-            error
-          );
-        case 'resource-exhausted':
-          throw new ExportError(
-            'Document is too large to export. Please try a shorter version.',
-            fbError.code,
-            error
-          );
-        case 'deadline-exceeded':
-          throw new ExportError(
-            'Export timed out. Please try again.',
-            fbError.code,
-            error
-          );
-        default:
-          throw new ExportError(
-            fbError.message || 'Failed to export application',
-            fbError.code,
-            error
-          );
-      }
+    // Handle export errors
+    if (error instanceof ExportError) {
+      throw error;
     }
 
-    // Handle generic errors
+    // Handle fetch/network errors
     if (error instanceof Error) {
       throw new ExportError(
         error.message || 'An unexpected error occurred during export',
@@ -216,7 +193,7 @@ async function downloadFile(url: string, fileName: string): Promise<void> {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-    } catch (fallbackError) {
+    } catch {
       throw new ExportError(
         'Failed to download exported file. Please try again.',
         'download-failed',

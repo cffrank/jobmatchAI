@@ -95,8 +95,8 @@ async function createTestUsers() {
 
       // Small delay to avoid rate limiting
       await new Promise(resolve => setTimeout(resolve, 1000));
-    } catch (error: any) {
-      if (error.code === 'auth/email-already-in-use') {
+    } catch (error) {
+      if (error instanceof Error && 'code' in error && error.code === 'auth/email-already-in-use') {
         console.log(`✓ User already exists: ${userData.email}`);
         createdUsers.push({
           email: userData.email,
@@ -105,7 +105,9 @@ async function createTestUsers() {
           displayName: userData.displayName,
         });
       } else {
-        console.error(`✗ Failed to create ${userData.email}:`, error.code, error.message);
+        const message = error instanceof Error ? error.message : 'Unknown error'
+        const code = error instanceof Error && 'code' in error ? (error as { code: string }).code : 'unknown'
+        console.error(`✗ Failed to create ${userData.email}:`, code, message);
       }
     }
   }

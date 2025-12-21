@@ -1,0 +1,39 @@
+# =============================================================================
+# Railway Deployment Configuration - JobMatch AI Backend (Express.js API)
+# =============================================================================
+# This file configures how Railway builds and deploys the Express.js backend.
+# Documentation: https://docs.railway.app/deploy/config-as-code
+
+[build]
+# Builder to use for the deployment
+builder = "NIXPACKS"
+
+# Build command - TypeScript compilation
+buildCommand = "npm install && npm run build"
+
+# Watch patterns - trigger rebuild on these file changes
+watchPatterns = ["src/**/*.ts", "package.json", "tsconfig.json"]
+
+[deploy]
+# Command to start the server
+startCommand = "npm start"
+
+# Health check endpoint
+healthcheckPath = "/health"
+
+# Health check timeout (seconds)
+healthcheckTimeout = 300
+
+# Restart policy on crashes
+restartPolicyType = "ON_FAILURE"
+
+# Maximum restart attempts
+restartPolicyMaxRetries = 10
+
+[env]
+# Node environment - defaults to production
+# Override in Railway dashboard for development/staging environments
+NODE_ENV = "production"
+
+# Port - Railway injects this automatically, but we set a default
+PORT = "3000"

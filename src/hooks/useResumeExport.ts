@@ -1,12 +1,11 @@
 import { useAuth } from '@/contexts/AuthContext'
 import { useFileUpload } from './useFileUpload'
-import { storage } from '@/lib/firebase'
-import { ref, getDownloadURL } from 'firebase/storage'
+import { supabase } from '@/lib/supabase'
 
 export type ResumeFormat = 'pdf' | 'docx' | 'txt'
 
 /**
- * Hook to manage resume file uploads and exports to Firebase Storage
+ * Hook to manage resume file uploads and exports to Supabase Storage
  */
 export function useResumeExport() {
   const { user } = useAuth()
@@ -29,11 +28,11 @@ export function useResumeExport() {
   /**
    * Upload resume file to storage
    * @param file - Resume file to upload (PDF, DOCX, or TXT)
-   * @param resumeId - ID of the resume in Firestore
+   * @param resumeId - ID of the resume in Supabase
    * @returns Download URL of uploaded file
    */
   const uploadResume = async (file: File, resumeId: string): Promise<string> => {
-    if (!user?.uid) {
+    if (!user?.id) {
       throw new Error('User not authenticated')
     }
 
@@ -44,7 +43,7 @@ export function useResumeExport() {
     }
 
     // Generate storage path
-    const storagePath = `users/${user.uid}/resumes/${resumeId}/resume.${fileExtension}`
+    const storagePath = `users/${user.id}/resumes/${resumeId}/resume.${fileExtension}`
 
     // Upload file
     const result = await uploadFile(file, storagePath)
@@ -55,11 +54,11 @@ export function useResumeExport() {
   /**
    * Upload cover letter file to storage
    * @param file - Cover letter file to upload (PDF, DOCX, or TXT)
-   * @param applicationId - ID of the application in Firestore
+   * @param applicationId - ID of the application in Supabase
    * @returns Download URL of uploaded file
    */
   const uploadCoverLetter = async (file: File, applicationId: string): Promise<string> => {
-    if (!user?.uid) {
+    if (!user?.id) {
       throw new Error('User not authenticated')
     }
 
@@ -70,7 +69,7 @@ export function useResumeExport() {
     }
 
     // Generate storage path
-    const storagePath = `users/${user.uid}/cover-letters/${applicationId}/cover-letter.${fileExtension}`
+    const storagePath = `users/${user.id}/cover-letters/${applicationId}/cover-letter.${fileExtension}`
 
     // Upload file
     const result = await uploadFile(file, storagePath)
@@ -85,16 +84,22 @@ export function useResumeExport() {
    * @returns Download URL
    */
   const getResumeDownloadURL = async (resumeId: string, format: ResumeFormat): Promise<string> => {
-    if (!user?.uid) {
+    if (!user?.id) {
       throw new Error('User not authenticated')
     }
 
-    const storagePath = `users/${user.uid}/resumes/${resumeId}/resume.${format}`
-    const storageRef = ref(storage, storagePath)
+    const storagePath = `users/${user.id}/resumes/${resumeId}/resume.${format}`
 
     try {
-      return await getDownloadURL(storageRef)
-    } catch (error) {
+      const { data, error } = await supabase.storage
+        .from('user-files')
+        .createSignedUrl(storagePath, 3600) // 1 hour expiry
+
+      if (error) throw error
+      if (!data?.signedUrl) throw new Error('No download URL returned')
+
+      return data.signedUrl
+    } catch {
       throw new Error(`Resume file not found: ${format.toUpperCase()}`)
     }
   }
@@ -109,16 +114,22 @@ export function useResumeExport() {
     applicationId: string,
     format: ResumeFormat
   ): Promise<string> => {
-    if (!user?.uid) {
+    if (!user?.id) {
       throw new Error('User not authenticated')
     }
 
-    const storagePath = `users/${user.uid}/cover-letters/${applicationId}/cover-letter.${format}`
-    const storageRef = ref(storage, storagePath)
+    const storagePath = `users/${user.id}/cover-letters/${applicationId}/cover-letter.${format}`
 
     try {
-      return await getDownloadURL(storageRef)
-    } catch (error) {
+      const { data, error } = await supabase.storage
+        .from('user-files')
+        .createSignedUrl(storagePath, 3600) // 1 hour expiry
+
+      if (error) throw error
+      if (!data?.signedUrl) throw new Error('No download URL returned')
+
+      return data.signedUrl
+    } catch {
       throw new Error(`Cover letter file not found: ${format.toUpperCase()}`)
     }
   }
@@ -129,11 +140,11 @@ export function useResumeExport() {
    * @param format - File format to delete
    */
   const deleteResume = async (resumeId: string, format: ResumeFormat): Promise<void> => {
-    if (!user?.uid) {
+    if (!user?.id) {
       throw new Error('User not authenticated')
     }
 
-    const storagePath = `users/${user.uid}/resumes/${resumeId}/resume.${format}`
+    const storagePath = `users/${user.id}/resumes/${resumeId}/resume.${format}`
     await deleteFile(storagePath)
   }
 
@@ -143,11 +154,11 @@ export function useResumeExport() {
    * @param format - File format to delete
    */
   const deleteCoverLetter = async (applicationId: string, format: ResumeFormat): Promise<void> => {
-    if (!user?.uid) {
+    if (!user?.id) {
       throw new Error('User not authenticated')
     }
 
-    const storagePath = `users/${user.uid}/cover-letters/${applicationId}/cover-letter.${format}`
+    const storagePath = `users/${user.id}/cover-letters/${applicationId}/cover-letter.${format}`
     await deleteFile(storagePath)
   }
 

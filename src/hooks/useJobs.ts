@@ -1,16 +1,17 @@
-import { useMemo, useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
-import { db } from '@/lib/firebase'
-import { collection, doc, query, orderBy, setDoc, deleteDoc, limit, startAfter, QueryConstraint, DocumentSnapshot } from 'firebase/firestore'
-import { useCollection, useDocument } from 'react-firebase-hooks/firestore'
+import { supabase } from '@/lib/supabase'
 import type { Job } from '@/sections/job-discovery-matching/types'
 import { rankJobs } from '@/lib/jobMatching'
 import { useProfile } from './useProfile'
 import { useSkills } from './useSkills'
 import { useWorkExperience } from './useWorkExperience'
+import type { Database } from '@/lib/database.types'
+
+type JobRow = Database['public']['Tables']['jobs']['Row']
 
 /**
- * Hook to fetch and rank jobs from Firestore based on user profile
+ * Hook to fetch and rank jobs from Supabase based on user profile
  *
  * Jobs are stored per-user and ranked based on:
  * - Skills match
@@ -18,18 +19,17 @@ import { useWorkExperience } from './useWorkExperience'
  * - Industry alignment
  * - Location compatibility
  *
- * Collection: users/{userId}/jobs (user-specific jobs from searches)
- * Saved jobs: users/{userId}/savedJobs (bookmarked jobs)
+ * Table: jobs (with user_id RLS policy for data isolation)
  *
  * @architecture
- * Each user has their own isolated jobs collection populated by the scrapeJobs Cloud Function.
+ * Each user has their own isolated jobs via RLS policies.
  * This ensures complete data isolation - users only see jobs they've searched for.
  *
- * PERFORMANCE: Uses cursor-based pagination (20 jobs per page) to reduce Firestore reads by 80-90%
+ * PERFORMANCE: Uses offset-based pagination (20 jobs per page) to reduce database reads
  */
 export function useJobs(pageSize = 20) {
   const { user } = useAuth()
-  const userId = user?.uid
+  const userId = user?.id
 
   // Fetch user profile data for matching
   const { profile } = useProfile()
@@ -39,63 +39,89 @@ export function useJobs(pageSize = 20) {
   // Fetch saved jobs to mark them in the list
   const { savedJobIds } = useSavedJobs()
 
-  // Pagination state
-  const [lastDoc, setLastDoc] = useState<DocumentSnapshot | null>(null)
-  const [allJobs, setAllJobs] = useState<Job[]>([])
+  // State management
+  const [jobs, setJobs] = useState<Job[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<Error | null>(null)
+  const [offset, setOffset] = useState(0)
   const [hasMore, setHasMore] = useState(true)
+  const [totalCount, setTotalCount] = useState<number | null>(null)
 
-  // Build paginated query
-  const jobsRef = useMemo(() => {
-    if (!userId) return null
-
-    const constraints: QueryConstraint[] = [
-      orderBy('matchScore', 'desc'),  // Order by pre-calculated match score
-      orderBy('addedAt', 'desc'),     // Tie-breaker for equal scores
-      limit(pageSize)
-    ]
-
-    // Add pagination cursor
-    if (lastDoc) {
-      constraints.push(startAfter(lastDoc))
+  // Fetch jobs with pagination
+  const fetchJobs = useCallback(async (currentOffset: number, append: boolean = false) => {
+    if (!userId) {
+      setLoading(false)
+      return
     }
 
-    return query(collection(db, 'users', userId, 'jobs'), ...constraints)
-  }, [userId, lastDoc, pageSize])
+    try {
+      setLoading(true)
+      setError(null)
 
-  // Subscribe to current page
-  const [snapshot, loading, error] = useCollection(jobsRef)
+      // Fetch jobs with count
+      const { data, error: queryError, count } = await supabase
+        .from('jobs')
+        .select('*', { count: 'exact' })
+        .eq('user_id', userId)
+        .eq('archived', false)
+        .order('match_score', { ascending: false, nullsFirst: false })
+        .order('added_at', { ascending: false })
+        .range(currentOffset, currentOffset + pageSize - 1)
 
-  // Accumulate jobs across pages
+      if (queryError) throw queryError
+
+      // Convert database rows to Job type
+      const fetchedJobs: Job[] = (data || []).map((row: JobRow) => ({
+        id: row.id,
+        title: row.title,
+        company: row.company,
+        location: row.location || undefined,
+        remoteType: row.remote_type || undefined,
+        description: row.description || undefined,
+        requirements: row.requirements || undefined,
+        salaryMin: row.salary_min || undefined,
+        salaryMax: row.salary_max || undefined,
+        sourceUrl: row.source_url || undefined,
+        sourcePlatform: row.source_platform || undefined,
+        matchScore: row.match_score || undefined,
+        skillsMatch: row.skills_match || undefined,
+        missingSkills: row.missing_skills || undefined,
+        experienceMatch: row.experience_match || undefined,
+        locationMatch: row.location_match || undefined,
+        saved: row.saved,
+        archived: row.archived,
+        addedAt: row.added_at,
+        isSaved: false, // Will be set below
+      }))
+
+      // Update state
+      if (append) {
+        setJobs(prev => [...prev, ...fetchedJobs])
+      } else {
+        setJobs(fetchedJobs)
+      }
+
+      setTotalCount(count)
+      setHasMore((count ?? 0) > currentOffset + pageSize)
+      setLoading(false)
+    } catch (err) {
+      console.error('[useJobs] Error fetching jobs:', err)
+      setError(err as Error)
+      setLoading(false)
+    }
+  }, [userId, pageSize])
+
+  // Initial fetch
   useEffect(() => {
-    if (!snapshot) return
-
-    const newJobs = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-      isSaved: false, // Will be set below
-    } as Job))
-
-    // Check if there are more results
-    setHasMore(newJobs.length === pageSize)
-
-    if (lastDoc) {
-      // Append to existing jobs
-      setAllJobs(prev => [...prev, ...newJobs])
-    } else {
-      // First page - replace all jobs
-      setAllJobs(newJobs)
-    }
-  }, [snapshot, lastDoc, pageSize])
-
-  // Get raw jobs from accumulated list
-  const rawJobs: Job[] = allJobs
+    fetchJobs(0, false)
+  }, [fetchJobs])
 
   // Rank jobs based on user profile match
   const rankedJobs = useMemo(() => {
-    if (rawJobs.length === 0) return []
+    if (jobs.length === 0) return []
 
     // Rank jobs using matching algorithm
-    const ranked = rankJobs(rawJobs, {
+    const ranked = rankJobs(jobs, {
       user: profile,
       skills,
       workExperience,
@@ -106,33 +132,43 @@ export function useJobs(pageSize = 20) {
       ...job,
       isSaved: savedJobIds.includes(job.id),
     }))
-  }, [rawJobs, profile, skills, workExperience, savedJobIds])
+  }, [jobs, profile, skills, workExperience, savedJobIds])
 
   // Load more callback
   const loadMore = useCallback(() => {
-    if (snapshot && snapshot.docs.length > 0 && hasMore) {
-      const last = snapshot.docs[snapshot.docs.length - 1]
-      setLastDoc(last)
+    if (!loading && hasMore) {
+      const nextOffset = offset + pageSize
+      setOffset(nextOffset)
+      fetchJobs(nextOffset, true)
     }
-  }, [snapshot, hasMore])
+  }, [loading, hasMore, offset, pageSize, fetchJobs])
 
   // Reset pagination
   const reset = useCallback(() => {
-    setLastDoc(null)
-    setAllJobs([])
+    setOffset(0)
+    setJobs([])
     setHasMore(true)
-  }, [])
+    fetchJobs(0, false)
+  }, [fetchJobs])
 
   /**
    * Save/bookmark a job
    */
   const saveJob = async (jobId: string) => {
     if (!userId) throw new Error('User not authenticated')
-    const ref = doc(db, 'users', userId, 'savedJobs', jobId)
-    await setDoc(ref, {
-      jobId,
-      savedAt: new Date().toISOString(),
-    })
+
+    const { error } = await supabase
+      .from('jobs')
+      .update({ saved: true })
+      .eq('id', jobId)
+      .eq('user_id', userId)
+
+    if (error) throw error
+
+    // Update local state
+    setJobs(prev => prev.map(job =>
+      job.id === jobId ? { ...job, saved: true, isSaved: true } : job
+    ))
   }
 
   /**
@@ -140,8 +176,19 @@ export function useJobs(pageSize = 20) {
    */
   const unsaveJob = async (jobId: string) => {
     if (!userId) throw new Error('User not authenticated')
-    const ref = doc(db, 'users', userId, 'savedJobs', jobId)
-    await deleteDoc(ref)
+
+    const { error } = await supabase
+      .from('jobs')
+      .update({ saved: false })
+      .eq('id', jobId)
+      .eq('user_id', userId)
+
+    if (error) throw error
+
+    // Update local state
+    setJobs(prev => prev.map(job =>
+      job.id === jobId ? { ...job, saved: false, isSaved: false } : job
+    ))
   }
 
   return {
@@ -153,6 +200,7 @@ export function useJobs(pageSize = 20) {
     reset,
     saveJob,
     unsaveJob,
+    totalCount,
   }
 }
 
@@ -160,13 +208,12 @@ export function useJobs(pageSize = 20) {
  * Hook to fetch a single job by ID with user-specific matching
  *
  * @architecture
- * Fetches from the user's personal jobs collection to maintain data isolation.
+ * Fetches from the jobs table with RLS to maintain data isolation.
  * If a jobId is provided but the user doesn't have access, returns null.
  */
 export function useJob(jobId: string | undefined) {
   const { user } = useAuth()
-  const userId = user?.uid
-  const jobRef = jobId && userId ? doc(db, 'users', userId, 'jobs', jobId) : null
+  const userId = user?.id
 
   // Fetch user profile data for matching
   const { profile } = useProfile()
@@ -174,38 +221,106 @@ export function useJob(jobId: string | undefined) {
   const { workExperience } = useWorkExperience()
   const { savedJobIds } = useSavedJobs()
 
-  // Subscribe to job document
-  const [snapshot, loading, error] = useDocument(jobRef)
+  // State management
+  const [job, setJob] = useState<Job | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<Error | null>(null)
 
-  // Calculate match score for this job
-  const job = useMemo(() => {
-    if (!snapshot?.exists()) return null
-
-    const rawJob = { id: snapshot.id, ...snapshot.data() } as Job
-
-    // Rank this single job to get match score
-    const [rankedJob] = rankJobs([rawJob], {
-      user: profile,
-      skills,
-      workExperience,
-    })
-
-    return {
-      ...rankedJob,
-      isSaved: savedJobIds.includes(rawJob.id),
+  // Fetch job
+  useEffect(() => {
+    if (!jobId || !userId) {
+      setJob(null)
+      setLoading(false)
+      return
     }
-  }, [snapshot, profile, skills, workExperience, savedJobIds])
+
+    const fetchJob = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+
+        const { data, error: queryError } = await supabase
+          .from('jobs')
+          .select('*')
+          .eq('id', jobId)
+          .eq('user_id', userId)
+          .single()
+
+        if (queryError) {
+          if (queryError.code === 'PGRST116') {
+            // Not found
+            setJob(null)
+          } else {
+            throw queryError
+          }
+          setLoading(false)
+          return
+        }
+
+        // Convert to Job type
+        const rawJob: Job = {
+          id: data.id,
+          title: data.title,
+          company: data.company,
+          location: data.location || undefined,
+          remoteType: data.remote_type || undefined,
+          description: data.description || undefined,
+          requirements: data.requirements || undefined,
+          salaryMin: data.salary_min || undefined,
+          salaryMax: data.salary_max || undefined,
+          sourceUrl: data.source_url || undefined,
+          sourcePlatform: data.source_platform || undefined,
+          matchScore: data.match_score || undefined,
+          skillsMatch: data.skills_match || undefined,
+          missingSkills: data.missing_skills || undefined,
+          experienceMatch: data.experience_match || undefined,
+          locationMatch: data.location_match || undefined,
+          saved: data.saved,
+          archived: data.archived,
+          addedAt: data.added_at,
+          isSaved: false,
+        }
+
+        // Rank this single job to get match score
+        const [rankedJob] = rankJobs([rawJob], {
+          user: profile,
+          skills,
+          workExperience,
+        })
+
+        setJob({
+          ...rankedJob,
+          isSaved: savedJobIds.includes(rawJob.id),
+        })
+        setLoading(false)
+      } catch (err) {
+        console.error('[useJob] Error fetching job:', err)
+        setError(err as Error)
+        setLoading(false)
+      }
+    }
+
+    fetchJob()
+  }, [jobId, userId, profile, skills, workExperience, savedJobIds])
 
   /**
    * Save/bookmark a job
    */
   const saveJob = async (jobId: string) => {
     if (!userId) throw new Error('User not authenticated')
-    const ref = doc(db, 'users', userId, 'savedJobs', jobId)
-    await setDoc(ref, {
-      jobId,
-      savedAt: new Date().toISOString(),
-    })
+
+    const { error } = await supabase
+      .from('jobs')
+      .update({ saved: true })
+      .eq('id', jobId)
+      .eq('user_id', userId)
+
+    if (error) throw error
+
+    // Update local state
+    if (job && job.id === jobId) {
+      setJob({ ...job, saved: true, isSaved: true })
+    }
   }
 
   /**
@@ -213,8 +328,19 @@ export function useJob(jobId: string | undefined) {
    */
   const unsaveJob = async (jobId: string) => {
     if (!userId) throw new Error('User not authenticated')
-    const ref = doc(db, 'users', userId, 'savedJobs', jobId)
-    await deleteDoc(ref)
+
+    const { error } = await supabase
+      .from('jobs')
+      .update({ saved: false })
+      .eq('id', jobId)
+      .eq('user_id', userId)
+
+    if (error) throw error
+
+    // Update local state
+    if (job && job.id === jobId) {
+      setJob({ ...job, saved: false, isSaved: false })
+    }
   }
 
   return {
@@ -231,19 +357,44 @@ export function useJob(jobId: string | undefined) {
  */
 export function useSavedJobs() {
   const { user } = useAuth()
-  const userId = user?.uid
+  const userId = user?.id
 
-  // Get reference to saved jobs subcollection
-  const savedJobsRef = userId
-    ? query(collection(db, 'users', userId, 'savedJobs'), orderBy('savedAt', 'desc'))
-    : null
+  const [savedJobIds, setSavedJobIds] = useState<string[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<Error | null>(null)
 
-  // Subscribe to saved jobs collection
-  const [snapshot, loading, error] = useCollection(savedJobsRef)
+  useEffect(() => {
+    if (!userId) {
+      setSavedJobIds([])
+      setLoading(false)
+      return
+    }
 
-  const savedJobIds = snapshot
-    ? snapshot.docs.map((doc) => doc.data().jobId as string)
-    : []
+    const fetchSavedJobs = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+
+        const { data, error: queryError } = await supabase
+          .from('jobs')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('saved', true)
+          .order('added_at', { ascending: false })
+
+        if (queryError) throw queryError
+
+        setSavedJobIds((data || []).map(job => job.id))
+        setLoading(false)
+      } catch (err) {
+        console.error('[useSavedJobs] Error fetching saved jobs:', err)
+        setError(err as Error)
+        setLoading(false)
+      }
+    }
+
+    fetchSavedJobs()
+  }, [userId])
 
   return {
     savedJobIds,

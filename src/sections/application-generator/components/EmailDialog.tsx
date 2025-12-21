@@ -106,7 +106,7 @@ export function EmailDialog({
       } else {
         setError(data.message || 'Failed to send email');
       }
-    } catch (err: any) {
+    } catch (err:unknown) {
       console.error('Error sending email:', err);
       setError(err.message || 'An unexpected error occurred while sending email');
     } finally {

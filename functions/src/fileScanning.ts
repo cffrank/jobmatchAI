@@ -168,7 +168,7 @@ export const scanUploadedFile = functions.storage.object().onFinalize(async (obj
 /**
  * Quarantines a potentially malicious file
  */
-async function quarantineFile(bucket: any, filePath: string, reason: string): Promise<void> {
+async function quarantineFile(bucket: ReturnType<typeof storage.bucket>, filePath: string, reason: string): Promise<void> {
   console.error(`QUARANTINE: ${filePath} - Reason: ${reason}`);
 
   try {

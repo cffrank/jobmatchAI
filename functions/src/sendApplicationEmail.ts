@@ -182,7 +182,7 @@ export const sendApplicationEmail = onCall(
       const fromName = userProfile?.fullName || request.auth.token.name || 'JobMatch AI User';
 
       // Prepare email attachments (PDFs will be generated separately)
-      const attachments: any[] = [];
+      const attachments: Array<{ content: string; filename: string; type: string }> = [];
 
       // NOTE: In a real implementation, you would generate PDFs here
       // For now, we'll add placeholder logic that would be replaced with actual PDF generation
@@ -301,19 +301,20 @@ export const sendApplicationEmail = onCall(
         emailId: emailHistoryRef.id,
         message: 'Email sent successfully',
       };
-    } catch (error: any) {
+    } catch (error) {
+      const err = error as { code?: number; message?: string; stack?: string };
       console.error('Error sending email', {
         userId,
         applicationId,
-        error: error.message,
-        stack: error.stack,
+        error: err.message,
+        stack: err.stack,
       });
 
       // Handle SendGrid-specific errors
-      if (error.code >= 400 && error.code < 500) {
+      if (err.code && err.code >= 400 && err.code < 500) {
         throw new HttpsError(
           'invalid-argument',
-          `SendGrid error: ${error.message}`
+          `SendGrid error: ${err.message || 'Unknown error'}`
         );
       }
 
@@ -325,7 +326,7 @@ export const sendApplicationEmail = onCall(
       // Generic error
       throw new HttpsError(
         'internal',
-        `Failed to send email: ${error.message}`
+        `Failed to send email: ${err.message || 'Unknown error'}`
       );
     }
   }

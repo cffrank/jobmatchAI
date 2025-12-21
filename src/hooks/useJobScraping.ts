@@ -1,29 +1,16 @@
 /**
- * Hook for job scraping operations using Apify through Firebase Cloud Functions
+ * Hook for job scraping operations using Apify through Supabase Edge Functions
  *
  * This hook provides:
  * - Job scraping from LinkedIn and Indeed
  * - Loading and error states
- * - Firestore integration for saving scraped jobs
+ * - Supabase integration for saving scraped jobs
  * - Real-time job search history
  */
 
 import { useState, useCallback, useEffect } from 'react';
-import { getFunctions, httpsCallable } from 'firebase/functions';
-import {
-  getFirestore,
-  collection,
-  query,
-  orderBy,
-  limit,
-  onSnapshot,
-  doc,
-  setDoc,
-  updateDoc,
-  Timestamp,
-} from 'firebase/firestore';
-import { useAuthState } from 'react-firebase-hooks/auth';
-import { getAuth } from 'firebase/auth';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
 import type { JobSearchParams, JobSearchResult, Job } from '../sections/job-discovery-matching/types';
 
 interface UseJobScrapingReturn {
@@ -40,7 +27,7 @@ export function useJobScraping(): UseJobScrapingReturn {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastSearchId, setLastSearchId] = useState<string | null>(null);
-  const [user] = useAuthState(getAuth());
+  const { user } = useAuth();
 
   const scrapeJobs = useCallback(
     async (params: JobSearchParams): Promise<JobSearchResult | null> => {
@@ -53,25 +40,32 @@ export function useJobScraping(): UseJobScrapingReturn {
       setError(null);
 
       try {
-        // Call the Cloud Function
-        const functions = getFunctions();
-        const scrapeJobsFunction = httpsCallable<JobSearchParams, JobSearchResult>(
-          functions,
-          'scrapeJobs'
+        // Call the Supabase Edge Function
+        const { data, error: invokeError } = await supabase.functions.invoke<JobSearchResult>(
+          'scrape-jobs',
+          {
+            body: params,
+          }
         );
 
-        const result = await scrapeJobsFunction(params);
+        if (invokeError) {
+          throw invokeError;
+        }
+
+        if (!data) {
+          throw new Error('No data returned from job scraping service');
+        }
 
         // Update state
-        setLastSearchId(result.data.searchId);
+        setLastSearchId(data.searchId);
 
         // Show warnings if any source failed
-        if (result.data.errors && result.data.errors.length > 0) {
-          console.warn('Some job sources failed:', result.data.errors);
+        if (data.errors && data.errors.length > 0) {
+          console.warn('Some job sources failed:', data.errors);
         }
 
         setLoading(false);
-        return result.data;
+        return data;
       } catch (err: unknown) {
         const errorMessage =
           err instanceof Error ? err.message : 'Failed to scrape jobs';
@@ -134,12 +128,16 @@ export function useJobSearchHistory(): UseJobSearchHistoryReturn {
             jobCount: data.jobCount || 0,
           };
         });
-        setSearches(searchData);
-        setLoading(false);
+        queueMicrotask(() => {
+          setSearches(searchData);
+          setLoading(false);
+        });
       },
       (err) => {
-        setError(err.message);
-        setLoading(false);
+        queueMicrotask(() => {
+          setError(err.message);
+          setLoading(false);
+        });
       }
     );
 
@@ -221,12 +219,16 @@ export function useSavedJobs(): UseSavedJobsReturn {
             scrapedAt: data.scrapedAt?.toDate(),
           } as Job;
         });
-        setSavedJobs(jobs.filter(job => job.isSaved));
-        setLoading(false);
+        queueMicrotask(() => {
+          setSavedJobs(jobs.filter(job => job.isSaved));
+          setLoading(false);
+        });
       },
       (err) => {
-        setError(err.message);
-        setLoading(false);
+        queueMicrotask(() => {
+          setError(err.message);
+          setLoading(false);
+        });
       }
     );
 

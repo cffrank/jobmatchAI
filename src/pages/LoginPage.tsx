@@ -34,7 +34,7 @@ export default function LoginPage() {
       await signIn(email, password)
       toast.success('Welcome back!')
       navigate('/')
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Auth error:', error)
       toast.error(getAuthErrorMessage(error))
     } finally {
@@ -48,7 +48,7 @@ export default function LoginPage() {
       await signInWithGoogle()
       toast.success('Welcome!')
       navigate('/')
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Google sign in error:', error)
       toast.error(getAuthErrorMessage(error))
     } finally {
@@ -62,7 +62,7 @@ export default function LoginPage() {
       await signInWithLinkedIn()
       toast.success('Welcome!')
       navigate('/')
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('LinkedIn sign in error:', error)
       toast.error(getAuthErrorMessage(error))
     } finally {
@@ -83,7 +83,7 @@ export default function LoginPage() {
       toast.success('Password reset email sent! Check your inbox.')
       setResetDialogOpen(false)
       setResetEmail('')
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Password reset error:', error)
       toast.error(getAuthErrorMessage(error))
     } finally {

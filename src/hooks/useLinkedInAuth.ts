@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
-import { httpsCallable } from 'firebase/functions'
-import { functions } from '@/lib/firebase'
+import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { toast } from 'sonner'
 
@@ -28,10 +27,10 @@ interface UseLinkedInAuthReturn {
  * ```
  *
  * The hook will:
- * 1. Call the linkedInAuth Cloud Function to get the OAuth URL
+ * 1. Call the Railway backend API to get the OAuth URL
  * 2. Redirect the user to LinkedIn for authorization
- * 3. LinkedIn will redirect back to the linkedInCallback Cloud Function
- * 4. The callback function will import the profile data
+ * 3. LinkedIn will redirect back to the Railway backend callback endpoint
+ * 4. The callback endpoint will import the profile data
  * 5. User is redirected back to the app with success/error status
  */
 export function useLinkedInAuth(): UseLinkedInAuthReturn {
@@ -63,7 +62,7 @@ export function useLinkedInAuth(): UseLinkedInAuthReturn {
 
   /**
    * Initiate the LinkedIn OAuth flow
-   * Calls the linkedInAuth Cloud Function and redirects to LinkedIn
+   * Calls the Railway backend API and redirects to LinkedIn
    */
   const initiateLinkedInAuth = async () => {
     if (!user) {
@@ -78,21 +77,35 @@ export function useLinkedInAuth(): UseLinkedInAuthReturn {
       setIsLoading(true)
       setError(null)
 
-      // Call the linkedInAuth Cloud Function
-      const linkedInAuthFunction = httpsCallable<void, LinkedInAuthResult>(
-        functions,
-        'linkedInAuth'
-      )
+      // Get auth session
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        throw new Error('Please log in to connect your LinkedIn account')
+      }
 
-      const result = await linkedInAuthFunction()
-      const { authUrl } = result.data
+      // Call the Railway backend API
+      const backendUrl = import.meta.env.VITE_BACKEND_URL
+      const response = await fetch(`${backendUrl}/api/auth/linkedin`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`
+        }
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.message || 'Failed to initiate LinkedIn OAuth')
+      }
+
+      const result = await response.json() as LinkedInAuthResult
+      const { authUrl } = result
 
       if (!authUrl) {
         throw new Error('No authorization URL returned')
       }
 
       // Redirect to LinkedIn authorization page
-      // LinkedIn will redirect back to our linkedInCallback Cloud Function
+      // LinkedIn will redirect back to our Railway backend callback endpoint
       window.location.href = authUrl
 
     } catch (err: unknown) {

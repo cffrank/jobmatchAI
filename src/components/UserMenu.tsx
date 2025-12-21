@@ -1,5 +1,5 @@
 import React from 'react'
-import { LogOut, ChevronUp } from 'lucide-react'
+import { LogOut } from 'lucide-react'
 import type { User } from './AppShell'
 
 export interface UserMenuProps {

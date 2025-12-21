@@ -12,7 +12,6 @@ export function SkillsForm() {
   const [localSkills, setLocalSkills] = useState<Array<Skill & { isNew?: boolean }>>([])
   const [editingId, setEditingId] = useState<string | null>(null)
   const [newSkillName, setNewSkillName] = useState('')
-  const [isSubmitting, setIsSubmitting] = useState(false)
 
   useEffect(() => {
     setLocalSkills(skills)

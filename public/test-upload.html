@@ -1,72 +1,43 @@
 <!DOCTYPE html>
 <html>
-<head><title>Test Firebase Storage</title></head>
+<head><title>Test Firebase Storage - DISABLED</title></head>
 <body>
-<h1>Firebase Storage Upload Test</h1>
-<input type="file" id="fileInput" accept="image/*">
-<button onclick="testUpload()">Upload</button>
-<div id="status"></div>
+<h1>Firebase Storage Upload Test - DISABLED</h1>
+<div style="color: red; font-weight: bold; border: 2px solid red; padding: 15px; margin: 20px 0;">
+  <p><strong>SECURITY NOTICE:</strong> This test file has been disabled as it contained hardcoded credentials.</p>
+  <p>To use this test, you must:</p>
+  <ol>
+    <li>Set up environment variables with your Firebase configuration</li>
+    <li>Modify this file to read from environment variables or a secure configuration source</li>
+    <li>Never commit Firebase credentials to version control</li>
+  </ol>
+</div>
+<input type="file" id="fileInput" accept="image/*" disabled>
+<button onclick="showError()" disabled>Upload</button>
+<div id="status">Test disabled for security reasons. See instructions above.</div>
 
 <script type="module">
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js'
-import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js'
-import { getAuth, signInWithEmailAndPassword } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js'
+// SECURITY: This test file has been disabled to prevent credential exposure
+// To re-enable:
+// 1. Configure Firebase using environment variables or a secure config service
+// 2. Remove hardcoded credentials
+// 3. Implement proper authentication flow
 
-const firebaseConfig = {
-  apiKey: 'AIzaSyAaC_RUJUVgJThUOe4GmAChHhd-Du9CvhU',
-  authDomain: 'ai-career-os-139db.firebaseapp.com',
-  projectId: 'ai-career-os-139db',
-  storageBucket: 'ai-career-os-139db.firebasestorage.app',
-  messagingSenderId: '529057497050',
-  appId: '1:529057497050:web:69933ebef1c282bacecae3',
+function showError() {
+  document.getElementById('status').textContent = 'This test is disabled. See instructions above.'
 }
 
-const app = initializeApp(firebaseConfig)
-const storage = getStorage(app)
-const auth = getAuth(app)
+window.showError = showError
 
-// Sign in first
-signInWithEmailAndPassword(auth, 'test1@jobmatch.ai', 'TestPassword123!')
-  .then(() => {
-    document.getElementById('status').innerHTML = 'Signed in! Ready to upload.'
-  })
-  .catch(err => {
-    document.getElementById('status').innerHTML = 'Auth error: ' + err.message
-  })
-
-window.testUpload = async function() {
-  const file = document.getElementById('fileInput').files[0]
-  if (!file) {
-    alert('Please select a file')
-    return
-  }
-
-  const userId = auth.currentUser?.uid
-  if (!userId) {
-    alert('Not authenticated')
-    return
-  }
-
-  const storagePath = `users/${userId}/profile/avatar.jpg`
-  const storageRef = ref(storage, storagePath)
-  const uploadTask = uploadBytesResumable(storageRef, file)
-
-  uploadTask.on('state_changed',
-    (snapshot) => {
-      const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100
-      document.getElementById('status').innerHTML = 'Upload progress: ' + progress + '%'
-    },
-    (error) => {
-      document.getElementById('status').innerHTML = 'Error: ' + error.message
-      console.error('Upload error:', error)
-    },
-    async () => {
-      const downloadURL = await getDownloadURL(uploadTask.snapshot.ref)
-      document.getElementById('status').innerHTML = 'Upload complete! URL: ' + downloadURL
-      console.log('Download URL:', downloadURL)
-    }
-  )
-}
+// Example of how to properly configure Firebase (using environment variables):
+// const firebaseConfig = {
+//   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+//   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+//   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+//   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+//   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+//   appId: import.meta.env.VITE_FIREBASE_APP_ID,
+// }
 </script>
 </body>
 </html>

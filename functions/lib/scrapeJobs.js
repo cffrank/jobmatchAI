@@ -44,14 +44,14 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.scrapeJobs = void 0;
-const functions = __importStar(require("firebase-functions"));
+const https_1 = require("firebase-functions/v2/https");
 const admin = __importStar(require("firebase-admin"));
 const apify_client_1 = require("apify-client");
 // Initialize Apify client
 const getApifyClient = () => {
     const apiToken = process.env.APIFY_API_TOKEN;
     if (!apiToken) {
-        throw new functions.https.HttpsError('failed-precondition', 'Apify API token is not configured');
+        throw new https_1.HttpsError('failed-precondition', 'Apify API token is not configured');
     }
     return new apify_client_1.ApifyClient({ token: apiToken });
 };
@@ -127,7 +127,7 @@ async function checkRateLimit(userId) {
     const db = admin.firestore();
     const userDoc = await db.collection('users').doc(userId).get();
     if (!userDoc.exists) {
-        throw new functions.https.HttpsError('not-found', 'User not found');
+        throw new https_1.HttpsError('not-found', 'User not found');
     }
     const userData = userDoc.data();
     const lastSearchTime = userData?.lastJobSearchTime?.toDate();
@@ -135,7 +135,7 @@ async function checkRateLimit(userId) {
     // Rate limiting: max 10 searches per hour
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
     if (lastSearchTime && lastSearchTime > oneHourAgo && searchCount >= 10) {
-        throw new functions.https.HttpsError('resource-exhausted', 'Rate limit exceeded. Please try again later.');
+        throw new https_1.HttpsError('resource-exhausted', 'Rate limit exceeded. Please try again later.');
     }
     // Update search count
     const updates = {
@@ -188,7 +188,7 @@ async function scrapeLinkedIn(params) {
     }
     catch (error) {
         console.error('LinkedIn scraping error:', error);
-        throw new functions.https.HttpsError('internal', `Failed to scrape LinkedIn: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        throw new https_1.HttpsError('internal', `Failed to scrape LinkedIn: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
 }
 /**
@@ -228,90 +228,67 @@ async function scrapeIndeed(params) {
     }
     catch (error) {
         console.error('Indeed scraping error:', error);
-        throw new functions.https.HttpsError('internal', `Failed to scrape Indeed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        throw new https_1.HttpsError('internal', `Failed to scrape Indeed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
 }
 /**
- * Save jobs to Firestore
+ * Save jobs to Firestore with batch safety
  *
- * Jobs are stored in two locations:
- * 1. users/{userId}/jobSearches/{searchId}/jobs - Full search history with all job details
- * 2. users/{userId}/jobs - Flattened collection for easy querying and ranking
- *
- * This dual storage allows for:
- * - Search history tracking (jobSearches)
- * - Efficient job listing and filtering (jobs)
- * - Per-user data isolation
+ * PERFORMANCE: Implements batch splitting to handle > 500 operations
+ * Firestore batch limit is 500 operations. This function splits large
+ * job lists into multiple batches to prevent failures.
  */
 async function saveJobsToFirestore(userId, searchId, jobs) {
     const db = admin.firestore();
-
-    // Use multiple batches if needed (Firestore batch limit is 500 operations)
-    const BATCH_SIZE = 400; // Leave room for metadata operations
-    const batches = [];
-    let currentBatch = db.batch();
-    let operationCount = 0;
-
-    // Create search metadata document
+    // Create search document first (separate from job batches)
     const searchRef = db
         .collection('users')
         .doc(userId)
         .collection('jobSearches')
         .doc(searchId);
-    currentBatch.set(searchRef, {
+    await searchRef.set({
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
         jobCount: jobs.length,
     });
-    operationCount++;
-
-    // Save each job to both locations
-    jobs.forEach((job) => {
-        // Check if we need a new batch
-        if (operationCount >= BATCH_SIZE) {
-            batches.push(currentBatch);
-            currentBatch = db.batch();
-            operationCount = 0;
-        }
-
-        // 1. Save to search history (with auto-generated ID)
-        const searchJobRef = searchRef.collection('jobs').doc();
-        currentBatch.set(searchJobRef, job);
-        operationCount++;
-
-        // 2. Save to flattened jobs collection for querying
-        // Use a unique ID combining searchId and timestamp to prevent collisions
-        const flatJobId = `${searchId}_${Date.now()}_${Math.random().toString(36).substring(7)}`;
-        const flatJobRef = db
-            .collection('users')
-            .doc(userId)
-            .collection('jobs')
-            .doc(flatJobId);
-
-        currentBatch.set(flatJobRef, {
-            ...job,
-            searchId, // Reference back to the search that found this job
-            addedAt: admin.firestore.FieldValue.serverTimestamp(),
+    // Also save to main jobs collection for easier querying
+    const mainJobsRef = db
+        .collection('users')
+        .doc(userId)
+        .collection('jobs');
+    // Batch jobs in chunks of 500 to respect Firestore batch limit
+    const BATCH_SIZE = 500;
+    for (let i = 0; i < jobs.length; i += BATCH_SIZE) {
+        const batch = db.batch();
+        const chunk = jobs.slice(i, i + BATCH_SIZE);
+        chunk.forEach((job) => {
+            // Save to jobSearches subcollection
+            const searchJobRef = searchRef.collection('jobs').doc();
+            batch.set(searchJobRef, job);
+            // Save to main jobs collection with searchId reference
+            const mainJobRef = mainJobsRef.doc();
+            batch.set(mainJobRef, {
+                ...job,
+                searchId: searchId,
+                addedAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
         });
-        operationCount++;
-    });
-
-    // Add the last batch
-    if (operationCount > 0) {
-        batches.push(currentBatch);
+        await batch.commit();
     }
-
-    // Commit all batches
-    await Promise.all(batches.map(batch => batch.commit()));
 }
 // =============================================================================
 // Cloud Function
 // =============================================================================
-exports.scrapeJobs = functions.https.onCall(async (data, context) => {
+exports.scrapeJobs = (0, https_1.onCall)({
+    timeoutSeconds: 300,
+    memory: '512MiB',
+    secrets: ['APIFY_API_TOKEN']
+}, async (request) => {
     // Verify authentication
-    if (!context.auth) {
-        throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated to scrape jobs');
+    if (!request.auth) {
+        throw new https_1.HttpsError('unauthenticated', 'User must be authenticated to scrape jobs');
     }
-    const userId = context.auth.uid;
+    const data = request.data;
+    const userId = request.auth.uid;
     // Validate input
     const params = {
         keywords: data.keywords,
@@ -325,7 +302,7 @@ exports.scrapeJobs = functions.https.onCall(async (data, context) => {
         sources: data.sources || ['linkedin', 'indeed'],
     };
     if (!params.keywords || params.keywords.trim().length === 0) {
-        throw new functions.https.HttpsError('invalid-argument', 'Keywords are required');
+        throw new https_1.HttpsError('invalid-argument', 'Keywords are required');
     }
     try {
         // Check rate limiting
@@ -355,7 +332,7 @@ exports.scrapeJobs = functions.https.onCall(async (data, context) => {
         });
         // If all scraping failed, throw error
         if (allJobs.length === 0) {
-            throw new functions.https.HttpsError('internal', `All scraping attempts failed: ${errors.join('; ')}`);
+            throw new https_1.HttpsError('internal', `All scraping attempts failed: ${errors.join('; ')}`);
         }
         // Normalize jobs
         const normalizedJobs = allJobs.map(normalizeJob);
@@ -374,10 +351,10 @@ exports.scrapeJobs = functions.https.onCall(async (data, context) => {
     }
     catch (error) {
         console.error('Job scraping error:', error);
-        if (error instanceof functions.https.HttpsError) {
+        if (error instanceof https_1.HttpsError) {
             throw error;
         }
-        throw new functions.https.HttpsError('internal', `Failed to scrape jobs: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        throw new https_1.HttpsError('internal', `Failed to scrape jobs: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
 });
 //# sourceMappingURL=scrapeJobs.js.map

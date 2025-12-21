@@ -13,7 +13,6 @@
 import { initializeApp, cert } from 'firebase-admin/app'
 import { getFirestore } from 'firebase-admin/firestore'
 import { readFileSync } from 'fs'
-import { join } from 'path'
 
 // Import mock data
 import profileData from '../src/sections/profile-resume-management/data.json'
@@ -29,7 +28,7 @@ const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH || './fireb
 let serviceAccount
 try {
   serviceAccount = JSON.parse(readFileSync(serviceAccountPath, 'utf8'))
-} catch (error) {
+} catch {
   console.error('Error: Could not load service account key.')
   console.error('Please download service account key from Firebase Console and save to:', serviceAccountPath)
   console.error('Or set FIREBASE_SERVICE_ACCOUNT_PATH environment variable')
@@ -290,7 +289,7 @@ async function migrate() {
     console.log('1. Login to the app with this userId:', userId)
     console.log('2. Verify all data is displaying correctly')
     console.log('3. Test CRUD operations (create, update, delete)')
-  } catch (error) {
+  } catch {
     console.error()
     console.error('✗ Migration failed:', error)
     process.exit(1)

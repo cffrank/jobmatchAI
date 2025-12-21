@@ -271,7 +271,7 @@ export function JobPreferencesTab({
             <Label>Work Arrangement</Label>
             <Select
               value={preferences.remotePreference}
-              onValueChange={(value: any) =>
+              onValueChange={(value:unknown) =>
                 setPreferences({ ...preferences, remotePreference: value })
               }
             >
@@ -352,7 +352,7 @@ export function JobPreferencesTab({
             <Label>Experience Level</Label>
             <Select
               value={preferences.experienceLevel || 'mid'}
-              onValueChange={(value: any) =>
+              onValueChange={(value:unknown) =>
                 setPreferences({ ...preferences, experienceLevel: value })
               }
             >
@@ -448,7 +448,7 @@ export function JobPreferencesTab({
               <Label>Search Frequency</Label>
               <Select
                 value={settings.searchFrequency}
-                onValueChange={(value: any) =>
+                onValueChange={(value:unknown) =>
                   setSettings({ ...settings, searchFrequency: value })
                 }
               >

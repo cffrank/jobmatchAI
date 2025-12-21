@@ -39,7 +39,7 @@ export function AccountSettings({
   notifications,
   privacy,
   onUpdateProfile,
-  onChangePassword,
+  onChangePassword: _onChangePassword,
   onUploadPhoto,
   photoUploading,
   photoError,
@@ -83,7 +83,7 @@ export function AccountSettings({
                 return (
                   <button
                     key={tab.id}
-                    onClick={() => setActiveTab(tab.id as any)}
+                    onClick={() => setActiveTab(tab.id as typeof activeTab)}
                     className={`flex items-center gap-2 px-6 py-4 font-semibold transition-colors border-b-2 whitespace-nowrap ${
                       activeTab === tab.id
                         ? 'border-blue-600 text-blue-600 dark:text-blue-400'
@@ -301,7 +301,7 @@ function ProfileSettings({ profile, onUpdateProfile, onUploadPhoto, photoUploadi
   )
 }
 
-function SecurityTab({ security, onEnable2FA, onDisable2FA, onGenerateBackupCodes, onRevokeSession }: SecuritySettingsProps) {
+function SecurityTab({ security, onEnable2FA, onDisable2FA, onGenerateBackupCodes: _onGenerateBackupCodes, onRevokeSession }: SecuritySettingsProps) {
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleString('en-US', {
       month: 'short',
@@ -463,15 +463,15 @@ function NotificationsTab({ preferences, onUpdatePreferences }: NotificationSett
                 <p className="text-xs text-slate-500 dark:text-slate-400">{item.description}</p>
               </div>
               <button
-                onClick={() => handleToggle('email', item.key, !(localPrefs.email as any)[item.key])}
+                onClick={() => handleToggle('email', item.key, !localPrefs.email[item.key as keyof typeof localPrefs.email])}
                 className={`relative w-11 h-6 rounded-full transition-colors ${
-                  (localPrefs.email as any)[item.key]
+                  localPrefs.email[item.key as keyof typeof localPrefs.email]
                     ? 'bg-blue-600'
                     : 'bg-slate-300 dark:bg-slate-600'
                 }`}
               >
                 <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${
-                  (localPrefs.email as any)[item.key] ? 'translate-x-5' : 'translate-x-0'
+                  localPrefs.email[item.key as keyof typeof localPrefs.email] ? 'translate-x-5' : 'translate-x-0'
                 }`} />
               </button>
             </div>
@@ -493,15 +493,15 @@ function NotificationsTab({ preferences, onUpdatePreferences }: NotificationSett
                 <p className="text-xs text-slate-500 dark:text-slate-400">{item.description}</p>
               </div>
               <button
-                onClick={() => handleToggle('inApp', item.key, !(localPrefs.inApp as any)[item.key])}
+                onClick={() => handleToggle('inApp', item.key, !localPrefs.inApp[item.key as keyof typeof localPrefs.inApp])}
                 className={`relative w-11 h-6 rounded-full transition-colors ${
-                  (localPrefs.inApp as any)[item.key]
+                  localPrefs.inApp[item.key as keyof typeof localPrefs.inApp]
                     ? 'bg-blue-600'
                     : 'bg-slate-300 dark:bg-slate-600'
                 }`}
               >
                 <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${
-                  (localPrefs.inApp as any)[item.key] ? 'translate-x-5' : 'translate-x-0'
+                  localPrefs.inApp[item.key as keyof typeof localPrefs.inApp] ? 'translate-x-5' : 'translate-x-0'
                 }`} />
               </button>
             </div>
@@ -512,7 +512,7 @@ function NotificationsTab({ preferences, onUpdatePreferences }: NotificationSett
   )
 }
 
-function PrivacyTab({ privacy, onUpdateSettings, onDisconnectAccount, onExportData, onDeleteAccount }: PrivacySettingsProps) {
+function PrivacyTab({ privacy, onUpdateSettings: _onUpdateSettings, onDisconnectAccount, onExportData, onDeleteAccount }: PrivacySettingsProps) {
   const getProviderIcon = (provider: string) => {
     switch (provider) {
       case 'linkedin': return Linkedin

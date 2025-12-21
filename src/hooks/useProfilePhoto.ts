@@ -3,8 +3,11 @@ import { useProfile } from './useProfile'
 import { useFileUpload } from './useFileUpload'
 
 /**
- * Hook to manage user profile photo uploads to Firebase Storage
- * Automatically updates user profile in Firestore with new photo URL
+ * Hook to manage user profile photo uploads to Supabase Storage
+ * Automatically updates user profile in Supabase with new photo URL
+ *
+ * Storage bucket: 'avatars' (or 'files' if avatars bucket doesn't exist)
+ * Storage path: users/{userId}/profile/avatar.{ext}
  */
 export function useProfilePhoto() {
   const { user } = useAuth()
@@ -30,19 +33,20 @@ export function useProfilePhoto() {
   /**
    * Upload profile photo and update user profile
    * @param file - Image file to upload
+   * @param bucket - Storage bucket (default: 'avatars')
    * @returns Download URL of uploaded photo
    */
-  const uploadProfilePhoto = async (file: File): Promise<string> => {
-    if (!user?.uid) {
+  const uploadProfilePhoto = async (file: File, bucket: string = 'avatars'): Promise<string> => {
+    if (!user?.id) {
       throw new Error('User not authenticated')
     }
 
     // Generate storage path
     const fileExtension = file.name.split('.').pop()
-    const storagePath = `users/${user.uid}/profile/avatar.${fileExtension}`
+    const storagePath = `users/${user.id}/profile/avatar.${fileExtension}`
 
-    // Upload file
-    const result = await uploadFile(file, storagePath)
+    // Upload file to Supabase Storage
+    const result = await uploadFile(file, storagePath, bucket)
 
     // Update user profile with new photo URL
     await updateProfile({
@@ -54,21 +58,18 @@ export function useProfilePhoto() {
 
   /**
    * Delete profile photo and remove from user profile
+   * @param bucket - Storage bucket (default: 'avatars')
    */
-  const deleteProfilePhoto = async (): Promise<void> => {
-    if (!user?.uid) {
+  const deleteProfilePhoto = async (bucket: string = 'avatars'): Promise<void> => {
+    if (!user?.id) {
       throw new Error('User not authenticated')
     }
 
-    // Get current photo path from storage
-    // Note: We assume the file extension is preserved in the filename
-    const storagePath = `users/${user.uid}/profile/`
-
     try {
-      // Delete all possible image extensions
+      // Try to delete all possible image extensions
       const extensions = ['jpg', 'jpeg', 'png', 'webp', 'gif']
       const deletePromises = extensions.map(ext =>
-        deleteFile(`${storagePath}avatar.${ext}`).catch(() => {
+        deleteFile(`users/${user.id}/profile/avatar.${ext}`, bucket).catch(() => {
           // Ignore errors if file doesn't exist
         })
       )
@@ -79,7 +80,7 @@ export function useProfilePhoto() {
       await updateProfile({
         profileImageUrl: null,
       })
-    } catch (error) {
+    } catch {
       throw new Error('Failed to delete profile photo')
     }
   }

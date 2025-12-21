@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app'
-import { getAuth, sendPasswordResetEmail, updatePassword, signInWithEmailAndPassword } from 'firebase/auth'
+import { getAuth, sendPasswordResetEmail } from 'firebase/auth'
 
 // SECURITY: Firebase configuration must come from environment variables
 const requiredEnvVars = [
@@ -43,8 +43,9 @@ async function resetTestUserPassword() {
     await sendPasswordResetEmail(auth, email)
     console.log(`✅ Password reset email sent to ${email}`)
     console.log('📧 Check the email inbox for the reset link')
-  } catch (error: any) {
-    console.error('❌ Error:', error.message)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error'
+    console.error('❌ Error:', message)
     console.log('\n💡 Alternative: Manually reset password in Firebase Console:')
     console.log('   1. Go to https://console.firebase.google.com/project/ai-career-os-139db/authentication/users')
     console.log('   2. Find test1@jobmatch.ai')

@@ -133,6 +133,24 @@ service cloud.firestore {
         // Write restricted to Cloud Functions
         allow write: if false;
       }
+
+      // Active sessions subcollection
+      // Users can read their own sessions, create new ones, and delete (revoke) them
+      match /sessions/{sessionId} {
+        allow read: if isAuthenticated() && isOwner(userId);
+        allow create: if isAuthenticated() && isOwner(userId);
+        allow update: if isAuthenticated() && isOwner(userId);
+        allow delete: if isAuthenticated() && isOwner(userId);
+      }
+
+      // Security events subcollection
+      // Users can read their own security events and create new ones
+      // Deletion is not allowed to maintain audit trail
+      match /securityEvents/{eventId} {
+        allow read: if isAuthenticated() && isOwner(userId);
+        allow create: if isAuthenticated() && isOwner(userId);
+        allow update, delete: if false;
+      }
     }
 
     // Notification queue for batch processing

@@ -70,3 +70,7 @@ dist-ssr
 # Git hooks and security tools
 .git-secrets
 .gitleaks
+
+# MCP server configuration (contains personal access tokens)
+.mcp.json
+.mcp.*.json

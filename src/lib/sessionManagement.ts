@@ -1,4 +1,6 @@
-import type { User } from 'firebase/auth'
+import type { User } from '@supabase/supabase-js'
+import { supabase } from './supabase'
+import { createOrUpdateSession, logSecurityEvent } from './securityService'
 
 // Session timeout configuration (30 minutes of inactivity)
 const SESSION_TIMEOUT_MS = 30 * 60 * 1000
@@ -40,11 +42,20 @@ export function initializeSession(user: User): void {
   sessionStorage.setItem(LAST_ACTIVITY_KEY, now.toString())
 
   // Also store in localStorage for cross-tab session detection
-  localStorage.setItem(`${SESSION_ID_KEY}_${user.uid}`, sessionId)
+  localStorage.setItem(`${SESSION_ID_KEY}_${user.id}`, sessionId)
 
   console.log('[Session] New session initialized:', {
-    userId: user.uid,
+    userId: user.id,
     sessionId: sessionId.substring(0, 8) + '...'
+  })
+
+  // Create session in Supabase and log login event
+  createOrUpdateSession(user.id, sessionId).catch((error) => {
+    console.error('[Session] Failed to create session in Supabase:', error)
+  })
+
+  logSecurityEvent(user.id, 'Login', 'success').catch((error) => {
+    console.error('[Session] Failed to log login event:', error)
   })
 }
 
@@ -116,6 +127,13 @@ export function shouldShowSessionWarning(): boolean {
  * Clear session data on logout
  */
 export function clearSession(userId?: string): void {
+  // Log logout event before clearing session data
+  if (userId) {
+    logSecurityEvent(userId, 'Logout', 'success').catch((error) => {
+      console.error('[Session] Failed to log logout event:', error)
+    })
+  }
+
   sessionStorage.removeItem(SESSION_ID_KEY)
   sessionStorage.removeItem(LOGIN_TIME_KEY)
   sessionStorage.removeItem(LAST_ACTIVITY_KEY)
@@ -143,15 +161,21 @@ export async function validateAndRefreshSession(
   // Check if session is still valid
   if (!isSessionValid()) {
     console.warn('[Session] Session expired due to inactivity')
-    clearSession(currentUser.uid)
+    clearSession(currentUser.id)
     return false
   }
 
   // Refresh token periodically or on demand
   if (forceTokenRefresh) {
     try {
-      await currentUser.getIdToken(true)
-      console.log('[Session] Token refreshed successfully')
+      const { data, error } = await supabase.auth.refreshSession()
+      if (error) {
+        console.error('[Session] Failed to refresh token:', error)
+        return false
+      }
+      if (data.session) {
+        console.log('[Session] Token refreshed successfully')
+      }
     } catch (error) {
       console.error('[Session] Failed to refresh token:', error)
       return false
@@ -185,7 +209,7 @@ export function setupActivityTracking(): () => void {
 /**
  * Throttle helper to limit function calls
  */
-function throttle<T extends (...args: any[]) => any>(
+function throttle<T extends (...args: unknown[]) => void>(
   func: T,
   delay: number
 ): (...args: Parameters<T>) => void {

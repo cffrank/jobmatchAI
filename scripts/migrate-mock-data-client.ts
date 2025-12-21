@@ -11,7 +11,7 @@
 
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
-import { getFirestore, doc, setDoc, collection } from 'firebase/firestore';
+import { getFirestore, doc, setDoc } from 'firebase/firestore';
 import { readFileSync } from 'fs';
 
 // Import mock data
@@ -144,17 +144,18 @@ async function migrateResumes() {
 
 /**
  * Migrate jobs (top-level collection, shared across users)
+ * NOTE: This function is not used due to security rules - kept for reference
  */
-async function migrateJobs() {
-  console.log('Migrating jobs...');
-
-  for (const job of jobsData.jobs) {
-    const jobRef = doc(db, 'jobs', job.id);
-    await setDoc(jobRef, job);
-  }
-
-  console.log(`✓ ${jobsData.jobs.length} jobs migrated`);
-}
+// async function migrateJobs() {
+//   console.log('Migrating jobs...');
+//
+//   for (const job of jobsData.jobs) {
+//     const jobRef = doc(db, 'jobs', job.id);
+//     await setDoc(jobRef, job);
+//   }
+//
+//   console.log(`✓ ${jobsData.jobs.length} jobs migrated`);
+// }
 
 /**
  * Migrate saved jobs
@@ -163,7 +164,7 @@ async function migrateSavedJobs() {
   console.log('Migrating saved jobs...');
 
   // Find saved jobs in the mock data
-  const savedJobs = jobsData.jobs.filter((job: any) => job.isSaved);
+  const savedJobs = jobsData.jobs.filter((job: { isSaved?: boolean }) => job.isSaved);
 
   for (const job of savedJobs) {
     const savedJobRef = doc(db, 'users', userId, 'savedJobs', job.id);
@@ -206,64 +207,68 @@ async function migrateTrackedApplications() {
 
 /**
  * Migrate subscription data
+ * NOTE: This function is not used due to security rules - kept for reference
  */
-async function migrateSubscription() {
-  console.log('Migrating subscription...');
-  const subscriptionRef = doc(db, 'users', userId, 'subscription', 'current');
-
-  await setDoc(subscriptionRef, {
-    ...accountData.subscription,
-    userId,
-  });
-
-  console.log(`✓ Subscription migrated`);
-}
+// async function migrateSubscription() {
+//   console.log('Migrating subscription...');
+//   const subscriptionRef = doc(db, 'users', userId, 'subscription', 'current');
+//
+//   await setDoc(subscriptionRef, {
+//     ...accountData.subscription,
+//     userId,
+//   });
+//
+//   console.log(`✓ Subscription migrated`);
+// }
 
 /**
  * Migrate usage limits
+ * NOTE: This function is not used due to security rules - kept for reference
  */
-async function migrateUsageLimits() {
-  console.log('Migrating usage limits...');
-  const usageLimitsRef = doc(db, 'users', userId, 'usageLimits', 'current');
-
-  await setDoc(usageLimitsRef, {
-    ...accountData.usageLimits,
-    userId,
-  });
-
-  console.log(`✓ Usage limits migrated`);
-}
+// async function migrateUsageLimits() {
+//   console.log('Migrating usage limits...');
+//   const usageLimitsRef = doc(db, 'users', userId, 'usageLimits', 'current');
+//
+//   await setDoc(usageLimitsRef, {
+//     ...accountData.usageLimits,
+//     userId,
+//   });
+//
+//   console.log(`✓ Usage limits migrated`);
+// }
 
 /**
  * Migrate invoices
+ * NOTE: This function is not used due to security rules - kept for reference
  */
-async function migrateInvoices() {
-  console.log('Migrating invoices...');
-
-  for (const invoice of accountData.invoices) {
-    const invoiceRef = doc(db, 'users', userId, 'invoices', invoice.id);
-    await setDoc(invoiceRef, {
-      ...invoice,
-      userId,
-    });
-  }
-
-  console.log(`✓ ${accountData.invoices.length} invoices migrated`);
-}
+// async function migrateInvoices() {
+//   console.log('Migrating invoices...');
+//
+//   for (const invoice of accountData.invoices) {
+//     const invoiceRef = doc(db, 'users', userId, 'invoices', invoice.id);
+//     await setDoc(invoiceRef, {
+//       ...invoice,
+//       userId,
+//     });
+//   }
+//
+//   console.log(`✓ ${accountData.invoices.length} invoices migrated`);
+// }
 
 /**
  * Migrate payment methods
+ * NOTE: This function is not used due to security rules - kept for reference
  */
-async function migratePaymentMethods() {
-  console.log('Migrating payment methods...');
-
-  for (const method of accountData.paymentMethods) {
-    const paymentMethodRef = doc(db, 'users', userId, 'paymentMethods', method.id);
-    await setDoc(paymentMethodRef, method);
-  }
-
-  console.log(`✓ ${accountData.paymentMethods.length} payment methods migrated`);
-}
+// async function migratePaymentMethods() {
+//   console.log('Migrating payment methods...');
+//
+//   for (const method of accountData.paymentMethods) {
+//     const paymentMethodRef = doc(db, 'users', userId, 'paymentMethods', method.id);
+//     await setDoc(paymentMethodRef, method);
+//   }
+//
+//   console.log(`✓ ${accountData.paymentMethods.length} payment methods migrated`);
+// }
 
 /**
  * Main migration function
@@ -337,9 +342,10 @@ async function migrate() {
     console.log('2. Login to the app and verify data displays correctly');
 
     process.exit(0);
-  } catch (error: any) {
+  } catch (error) {
     console.error();
-    console.error('✗ Migration failed:', error.message);
+    const message = error instanceof Error ? error.message : 'Unknown error'
+    console.error('✗ Migration failed:', message);
     console.error();
     console.error('Common issues:');
     console.error('  - Firestore security rules may be blocking writes');

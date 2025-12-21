@@ -41,7 +41,7 @@ export function ExperienceTimeline({
         {/* Timeline line */}
         <div className="absolute left-6 top-4 bottom-4 w-0.5 bg-gradient-to-b from-blue-500 via-blue-400 to-emerald-400 dark:from-blue-600 dark:via-blue-500 dark:to-emerald-500" />
 
-        {experiences.map((exp, index) => (
+        {experiences.map((exp) => (
           <div key={exp.id} className="relative pl-16 group">
             {/* Timeline dot */}
             <div className="absolute left-0 top-0 w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700 flex items-center justify-center shadow-lg ring-4 ring-white dark:ring-slate-900">

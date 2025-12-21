@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { X, Save, Briefcase, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useWorkExperience } from '@/hooks/useWorkExperience'
-import type { WorkExperience } from '../types'
+// WorkExperience type import available if needed for type annotations
 
 export function WorkExperienceForm() {
   const navigate = useNavigate()

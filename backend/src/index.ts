@@ -1,0 +1,267 @@
+/**
+ * JobMatch AI Backend Server
+ *
+ * Express.js server that replaces Firebase Cloud Functions.
+ * Provides REST API endpoints for:
+ * - Application generation (AI-powered resume/cover letter)
+ * - Job scraping from LinkedIn and Indeed
+ * - Email sending via SendGrid
+ * - LinkedIn OAuth integration
+ * - PDF/DOCX export generation
+ * - Scheduled background jobs
+ *
+ * All endpoints are secured with Supabase JWT authentication
+ * and PostgreSQL-backed rate limiting.
+ */
+
+import 'dotenv/config';
+import express, { type Application, type Request, type Response } from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+
+// Route imports
+import applicationsRouter from './routes/applications';
+import emailsRouter from './routes/emails';
+import authRouter from './routes/auth';
+import jobsRouter from './routes/jobs';
+import exportsRouter from './routes/exports';
+
+// Middleware imports
+import { errorHandler, notFoundHandler } from './middleware/errorHandler';
+import { ipRateLimiter } from './middleware/rateLimiter';
+
+// Scheduled jobs
+import { initializeScheduledJobs } from './jobs/scheduled';
+
+// =============================================================================
+// Configuration
+// =============================================================================
+
+const PORT = parseInt(process.env.PORT || '3000', 10);
+const NODE_ENV = process.env.NODE_ENV || 'development';
+const APP_URL = process.env.APP_URL || 'http://localhost:5173';
+
+// =============================================================================
+// Express App Setup
+// =============================================================================
+
+const app: Application = express();
+
+// =============================================================================
+// Security Middleware
+// =============================================================================
+
+// Helmet for security headers
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        scriptSrc: ["'self'"],
+        imgSrc: ["'self'", 'data:', 'https:'],
+        connectSrc: ["'self'", 'https://api.openai.com', 'https://api.sendgrid.com'],
+      },
+    },
+    crossOriginEmbedderPolicy: false,
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+  })
+);
+
+// CORS configuration
+const corsOptions = {
+  origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+    // Allow requests with no origin (mobile apps, curl, etc.)
+    if (!origin) {
+      callback(null, true);
+      return;
+    }
+
+    // In development, allow localhost
+    if (NODE_ENV === 'development') {
+      if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
+        callback(null, true);
+        return;
+      }
+    }
+
+    // Check against allowed origins
+    const allowedOrigins = [
+      APP_URL,
+      'https://jobmatch-ai.railway.app',
+      'https://jobmatch-ai.vercel.app',
+    ];
+
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.warn(`CORS blocked origin: ${origin}`);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['X-RateLimit-Limit', 'X-RateLimit-Remaining', 'X-RateLimit-Reset', 'Retry-After'],
+  maxAge: 86400, // 24 hours
+};
+
+app.use(cors(corsOptions));
+
+// Global rate limiting for all requests (IP-based)
+app.use(ipRateLimiter(100, 60 * 1000)); // 100 requests per minute per IP
+
+// =============================================================================
+// Body Parsing
+// =============================================================================
+
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// =============================================================================
+// Request Logging
+// =============================================================================
+
+if (NODE_ENV === 'development') {
+  app.use((req: Request, _res: Response, next) => {
+    console.log(`${new Date().toISOString()} ${req.method} ${req.path}`);
+    next();
+  });
+}
+
+// =============================================================================
+// Health Check Endpoint
+// =============================================================================
+
+app.get('/health', (_req: Request, res: Response) => {
+  res.json({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    version: process.env.npm_package_version || '1.0.0',
+    environment: NODE_ENV,
+  });
+});
+
+// =============================================================================
+// API Routes
+// =============================================================================
+
+app.use('/api/applications', applicationsRouter);
+app.use('/api/emails', emailsRouter);
+app.use('/api/auth', authRouter);
+app.use('/api/jobs', jobsRouter);
+app.use('/api/exports', exportsRouter);
+
+// =============================================================================
+// API Documentation (development only)
+// =============================================================================
+
+if (NODE_ENV === 'development') {
+  app.get('/api', (_req: Request, res: Response) => {
+    res.json({
+      name: 'JobMatch AI API',
+      version: '1.0.0',
+      endpoints: {
+        applications: {
+          'POST /api/applications/generate': 'Generate application variants for a job',
+          'GET /api/applications': 'List user applications',
+          'GET /api/applications/:id': 'Get application by ID',
+          'PATCH /api/applications/:id': 'Update application',
+          'DELETE /api/applications/:id': 'Delete application',
+        },
+        jobs: {
+          'GET /api/jobs': 'List user jobs with filters',
+          'GET /api/jobs/:id': 'Get job by ID',
+          'POST /api/jobs/scrape': 'Scrape jobs from sources',
+          'PATCH /api/jobs/:id': 'Update job (save/archive)',
+          'DELETE /api/jobs/:id': 'Delete job',
+        },
+        emails: {
+          'POST /api/emails/send': 'Send application email',
+          'GET /api/emails/history': 'Get email history',
+          'GET /api/emails/remaining': 'Get remaining emails in rate limit window',
+        },
+        auth: {
+          'GET /api/auth/linkedin/initiate': 'Start LinkedIn OAuth flow',
+          'GET /api/auth/linkedin/callback': 'Handle LinkedIn OAuth callback',
+        },
+        exports: {
+          'POST /api/exports/pdf': 'Export application as PDF',
+          'POST /api/exports/docx': 'Export application as DOCX',
+        },
+      },
+      authentication: 'Bearer token in Authorization header',
+      rateLimit: {
+        global: '100 requests/minute per IP',
+        emails: '10 emails/hour per user',
+        applications: '20 generations/hour per user',
+        scraping: '10 scrapes/hour per user',
+      },
+    });
+  });
+}
+
+// =============================================================================
+// Error Handling
+// =============================================================================
+
+// 404 handler (must be before error handler)
+app.use(notFoundHandler);
+
+// Global error handler (must be last)
+app.use(errorHandler);
+
+// =============================================================================
+// Server Startup
+// =============================================================================
+
+function startServer(): void {
+  app.listen(PORT, () => {
+    console.log('='.repeat(60));
+    console.log(`JobMatch AI Backend Server`);
+    console.log('='.repeat(60));
+    console.log(`Environment: ${NODE_ENV}`);
+    console.log(`Port: ${PORT}`);
+    console.log(`Health check: http://localhost:${PORT}/health`);
+    if (NODE_ENV === 'development') {
+      console.log(`API docs: http://localhost:${PORT}/api`);
+    }
+    console.log('='.repeat(60));
+
+    // Initialize scheduled jobs
+    initializeScheduledJobs();
+  });
+}
+
+// =============================================================================
+// Graceful Shutdown
+// =============================================================================
+
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received. Shutting down gracefully...');
+  process.exit(0);
+});
+
+process.on('SIGINT', () => {
+  console.log('SIGINT received. Shutting down gracefully...');
+  process.exit(0);
+});
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught Exception:', error);
+  process.exit(1);
+});
+
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+// =============================================================================
+// Start Server
+// =============================================================================
+
+startServer();
+
+export default app;

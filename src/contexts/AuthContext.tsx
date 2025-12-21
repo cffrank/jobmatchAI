@@ -1,19 +1,7 @@
 import { createContext, useContext, useEffect, useState, useMemo, useCallback } from 'react'
 import type { ReactNode } from 'react'
-import {
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  signInWithPopup,
-  signOut,
-  sendPasswordResetEmail,
-  sendEmailVerification,
-  updateProfile,
-  GoogleAuthProvider,
-  OAuthProvider,
-  onAuthStateChanged,
-} from 'firebase/auth'
-import type { User } from 'firebase/auth'
-import { auth } from '../lib/firebase'
+import type { User, AuthError } from '@supabase/supabase-js'
+import { supabase } from '../lib/supabase'
 import {
   initializeSession,
   clearSession,
@@ -37,15 +25,8 @@ interface AuthContextType {
   updateUserProfile: (displayName?: string, photoURL?: string) => Promise<void>
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined)
-
-export function useAuth() {
-  const context = useContext(AuthContext)
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider')
-  }
-  return context
-}
+// eslint-disable-next-line react-refresh/only-export-components
+export const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 interface AuthProviderProps {
   children: ReactNode
@@ -62,11 +43,12 @@ async function withRetry<T>(
   for (let i = 0; i < maxRetries; i++) {
     try {
       return await fn()
-    } catch (error: any) {
-      lastError = error
+    } catch (error) {
+      const err = error as AuthError
+      lastError = error as Error
 
       // Only retry on rate limiting errors
-      if (error.code === 'auth/too-many-requests' && i < maxRetries - 1) {
+      if (err.status === 429 && i < maxRetries - 1) {
         const delay = baseDelay * Math.pow(2, i)
         console.warn(`Rate limited, retrying in ${delay}ms...`)
         await new Promise(resolve => setTimeout(resolve, delay))
@@ -91,8 +73,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     toast.error('Session expired', {
       description: 'Your session has expired due to inactivity. Please log in again.'
     })
-    await signOut(auth)
-    clearSession(user?.uid)
+    await supabase.auth.signOut()
+    clearSession(user?.id)
   }, [user])
 
   // Handle session warning
@@ -108,36 +90,67 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   // Set up auth state listener with session management
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
         // Validate existing session or initialize new one
-        const sessionValid = await validateAndRefreshSession(firebaseUser, false)
+        validateAndRefreshSession(session.user, false).then((sessionValid) => {
+          if (!sessionValid && !loading) {
+            // Session is invalid, sign out
+            console.warn('[Auth] Invalid session detected, signing out')
+            supabase.auth.signOut()
+            setUser(null)
+            setLoading(false)
+            return
+          }
+
+          // If this is a new login (no existing session), initialize
+          if (!isSessionValid()) {
+            console.log('[Auth] Initializing new session for user login')
+            initializeSession(session.user)
+          }
+
+          setUser(session.user)
+          setLoading(false)
+        })
+      } else {
+        setUser(null)
+        setLoading(false)
+      }
+    })
+
+    // Listen for auth state changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (session?.user) {
+        // Validate existing session or initialize new one
+        const sessionValid = await validateAndRefreshSession(session.user, false)
 
         if (!sessionValid && !loading) {
           // Session is invalid, sign out
           console.warn('[Auth] Invalid session detected, signing out')
-          await signOut(auth)
+          await supabase.auth.signOut()
           setUser(null)
-          setLoading(false)
           return
         }
 
         // If this is a new login (no existing session), initialize
         if (!isSessionValid()) {
           console.log('[Auth] Initializing new session for user login')
-          initializeSession(firebaseUser)
+          initializeSession(session.user)
         }
 
-        setUser(firebaseUser)
+        setUser(session.user)
       } else {
         setUser(null)
         clearSession()
       }
-
-      setLoading(false)
     })
 
-    return unsubscribe
+    return () => {
+      subscription.unsubscribe()
+    }
   }, [loading])
 
   // Set up activity tracking
@@ -167,88 +180,142 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }, [user])
 
-  const signUp = async (email: string, password: string, displayName?: string) => {
-    const userCredential = await withRetry(() =>
-      createUserWithEmailAndPassword(auth, email, password)
+  const signUp = useCallback(async (email: string, password: string, displayName?: string) => {
+    const { data, error } = await withRetry(() =>
+      supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            display_name: displayName || '',
+          },
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        },
+      })
     )
 
-    // Update profile with display name if provided
-    if (displayName && userCredential.user) {
-      await updateProfile(userCredential.user, { displayName })
-    }
+    if (error) throw error
+    if (!data.user) throw new Error('Failed to create user')
 
-    // Send email verification
-    if (userCredential.user) {
-      await sendEmailVerification(userCredential.user)
-    }
-
-    // Initialize session for new user
-    if (userCredential.user) {
-      initializeSession(userCredential.user)
-    }
-  }
-
-  const signIn = async (email: string, password: string) => {
-    const userCredential = await withRetry(() =>
-      signInWithEmailAndPassword(auth, email, password)
-    )
-
-    // Regenerate session to prevent session fixation
-    if (userCredential.user) {
-      initializeSession(userCredential.user)
-    }
-  }
-
-  const signInWithGoogle = async () => {
-    const provider = new GoogleAuthProvider()
-    const userCredential = await withRetry(() => signInWithPopup(auth, provider))
-
-    // Initialize session for OAuth login
-    if (userCredential.user) {
-      initializeSession(userCredential.user)
-    }
-  }
-
-  const signInWithLinkedIn = async () => {
-    const provider = new OAuthProvider('oidc.linkedin')
-    provider.addScope('openid')
-    provider.addScope('profile')
-    provider.addScope('email')
-
-    // Add custom parameters for CSRF protection
-    provider.setCustomParameters({
-      prompt: 'consent'
+    // Supabase sends email verification automatically
+    toast.success('Verification email sent', {
+      description: 'Please check your email to verify your account.',
     })
 
-    const userCredential = await withRetry(() => signInWithPopup(auth, provider))
+    // Initialize session for new user
+    initializeSession(data.user)
+  }, [])
 
-    // Initialize session for OAuth login
-    if (userCredential.user) {
-      initializeSession(userCredential.user)
-    }
-  }
+  const signIn = useCallback(async (email: string, password: string) => {
+    const { data, error } = await withRetry(() =>
+      supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+    )
 
-  const logOut = async () => {
-    const userId = user?.uid
-    await signOut(auth)
+    if (error) throw error
+    if (!data.user) throw new Error('Failed to sign in')
+
+    // Regenerate session to prevent session fixation
+    initializeSession(data.user)
+  }, [])
+
+  const signInWithGoogle = useCallback(async () => {
+    const { error } = await withRetry(() =>
+      supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+          queryParams: {
+            prompt: 'consent',
+          },
+        },
+      })
+    )
+
+    if (error) throw error
+
+    // Session will be initialized in onAuthStateChange after OAuth redirect
+  }, [])
+
+  const signInWithLinkedIn = useCallback(async () => {
+    const { error } = await withRetry(() =>
+      supabase.auth.signInWithOAuth({
+        provider: 'linkedin_oidc',
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+          queryParams: {
+            prompt: 'consent',
+          },
+        },
+      })
+    )
+
+    if (error) throw error
+
+    // Session will be initialized in onAuthStateChange after OAuth redirect
+  }, [])
+
+  const logOut = useCallback(async () => {
+    const userId = user?.id
+    const { error } = await supabase.auth.signOut()
+    if (error) throw error
+
     clearSession(userId)
-  }
+  }, [user])
 
-  const resetPassword = async (email: string) => {
-    await sendPasswordResetEmail(auth, email)
-  }
+  const resetPassword = useCallback(async (email: string) => {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/auth/reset-password`,
+    })
 
-  const verifyEmail = async () => {
-    if (user) {
-      await sendEmailVerification(user)
+    if (error) throw error
+
+    toast.success('Password reset email sent', {
+      description: 'Please check your email for the password reset link.',
+    })
+  }, [])
+
+  const verifyEmail = useCallback(async () => {
+    if (!user || !user.email) return
+
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email: user.email,
+    })
+
+    if (error) throw error
+
+    toast.success('Verification email sent', {
+      description: 'Please check your email to verify your account.',
+    })
+  }, [user])
+
+  const updateUserProfile = useCallback(async (displayName?: string, photoURL?: string) => {
+    if (!user) return
+
+    const updates: {
+      data?: {
+        display_name?: string
+        avatar_url?: string
+      }
+    } = {}
+
+    if (displayName !== undefined || photoURL !== undefined) {
+      updates.data = {}
+      if (displayName !== undefined) updates.data.display_name = displayName
+      if (photoURL !== undefined) updates.data.avatar_url = photoURL
     }
-  }
 
-  const updateUserProfile = async (displayName?: string, photoURL?: string) => {
-    if (user) {
-      await updateProfile(user, { displayName, photoURL })
-    }
-  }
+    const { error } = await supabase.auth.updateUser(updates)
+
+    if (error) throw error
+
+    toast.success('Profile updated', {
+      description: 'Your profile has been updated successfully.',
+    })
+  }, [user])
 
   // Memoize the context value to prevent unnecessary re-renders
   const value: AuthContextType = useMemo(() => ({
@@ -262,7 +329,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
     resetPassword,
     verifyEmail,
     updateUserProfile,
-  }), [user, loading])
+  }), [user, loading, signUp, signIn, signInWithGoogle, signInWithLinkedIn, logOut, resetPassword, verifyEmail, updateUserProfile])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+}
+
+// eslint-disable-next-line react-refresh/only-export-components
+export function useAuth() {
+  const context = useContext(AuthContext)
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider')
+  }
+  return context
 }

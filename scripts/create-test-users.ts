@@ -44,8 +44,8 @@ async function createTestUsers() {
       try {
         user = await auth.getUserByEmail(userData.email);
         console.log(`✓ User already exists: ${userData.email} (uid: ${user.uid})`);
-      } catch (error: any) {
-        if (error.code === 'auth/user-not-found') {
+      } catch (error) {
+        if (error instanceof Error && 'code' in error && (error as { code: string }).code === 'auth/user-not-found') {
           // Create new user
           user = await auth.createUser({
             email: userData.email,
@@ -65,8 +65,9 @@ async function createTestUsers() {
         uid: user.uid,
         displayName: userData.displayName,
       });
-    } catch (error: any) {
-      console.error(`✗ Failed to create ${userData.email}:`, error.message);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error'
+      console.error(`✗ Failed to create ${userData.email}:`, message);
     }
   }
 

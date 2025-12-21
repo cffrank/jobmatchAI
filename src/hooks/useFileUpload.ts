@@ -1,6 +1,5 @@
 import { useState } from 'react'
-import { storage } from '@/lib/firebase'
-import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage'
+import { supabase } from '@/lib/supabase'
 
 export interface UploadProgress {
   bytesTransferred: number
@@ -22,7 +21,7 @@ export interface UseFileUploadOptions {
 }
 
 /**
- * Generic file upload hook for Firebase Storage
+ * Generic file upload hook for Supabase Storage
  * Handles file validation, upload progress, and error handling
  */
 export function useFileUpload(options: UseFileUploadOptions = {}) {
@@ -61,14 +60,16 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
   }
 
   /**
-   * Upload file to Firebase Storage
+   * Upload file to Supabase Storage
    * @param file - File to upload
    * @param storagePath - Path in storage bucket (e.g., 'users/123/profile/avatar.jpg')
+   * @param bucket - Storage bucket name (default: 'files')
    * @returns Promise with download URL and storage path
    */
   const uploadFile = async (
     file: File,
-    storagePath: string
+    storagePath: string,
+    bucket: string = 'files'
   ): Promise<UploadResult> => {
     // Validate file
     const validationError = validateFile(file)
@@ -81,63 +82,98 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
 
     setUploading(true)
     setError(null)
-    setProgress(null)
 
-    const storageRef = ref(storage, storagePath)
-    const uploadTask = uploadBytesResumable(storageRef, file)
+    // Initial progress
+    const initialProgress: UploadProgress = {
+      bytesTransferred: 0,
+      totalBytes: file.size,
+      progress: 0,
+    }
+    setProgress(initialProgress)
+    onProgress?.(initialProgress)
 
-    return new Promise((resolve, reject) => {
-      uploadTask.on(
-        'state_changed',
-        (snapshot) => {
-          // Progress monitoring
-          const progressData: UploadProgress = {
-            bytesTransferred: snapshot.bytesTransferred,
-            totalBytes: snapshot.totalBytes,
-            progress: Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100),
-          }
-          setProgress(progressData)
-          onProgress?.(progressData)
-        },
-        (error) => {
-          // Error handling
-          setUploading(false)
-          setError(error)
-          onError?.(error)
-          reject(error)
-        },
-        async () => {
-          // Upload complete
-          try {
-            const downloadURL = await getDownloadURL(uploadTask.snapshot.ref)
-            const result: UploadResult = {
-              downloadURL,
-              fullPath: uploadTask.snapshot.ref.fullPath,
-            }
-            setUploading(false)
-            setProgress(null)
-            onSuccess?.(result)
-            resolve(result)
-          } catch (error) {
-            setUploading(false)
-            const err = error as Error
-            setError(err)
-            onError?.(err)
-            reject(err)
-          }
-        }
-      )
-    })
+    try {
+      // Upload to Supabase Storage
+      const { data, error: uploadError } = await supabase.storage
+        .from(bucket)
+        .upload(storagePath, file, {
+          cacheControl: '3600',
+          upsert: true, // Overwrite if exists
+        })
+
+      if (uploadError) throw uploadError
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from(bucket)
+        .getPublicUrl(storagePath)
+
+      const result: UploadResult = {
+        downloadURL: urlData.publicUrl,
+        fullPath: data.path,
+      }
+
+      // Final progress
+      const finalProgress: UploadProgress = {
+        bytesTransferred: file.size,
+        totalBytes: file.size,
+        progress: 100,
+      }
+      setProgress(finalProgress)
+      onProgress?.(finalProgress)
+
+      setUploading(false)
+      setProgress(null)
+      onSuccess?.(result)
+      return result
+    } catch (err) {
+      const error = err as Error
+      setUploading(false)
+      setError(error)
+      onError?.(error)
+      throw error
+    }
   }
 
   /**
-   * Delete file from Firebase Storage
+   * Delete file from Supabase Storage
    * @param storagePath - Path in storage bucket
+   * @param bucket - Storage bucket name (default: 'files')
    */
-  const deleteFile = async (storagePath: string): Promise<void> => {
+  const deleteFile = async (storagePath: string, bucket: string = 'files'): Promise<void> => {
     try {
-      const storageRef = ref(storage, storagePath)
-      await deleteObject(storageRef)
+      const { error: deleteError } = await supabase.storage
+        .from(bucket)
+        .remove([storagePath])
+
+      if (deleteError) throw deleteError
+    } catch (error) {
+      const err = error as Error
+      setError(err)
+      throw err
+    }
+  }
+
+  /**
+   * Get signed URL for private file access
+   * @param storagePath - Path in storage bucket
+   * @param bucket - Storage bucket name (default: 'files')
+   * @param expiresIn - Expiration time in seconds (default: 3600 = 1 hour)
+   */
+  const getSignedUrl = async (
+    storagePath: string,
+    bucket: string = 'files',
+    expiresIn: number = 3600
+  ): Promise<string> => {
+    try {
+      const { data, error: signError } = await supabase.storage
+        .from(bucket)
+        .createSignedUrl(storagePath, expiresIn)
+
+      if (signError) throw signError
+      if (!data?.signedUrl) throw new Error('Failed to generate signed URL')
+
+      return data.signedUrl
     } catch (error) {
       const err = error as Error
       setError(err)
@@ -148,6 +184,7 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
   return {
     uploadFile,
     deleteFile,
+    getSignedUrl,
     uploading,
     progress,
     error,

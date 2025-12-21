@@ -86,8 +86,9 @@ async function cleanup() {
 
     await auth.signOut()
     process.exit(0)
-  } catch (error: any) {
-    console.error('\n❌ Cleanup failed:', error.message)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error'
+    console.error('\n❌ Cleanup failed:', message)
     process.exit(1)
   }
 }

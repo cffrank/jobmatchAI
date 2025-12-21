@@ -1,128 +1,241 @@
-import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
-import { db } from '@/lib/firebase'
-import { collection, addDoc, updateDoc, deleteDoc, doc, query, orderBy, where, limit, startAfter, QueryConstraint, DocumentSnapshot } from 'firebase/firestore'
-import { useCollection, useDocument } from 'react-firebase-hooks/firestore'
+import { supabase } from '@/lib/supabase'
 import type { TrackedApplication } from '@/sections/application-tracker/types'
 
 /**
- * Hook to manage tracked applications in Firestore
- * Collection: users/{userId}/trackedApplications
+ * Hook to manage tracked applications in Supabase
  *
- * PERFORMANCE: Uses cursor-based pagination (20 items per page) to reduce Firestore reads
+ * ⚠️ NOTE: This table does not exist in the current schema.
+ * A database migration is required to create the tracked_applications table.
+ *
+ * Required schema:
+ * - id (UUID, primary key)
+ * - user_id (UUID, foreign key to users)
+ * - job_id (UUID, nullable, foreign key to jobs)
+ * - application_id (UUID, nullable, foreign key to applications)
+ * - company (TEXT)
+ * - job_title (TEXT)
+ * - location (TEXT, nullable)
+ * - match_score (NUMERIC, nullable)
+ * - status (ENUM: applied, screening, interview_scheduled, etc.)
+ * - applied_date (TIMESTAMPTZ, nullable)
+ * - last_updated (TIMESTAMPTZ, default NOW())
+ * - status_history (JSONB, default '[]')
+ * - interviews (JSONB, default '[]')
+ * - recruiter (JSONB, nullable)
+ * - hiring_manager (JSONB, nullable)
+ * - follow_up_actions (JSONB, default '[]')
+ * - next_action (TEXT, nullable)
+ * - next_action_date (TIMESTAMPTZ, nullable)
+ * - next_interview_date (TIMESTAMPTZ, nullable)
+ * - offer_details (JSONB, nullable)
+ * - activity_log (JSONB, default '[]')
+ * - archived (BOOLEAN, default FALSE)
+ * - notes (TEXT, nullable)
+ * - created_at (TIMESTAMPTZ, default NOW())
+ * - updated_at (TIMESTAMPTZ, default NOW())
+ *
+ * PERFORMANCE: Uses offset-based pagination (20 items per page)
  */
 export function useTrackedApplications(pageSize = 20) {
   const { user } = useAuth()
-  const userId = user?.uid
+  const userId = user?.id
 
   // Pagination state
-  const [lastDoc, setLastDoc] = useState<DocumentSnapshot | null>(null)
+  const [offset, setOffset] = useState(0)
   const [allApplications, setAllApplications] = useState<TrackedApplication[]>([])
   const [hasMore, setHasMore] = useState(true)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<Error | null>(null)
+  const [totalCount, setTotalCount] = useState(0)
 
-  // Build paginated query
-  const trackedApplicationsRef = useMemo(() => {
-    if (!userId) return null
-
-    const constraints: QueryConstraint[] = [
-      orderBy('lastUpdated', 'desc'),
-      limit(pageSize)
-    ]
-
-    // Add pagination cursor
-    if (lastDoc) {
-      constraints.push(startAfter(lastDoc))
-    }
-
-    return query(collection(db, 'users', userId, 'trackedApplications'), ...constraints)
-  }, [userId, lastDoc, pageSize])
-
-  // Subscribe to current page
-  const [snapshot, loading, error] = useCollection(trackedApplicationsRef)
-
-  // Accumulate applications across pages
+  // Fetch applications with pagination
   useEffect(() => {
-    if (!snapshot) return
-
-    const newApplications = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data()
-    } as TrackedApplication))
-
-    // Check if there are more results
-    setHasMore(newApplications.length === pageSize)
-
-    if (lastDoc) {
-      // Append to existing applications
-      setAllApplications(prev => [...prev, ...newApplications])
-    } else {
-      // First page - replace all applications
-      setAllApplications(newApplications)
+    if (!userId) {
+      setAllApplications([])
+      setLoading(false)
+      return
     }
-  }, [snapshot, lastDoc, pageSize])
+
+    let subscribed = true
+
+    const fetchApplications = async () => {
+      try {
+        setLoading(true)
+
+        // ⚠️ This will fail until the table is created
+        const { data, error: fetchError, count } = await supabase
+          .from('tracked_applications')
+          .select('*', { count: 'exact' })
+          .eq('user_id', userId)
+          .order('last_updated', { ascending: false })
+          .range(offset, offset + pageSize - 1)
+
+        if (fetchError) throw fetchError
+
+        if (subscribed && data) {
+          const mappedApps = data.map(mapDbTrackedApplication)
+
+          if (offset === 0) {
+            setAllApplications(mappedApps)
+          } else {
+            setAllApplications(prev => [...prev, ...mappedApps])
+          }
+
+          setTotalCount(count || 0)
+          setHasMore(data.length === pageSize && (offset + pageSize) < (count || 0))
+          setError(null)
+        }
+      } catch (err) {
+        if (subscribed) {
+          setError(err as Error)
+        }
+      } finally {
+        if (subscribed) {
+          setLoading(false)
+        }
+      }
+    }
+
+    fetchApplications()
+
+    return () => {
+      subscribed = false
+    }
+  }, [userId, offset, pageSize])
+
+  // Set up real-time subscription
+  useEffect(() => {
+    if (!userId) return
+
+    const channel = supabase
+      .channel(`tracked_applications:${userId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'tracked_applications',
+          filter: `user_id=eq.${userId}`,
+        },
+        (payload) => {
+          if (payload.eventType === 'INSERT') {
+            setAllApplications(current => [mapDbTrackedApplication(payload.new as any), ...current])
+            setTotalCount(c => c + 1)
+          } else if (payload.eventType === 'UPDATE') {
+            setAllApplications(current =>
+              current.map(app =>
+                app.id === payload.new.id ? mapDbTrackedApplication(payload.new as any) : app
+              )
+            )
+          } else if (payload.eventType === 'DELETE') {
+            setAllApplications(current => current.filter(app => app.id !== payload.old.id))
+            setTotalCount(c => Math.max(0, c - 1))
+          }
+        }
+      )
+      .subscribe()
+
+    return () => {
+      channel.unsubscribe()
+    }
+  }, [userId])
 
   const trackedApplications: TrackedApplication[] = allApplications
 
-  // Load more callback
   const loadMore = useCallback(() => {
-    if (snapshot && snapshot.docs.length > 0 && hasMore) {
-      const last = snapshot.docs[snapshot.docs.length - 1]
-      setLastDoc(last)
+    if (hasMore && !loading) {
+      setOffset(prev => prev + pageSize)
     }
-  }, [snapshot, hasMore])
+  }, [hasMore, loading, pageSize])
 
-  // Reset pagination
   const reset = useCallback(() => {
-    setLastDoc(null)
+    setOffset(0)
     setAllApplications([])
     setHasMore(true)
   }, [])
 
-  /**
-   * Add new tracked application
-   */
   const addTrackedApplication = async (data: Omit<TrackedApplication, 'id' | 'lastUpdated'>) => {
     if (!userId) throw new Error('User not authenticated')
-    const ref = collection(db, 'users', userId, 'trackedApplications')
-    await addDoc(ref, {
-      ...data,
-      lastUpdated: new Date().toISOString(),
+
+    const { error: insertError } = await supabase.from('tracked_applications').insert({
+      user_id: userId,
+      job_id: data.jobId || null,
+      application_id: data.applicationId || null,
+      company: data.company,
+      job_title: data.jobTitle,
+      location: data.location || null,
+      match_score: data.matchScore || null,
+      status: data.status,
+      applied_date: data.appliedDate || null,
+      last_updated: new Date().toISOString(),
+      status_history: data.statusHistory as any,
+      interviews: data.interviews as any,
+      recruiter: data.recruiter as any,
+      hiring_manager: data.hiringManager as any,
+      follow_up_actions: data.followUpActions as any,
+      next_action: data.nextAction || null,
+      next_action_date: data.nextActionDate || null,
+      next_interview_date: data.nextInterviewDate || null,
+      archived: (data as any).archived || false,
     })
+
+    if (insertError) throw insertError
   }
 
-  /**
-   * Update existing tracked application
-   */
   const updateTrackedApplication = async (id: string, data: Partial<Omit<TrackedApplication, 'id'>>) => {
     if (!userId) throw new Error('User not authenticated')
-    const ref = doc(db, 'users', userId, 'trackedApplications', id)
-    await updateDoc(ref, {
-      ...data,
-      lastUpdated: new Date().toISOString(),
-    })
+
+    const updateData: any = {
+      last_updated: new Date().toISOString(),
+    }
+
+    if (data.jobId !== undefined) updateData.job_id = data.jobId || null
+    if (data.applicationId !== undefined) updateData.application_id = data.applicationId || null
+    if (data.company !== undefined) updateData.company = data.company
+    if (data.jobTitle !== undefined) updateData.job_title = data.jobTitle
+    if (data.location !== undefined) updateData.location = data.location || null
+    if (data.matchScore !== undefined) updateData.match_score = data.matchScore || null
+    if (data.status !== undefined) updateData.status = data.status
+    if (data.appliedDate !== undefined) updateData.applied_date = data.appliedDate || null
+    if (data.statusHistory !== undefined) updateData.status_history = data.statusHistory
+    if (data.interviews !== undefined) updateData.interviews = data.interviews
+    if (data.recruiter !== undefined) updateData.recruiter = data.recruiter
+    if (data.hiringManager !== undefined) updateData.hiring_manager = data.hiringManager
+    if (data.followUpActions !== undefined) updateData.follow_up_actions = data.followUpActions
+    if (data.nextAction !== undefined) updateData.next_action = data.nextAction || null
+    if (data.nextActionDate !== undefined) updateData.next_action_date = data.nextActionDate || null
+    if (data.nextInterviewDate !== undefined) updateData.next_interview_date = data.nextInterviewDate || null
+    if ((data as any).archived !== undefined) updateData.archived = (data as any).archived
+
+    const { error: updateError } = await supabase
+      .from('tracked_applications')
+      .update(updateData)
+      .eq('id', id)
+      .eq('user_id', userId)
+
+    if (updateError) throw updateError
   }
 
-  /**
-   * Delete tracked application
-   */
   const deleteTrackedApplication = async (id: string) => {
     if (!userId) throw new Error('User not authenticated')
-    const ref = doc(db, 'users', userId, 'trackedApplications', id)
-    await deleteDoc(ref)
+
+    const { error: deleteError } = await supabase
+      .from('tracked_applications')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', userId)
+
+    if (deleteError) throw deleteError
   }
 
-  /**
-   * Archive tracked application
-   */
   const archiveTrackedApplication = async (id: string) => {
-    await updateTrackedApplication(id, { archived: true })
+    await updateTrackedApplication(id, { archived: true } as any)
   }
 
-  /**
-   * Unarchive tracked application
-   */
   const unarchiveTrackedApplication = async (id: string) => {
-    await updateTrackedApplication(id, { archived: false })
+    await updateTrackedApplication(id, { archived: false } as any)
   }
 
   return {
@@ -145,18 +258,77 @@ export function useTrackedApplications(pageSize = 20) {
  */
 export function useTrackedApplication(id: string | undefined) {
   const { user } = useAuth()
-  const userId = user?.uid
+  const userId = user?.id
 
-  const applicationRef = userId && id
-    ? doc(db, 'users', userId, 'trackedApplications', id)
-    : null
+  const [trackedApplication, setTrackedApplication] = useState<TrackedApplication | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<Error | null>(null)
 
-  // Subscribe to tracked application document
-  const [snapshot, loading, error] = useDocument(applicationRef)
+  useEffect(() => {
+    if (!userId || !id) {
+      setTrackedApplication(null)
+      setLoading(false)
+      return
+    }
 
-  const trackedApplication = snapshot?.exists()
-    ? { id: snapshot.id, ...snapshot.data() } as TrackedApplication
-    : null
+    let subscribed = true
+
+    const fetchApplication = async () => {
+      try {
+        setLoading(true)
+        const { data, error: fetchError } = await supabase
+          .from('tracked_applications')
+          .select('*')
+          .eq('id', id)
+          .eq('user_id', userId)
+          .single()
+
+        if (fetchError) throw fetchError
+
+        if (subscribed && data) {
+          setTrackedApplication(mapDbTrackedApplication(data))
+          setError(null)
+        }
+      } catch (err) {
+        if (subscribed) {
+          setError(err as Error)
+          setTrackedApplication(null)
+        }
+      } finally {
+        if (subscribed) {
+          setLoading(false)
+        }
+      }
+    }
+
+    fetchApplication()
+
+    // Set up real-time subscription
+    const channel = supabase
+      .channel(`tracked_application:${id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'tracked_applications',
+          filter: `id=eq.${id}`,
+        },
+        (payload) => {
+          if (payload.eventType === 'UPDATE') {
+            setTrackedApplication(mapDbTrackedApplication(payload.new as any))
+          } else if (payload.eventType === 'DELETE') {
+            setTrackedApplication(null)
+          }
+        }
+      )
+      .subscribe()
+
+    return () => {
+      subscribed = false
+      channel.unsubscribe()
+    }
+  }, [userId, id])
 
   return {
     trackedApplication,
@@ -167,73 +339,80 @@ export function useTrackedApplication(id: string | undefined) {
 
 /**
  * Hook to fetch active (non-archived) tracked applications
- *
- * PERFORMANCE: Uses cursor-based pagination (20 items per page) to reduce Firestore reads
  */
 export function useActiveTrackedApplications(pageSize = 20) {
   const { user } = useAuth()
-  const userId = user?.uid
+  const userId = user?.id
 
-  // Pagination state
-  const [lastDoc, setLastDoc] = useState<DocumentSnapshot | null>(null)
+  const [offset, setOffset] = useState(0)
   const [allApplications, setAllApplications] = useState<TrackedApplication[]>([])
   const [hasMore, setHasMore] = useState(true)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<Error | null>(null)
 
-  // Build paginated query with archived filter
-  const activeApplicationsRef = useMemo(() => {
-    if (!userId) return null
-
-    const constraints: QueryConstraint[] = [
-      where('archived', '==', false),
-      orderBy('lastUpdated', 'desc'),
-      limit(pageSize)
-    ]
-
-    // Add pagination cursor
-    if (lastDoc) {
-      constraints.push(startAfter(lastDoc))
-    }
-
-    return query(collection(db, 'users', userId, 'trackedApplications'), ...constraints)
-  }, [userId, lastDoc, pageSize])
-
-  // Subscribe to current page
-  const [snapshot, loading, error] = useCollection(activeApplicationsRef)
-
-  // Accumulate applications across pages
   useEffect(() => {
-    if (!snapshot) return
-
-    const newApplications = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data()
-    } as TrackedApplication))
-
-    // Check if there are more results
-    setHasMore(newApplications.length === pageSize)
-
-    if (lastDoc) {
-      // Append to existing applications
-      setAllApplications(prev => [...prev, ...newApplications])
-    } else {
-      // First page - replace all applications
-      setAllApplications(newApplications)
+    if (!userId) {
+      setAllApplications([])
+      setLoading(false)
+      return
     }
-  }, [snapshot, lastDoc, pageSize])
+
+    let subscribed = true
+
+    const fetchApplications = async () => {
+      try {
+        setLoading(true)
+
+        const { data, error: fetchError, count } = await supabase
+          .from('tracked_applications')
+          .select('*', { count: 'exact' })
+          .eq('user_id', userId)
+          .eq('archived', false)
+          .order('last_updated', { ascending: false })
+          .range(offset, offset + pageSize - 1)
+
+        if (fetchError) throw fetchError
+
+        if (subscribed && data) {
+          const mappedApps = data.map(mapDbTrackedApplication)
+
+          if (offset === 0) {
+            setAllApplications(mappedApps)
+          } else {
+            setAllApplications(prev => [...prev, ...mappedApps])
+          }
+
+          setHasMore(data.length === pageSize && (offset + pageSize) < (count || 0))
+          setError(null)
+        }
+      } catch (err) {
+        if (subscribed) {
+          setError(err as Error)
+        }
+      } finally {
+        if (subscribed) {
+          setLoading(false)
+        }
+      }
+    }
+
+    fetchApplications()
+
+    return () => {
+      subscribed = false
+    }
+  }, [userId, offset, pageSize])
 
   const activeApplications: TrackedApplication[] = allApplications
 
-  // Load more callback
   const loadMore = useCallback(() => {
-    if (snapshot && snapshot.docs.length > 0 && hasMore) {
-      const last = snapshot.docs[snapshot.docs.length - 1]
-      setLastDoc(last)
+    if (hasMore && !loading) {
+      setOffset(prev => prev + pageSize)
     }
-  }, [snapshot, hasMore])
+  }, [hasMore, loading, pageSize])
 
-  // Reset pagination
   const reset = useCallback(() => {
-    setLastDoc(null)
+    setOffset(0)
     setAllApplications([])
     setHasMore(true)
   }, [])
@@ -245,5 +424,35 @@ export function useActiveTrackedApplications(pageSize = 20) {
     loadMore,
     hasMore,
     reset,
+  }
+}
+
+/**
+ * Map database tracked application to app TrackedApplication type
+ */
+function mapDbTrackedApplication(dbApp: any): TrackedApplication {
+  return {
+    id: dbApp.id,
+    jobId: dbApp.job_id || '',
+    applicationId: dbApp.application_id || '',
+    company: dbApp.company,
+    jobTitle: dbApp.job_title,
+    location: dbApp.location || '',
+    matchScore: dbApp.match_score || 0,
+    status: dbApp.status,
+    appliedDate: dbApp.applied_date || '',
+    lastUpdated: dbApp.last_updated,
+    statusHistory: dbApp.status_history || [],
+    interviews: dbApp.interviews || [],
+    recruiter: dbApp.recruiter || undefined,
+    hiringManager: dbApp.hiring_manager || undefined,
+    followUpActions: dbApp.follow_up_actions || [],
+    nextAction: dbApp.next_action || undefined,
+    nextActionDate: dbApp.next_action_date || undefined,
+    nextInterviewDate: dbApp.next_interview_date || undefined,
+    offerDetails: (dbApp as any).offer_details || undefined,
+    activityLog: (dbApp as any).activity_log || [],
+    archived: (dbApp as any).archived || false,
+    notes: (dbApp as any).notes || undefined,
   }
 }

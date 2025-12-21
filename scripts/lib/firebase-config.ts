@@ -68,7 +68,7 @@ export function validateFirebaseConfig(): boolean {
     console.log(`  Project ID: ${config.projectId}`);
     console.log(`  Auth Domain: ${config.authDomain}`);
     return true;
-  } catch (error) {
+  } catch {
     return false;
   }
 }

@@ -1,0 +1,36 @@
+# =============================================================================
+# Railway Deployment Configuration - JobMatch AI Frontend (Vite React)
+# =============================================================================
+# This file configures how Railway builds and deploys the Vite React frontend.
+# Documentation: https://docs.railway.app/deploy/config-as-code
+
+[build]
+# Builder to use for the deployment
+builder = "NIXPACKS"
+
+# Build command - Vite production build
+buildCommand = "npm install && npm run build"
+
+# Watch patterns - trigger rebuild on these file changes
+watchPatterns = ["src/**/*", "index.html", "package.json", "vite.config.ts"]
+
+[deploy]
+# Command to serve the static files from dist/
+# Using npx serve to serve the built files
+startCommand = "npx serve dist -s -p $PORT"
+
+# Health check timeout (seconds)
+healthcheckTimeout = 300
+
+# Restart policy on crashes
+restartPolicyType = "ON_FAILURE"
+
+# Maximum restart attempts
+restartPolicyMaxRetries = 10
+
+[env]
+# Node environment
+NODE_ENV = "production"
+
+# Port - Railway injects this automatically
+PORT = "3000"

@@ -1,7 +1,7 @@
 /**
  * Converts Firebase Auth error codes to user-friendly messages
  */
-export function getAuthErrorMessage(error: any): string {
+export function getAuthErrorMessage(error: unknown): string {
   const errorCode = error?.code || ''
 
   // OAuth-specific errors

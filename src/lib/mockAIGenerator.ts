@@ -232,7 +232,7 @@ function formatDate(dateStr: string | null): string {
   return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
 }
 
-function calculateYearsOfExperience(user: User): number {
+function calculateYearsOfExperience(_user: User): number {
   // Simple heuristic - in real app, would calculate from work experience
   return 8
 }

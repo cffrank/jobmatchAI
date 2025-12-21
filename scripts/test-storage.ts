@@ -14,7 +14,6 @@
 import { initializeApp } from 'firebase/app'
 import { getAuth, signInWithEmailAndPassword } from 'firebase/auth'
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
-import { readFileSync } from 'fs'
 import { join } from 'path'
 
 // Load Firebase config from environment
@@ -87,7 +86,8 @@ async function runTests() {
   // Test 2: Upload Profile Photo (PNG)
   try {
     const startTime = Date.now()
-    const testImagePath = join(__dirname, 'test-files', 'test-profile.png')
+    // Using inline test data instead of external file
+    // const testImagePath = join(__dirname, 'test-files', 'test-profile.png')
 
     // Create a simple 1x1 PNG if test file doesn't exist
     const testImageData = Buffer.from([
@@ -143,7 +143,8 @@ async function runTests() {
       contentType: 'image/jpeg',
     })
 
-    const downloadURL = await getDownloadURL(storageRef)
+    // Get download URL to verify upload success
+    await getDownloadURL(storageRef)
 
     logResult({
       testName: 'Upload Profile Photo (JPEG)',
@@ -175,7 +176,8 @@ async function runTests() {
       contentType: 'application/pdf',
     })
 
-    const downloadURL = await getDownloadURL(storageRef)
+    // Get download URL to verify upload success
+    await getDownloadURL(storageRef)
 
     logResult({
       testName: 'Upload Resume PDF',
@@ -206,7 +208,8 @@ async function runTests() {
       contentType: 'application/pdf',
     })
 
-    const downloadURL = await getDownloadURL(storageRef)
+    // Get download URL to verify upload success
+    await getDownloadURL(storageRef)
 
     logResult({
       testName: 'Upload Cover Letter PDF',
@@ -223,8 +226,6 @@ async function runTests() {
 
   // Test 6: File Size Validation (Should fail with >2MB image)
   try {
-    const startTime = Date.now()
-
     // Create a buffer larger than 2MB
     const largefile = Buffer.alloc(3 * 1024 * 1024, 0) // 3MB
 
@@ -247,7 +248,6 @@ async function runTests() {
       logResult({
         testName: 'File Size Validation (Should Reject >2MB)',
         passed: true,
-        duration: Date.now() - startTime,
       })
     } else {
       logResult({
@@ -260,8 +260,6 @@ async function runTests() {
 
   // Test 7: Unauthorized Access (Should fail)
   try {
-    const startTime = Date.now()
-
     // Try to access another user's files
     const otherUserId = 'unauthorized-user-123'
     const storagePath = `users/${otherUserId}/profile/avatar.jpg`
@@ -281,7 +279,6 @@ async function runTests() {
       logResult({
         testName: 'Unauthorized Access Prevention',
         passed: true,
-        duration: Date.now() - startTime,
       })
     } else {
       logResult({

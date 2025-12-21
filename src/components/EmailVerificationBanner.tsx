@@ -21,7 +21,7 @@ export function EmailVerificationBanner() {
       toast.success('Verification email sent!', {
         description: 'Please check your inbox and spam folder.'
       })
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to send verification email:', error)
 
       // Handle rate limiting

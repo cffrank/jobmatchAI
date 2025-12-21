@@ -37,14 +37,9 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.sendApplicationEmail = void 0;
-const functions = __importStar(require("firebase-functions/v2/https"));
+const https_1 = require("firebase-functions/v2/https");
 const admin = __importStar(require("firebase-admin"));
 const mail_1 = __importDefault(require("@sendgrid/mail"));
-// Initialize SendGrid with API key from environment config
-const SENDGRID_API_KEY = functions.config().sendgrid?.api_key;
-if (SENDGRID_API_KEY) {
-    mail_1.default.setApiKey(SENDGRID_API_KEY);
-}
 /**
  * Rate limiting configuration: max 10 emails per hour per user
  */
@@ -107,53 +102,58 @@ function textToHtml(text) {
  * - Firestore email history tracking
  * - Authentication required
  */
-exports.sendApplicationEmail = functions.https.onCall(async (data, context) => {
+exports.sendApplicationEmail = (0, https_1.onCall)({
+    secrets: ['SENDGRID_API_KEY'],
+}, async (request) => {
+    const data = request.data;
     // Ensure user is authenticated
-    if (!context.auth) {
-        throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated to send emails');
+    if (!request.auth) {
+        throw new https_1.HttpsError('unauthenticated', 'User must be authenticated to send emails');
     }
-    const userId = context.auth.uid;
+    // Initialize SendGrid with API key from environment
+    const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY;
+    if (!SENDGRID_API_KEY) {
+        throw new https_1.HttpsError('failed-precondition', 'SendGrid API key is not configured. Please contact support.');
+    }
+    mail_1.default.setApiKey(SENDGRID_API_KEY);
+    const userId = request.auth.uid;
     const { applicationId, recipientEmail, subject, body, includeResume, includeCoverLetter } = data;
     try {
         // Validate required fields
         if (!applicationId || !recipientEmail || !subject || !body) {
-            throw new functions.https.HttpsError('invalid-argument', 'Missing required fields: applicationId, recipientEmail, subject, or body');
+            throw new https_1.HttpsError('invalid-argument', 'Missing required fields: applicationId, recipientEmail, subject, or body');
         }
         // Validate email address
         if (!isValidEmail(recipientEmail)) {
-            throw new functions.https.HttpsError('invalid-argument', 'Invalid recipient email address format');
-        }
-        // Check SendGrid API key configuration
-        if (!SENDGRID_API_KEY) {
-            throw new functions.https.HttpsError('failed-precondition', 'SendGrid API key is not configured. Please contact support.');
+            throw new https_1.HttpsError('invalid-argument', 'Invalid recipient email address format');
         }
         // Check rate limiting
         const rateLimit = await checkRateLimit(userId);
         if (!rateLimit.allowed) {
-            throw new functions.https.HttpsError('resource-exhausted', `Rate limit exceeded. You can send ${RATE_LIMIT_MAX_EMAILS} emails per hour. Please try again later.`);
+            throw new https_1.HttpsError('resource-exhausted', `Rate limit exceeded. You can send ${RATE_LIMIT_MAX_EMAILS} emails per hour. Please try again later.`);
         }
         const db = admin.firestore();
         // Fetch application data
         const applicationRef = db.collection('users').doc(userId).collection('applications').doc(applicationId);
         const applicationDoc = await applicationRef.get();
         if (!applicationDoc.exists) {
-            throw new functions.https.HttpsError('not-found', 'Application not found');
+            throw new https_1.HttpsError('not-found', 'Application not found');
         }
         const application = applicationDoc.data();
         if (!application) {
-            throw new functions.https.HttpsError('internal', 'Failed to load application data');
+            throw new https_1.HttpsError('internal', 'Failed to load application data');
         }
         // Get user profile for "from" email
         const userDoc = await db.collection('users').doc(userId).get();
         const userProfile = userDoc.data();
-        const fromEmail = userProfile?.email || context.auth.token.email || 'noreply@jobmatch-ai.com';
-        const fromName = userProfile?.fullName || context.auth.token.name || 'JobMatch AI User';
+        const fromEmail = userProfile?.email || request.auth.token.email || 'noreply@jobmatch-ai.com';
+        const fromName = userProfile?.fullName || request.auth.token.name || 'JobMatch AI User';
         // Prepare email attachments (PDFs will be generated separately)
         const attachments = [];
         // NOTE: In a real implementation, you would generate PDFs here
         // For now, we'll add placeholder logic that would be replaced with actual PDF generation
         if (includeResume || includeCoverLetter) {
-            functions.logger.warn('PDF generation not implemented yet. Attachments will be skipped.');
+            console.warn('PDF generation not implemented yet. Attachments will be skipped.');
             // TODO: Integrate with PDF generation service (e.g., Puppeteer, PDFKit, or cloud service)
         }
         // Create HTML email body
@@ -246,7 +246,7 @@ exports.sendApplicationEmail = functions.https.onCall(async (data, context) => {
             lastEmailSentAt: admin.firestore.FieldValue.serverTimestamp(),
             updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         });
-        functions.logger.info('Email sent successfully', {
+        console.log('Email sent successfully', {
             userId,
             applicationId,
             emailId: emailHistoryRef.id,
@@ -259,7 +259,7 @@ exports.sendApplicationEmail = functions.https.onCall(async (data, context) => {
         };
     }
     catch (error) {
-        functions.logger.error('Error sending email', {
+        console.error('Error sending email', {
             userId,
             applicationId,
             error: error.message,
@@ -267,14 +267,14 @@ exports.sendApplicationEmail = functions.https.onCall(async (data, context) => {
         });
         // Handle SendGrid-specific errors
         if (error.code >= 400 && error.code < 500) {
-            throw new functions.https.HttpsError('invalid-argument', `SendGrid error: ${error.message}`);
+            throw new https_1.HttpsError('invalid-argument', `SendGrid error: ${error.message}`);
         }
         // Re-throw if already a functions error
-        if (error instanceof functions.https.HttpsError) {
+        if (error instanceof https_1.HttpsError) {
             throw error;
         }
         // Generic error
-        throw new functions.https.HttpsError('internal', `Failed to send email: ${error.message}`);
+        throw new https_1.HttpsError('internal', `Failed to send email: ${error.message}`);
     }
 });
 //# sourceMappingURL=sendApplicationEmail.js.map
