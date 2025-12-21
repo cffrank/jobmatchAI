@@ -19,7 +19,8 @@ watchPatterns = ["src/**/*", "index.html", "package.json", "vite.config.ts", "Do
 # Using npx serve to serve the built files
 startCommand = "npx serve dist -s -p $PORT"
 
-# Health check timeout (seconds)
+# Disable health check - static sites don't need /health endpoint
+healthcheckPath = ""
 healthcheckTimeout = 300
 
 # Restart policy on crashes
