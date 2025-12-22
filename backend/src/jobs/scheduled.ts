@@ -14,6 +14,7 @@ import cron from 'node-cron';
 import { supabaseAdmin, TABLES } from '../config/supabase';
 import { cleanupExpiredRateLimits } from '../middleware/rateLimiter';
 import { scrapeJobs, isApifyConfigured } from '../services/jobScraper.service';
+import { cleanupOldFailedLogins, cleanupExpiredLockouts } from '../middleware/loginProtection';
 
 // =============================================================================
 // Configuration
@@ -124,6 +125,50 @@ async function cleanupRateLimits(): Promise<ScheduledJobResult> {
     };
   } catch (error) {
     console.error('[CRON] Rate limit cleanup error:', error);
+    return { success: false, message: `Error: ${error instanceof Error ? error.message : 'Unknown'}` };
+  }
+}
+
+/**
+ * SEC-004: Cleanup old failed login attempts (older than 24 hours)
+ * Runs hourly
+ */
+async function cleanupFailedLogins(): Promise<ScheduledJobResult> {
+  console.log('[CRON] [SEC-004] Starting failed login cleanup...');
+
+  try {
+    const deletedCount = await cleanupOldFailedLogins();
+    console.log(`[CRON] [SEC-004] Deleted ${deletedCount} old failed login attempts`);
+
+    return {
+      success: true,
+      message: `Deleted ${deletedCount} old failed login attempts`,
+      details: { deletedCount },
+    };
+  } catch (error) {
+    console.error('[CRON] [SEC-004] Failed login cleanup error:', error);
+    return { success: false, message: `Error: ${error instanceof Error ? error.message : 'Unknown'}` };
+  }
+}
+
+/**
+ * SEC-004: Auto-unlock accounts after lockout period expires
+ * Runs every 15 minutes
+ */
+async function unlockExpiredAccounts(): Promise<ScheduledJobResult> {
+  console.log('[CRON] [SEC-004] Starting expired lockout cleanup...');
+
+  try {
+    const unlockedCount = await cleanupExpiredLockouts();
+    console.log(`[CRON] [SEC-004] Auto-unlocked ${unlockedCount} expired account lockouts`);
+
+    return {
+      success: true,
+      message: `Auto-unlocked ${unlockedCount} accounts`,
+      details: { unlockedCount },
+    };
+  } catch (error) {
+    console.error('[CRON] [SEC-004] Expired lockout cleanup error:', error);
     return { success: false, message: `Error: ${error instanceof Error ? error.message : 'Unknown'}` };
   }
 }
@@ -278,6 +323,18 @@ export function initializeScheduledJobs(): void {
   });
   console.log('[CRON] Registered: cleanupRateLimits (hourly at :30)');
 
+  // SEC-004: Hourly failed login cleanup
+  cron.schedule('15 * * * *', async () => {
+    await cleanupFailedLogins();
+  });
+  console.log('[CRON] Registered: cleanupFailedLogins (hourly at :15) [SEC-004]');
+
+  // SEC-004: Auto-unlock expired accounts every 15 minutes
+  cron.schedule('*/15 * * * *', async () => {
+    await unlockExpiredAccounts();
+  });
+  console.log('[CRON] Registered: unlockExpiredAccounts (every 15 minutes) [SEC-004]');
+
   // Daily automated job search at 2:00 AM UTC
   cron.schedule('0 2 * * *', async () => {
     await searchJobsForAllUsers();
@@ -295,5 +352,7 @@ export {
   cleanupOldJobs,
   cleanupOAuthStates,
   cleanupRateLimits,
+  cleanupFailedLogins,
+  unlockExpiredAccounts,
   searchJobsForAllUsers,
 };

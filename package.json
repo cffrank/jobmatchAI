@@ -18,7 +18,10 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
-    "deploy:storage": "./scripts/deploy-storage.sh"
+    "deploy:storage": "./scripts/deploy-storage.sh",
+    "audit": "npm audit --audit-level=moderate",
+    "audit:fix": "npm audit fix",
+    "security:scan": "npm audit && cd backend && npm audit"
   },
   "dependencies": {
     "@radix-ui/react-avatar": "^1.1.11",
@@ -30,9 +33,11 @@
     "@radix-ui/react-slot": "^1.2.4",
     "@radix-ui/react-tabs": "^1.1.13",
     "@supabase/supabase-js": "^2.89.0",
+    "@types/dompurify": "^3.0.5",
     "@types/zxcvbn": "^4.4.5",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "dompurify": "^3.3.1",
     "lucide-react": "^0.562.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

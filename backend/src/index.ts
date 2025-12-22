@@ -70,6 +70,7 @@ app.use(
 );
 
 // CORS configuration
+// SEC-011: Strict CORS configuration with environment-based origin whitelisting
 const corsOptions = {
   origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
     // Allow requests with no origin (mobile apps, curl, etc.)
@@ -78,15 +79,25 @@ const corsOptions = {
       return;
     }
 
-    // In development, allow localhost
+    // SEC-011: Strict development mode CORS - only allow specific ports
+    // This prevents attackers from running malicious localhost sites on different ports
     if (NODE_ENV === 'development') {
-      if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
-        callback(null, true);
-        return;
+      const ALLOWED_DEV_PORTS = ['5173', '3000', '4173']; // Vite dev, backend dev, Vite preview
+      const portMatch = origin.match(/:(\d+)$/);
+
+      if (portMatch && ALLOWED_DEV_PORTS.includes(portMatch[1])) {
+        const isLocalhost = origin.includes('localhost') || origin.includes('127.0.0.1');
+        if (isLocalhost) {
+          callback(null, true);
+          return;
+        }
       }
+
+      console.warn(`[SEC-011] CORS blocked development origin: ${origin}`);
+      console.warn(`Allowed ports: ${ALLOWED_DEV_PORTS.join(', ')}`);
     }
 
-    // Check against allowed origins
+    // Check against allowed origins (production)
     const allowedOrigins = [
       APP_URL,
       'https://jobmatch-ai.railway.app',

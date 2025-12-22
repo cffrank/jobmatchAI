@@ -8,11 +8,14 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "lint": "eslint src/**/*.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "audit": "npm audit --audit-level=moderate",
+    "audit:fix": "npm audit fix"
   },
   "dependencies": {
     "@sendgrid/mail": "^8.1.0",
     "@supabase/supabase-js": "^2.39.0",
+    "@types/sanitize-html": "^2.16.0",
     "apify-client": "^2.9.0",
     "cors": "^2.8.5",
     "docx": "^8.5.0",
@@ -22,6 +25,7 @@
     "node-cron": "^3.0.3",
     "openai": "^4.20.0",
     "pdfkit": "^0.13.0",
+    "sanitize-html": "^2.17.0",
     "uuid": "^9.0.0",
     "zod": "^3.22.4"
   },
