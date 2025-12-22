@@ -4,11 +4,14 @@ import { X, Save, User, Linkedin } from 'lucide-react'
 import { toast } from 'sonner'
 import { useProfile } from '@/hooks/useProfile'
 import { supabase } from '@/lib/supabase'
+import { updateProfileFromOAuth, extractOAuthProfileData } from '@/lib/oauthProfileSync'
+import { useAuth } from '@/contexts/AuthContext'
 // UserType import available if needed for type annotations
 
 export function EditProfileForm() {
   const navigate = useNavigate()
   const { profile, updateProfile } = useProfile()
+  const { user } = useAuth()
 
   const [formData, setFormData] = useState({
     firstName: '',
@@ -39,44 +42,6 @@ export function EditProfileForm() {
       })
     }
   }, [profile])
-
-  // Handle LinkedIn OAuth callback
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    const linkedInStatus = params.get('linkedin')
-    const errorCode = params.get('error')
-
-    if (linkedInStatus === 'success') {
-      toast.success('LinkedIn profile imported successfully!', {
-        description: 'Your basic profile information has been updated. Please complete any missing details.',
-        duration: 6000
-      })
-      // Clean up URL
-      window.history.replaceState({}, document.title, window.location.pathname)
-    } else if (linkedInStatus === 'error') {
-      // Map error codes to user-friendly messages
-      const errorMessages: Record<string, string> = {
-        user_cancelled: 'LinkedIn import was cancelled.',
-        oauth_error: 'LinkedIn authorization failed. Please try again.',
-        missing_parameters: 'Invalid OAuth response. Please try again.',
-        invalid_state: 'Security validation failed. Please try again.',
-        expired_state: 'LinkedIn session expired. Please try again.',
-        token_exchange_failed: 'Failed to connect to LinkedIn. Please try again.',
-        profile_fetch_failed: 'Failed to retrieve your LinkedIn profile. Please try again.',
-        internal_error: 'An unexpected error occurred. Please try again or contact support.'
-      }
-
-      const errorMessage = errorMessages[errorCode || 'internal_error'] || 'LinkedIn import failed. Please try again.'
-
-      toast.error('LinkedIn Import Failed', {
-        description: errorMessage,
-        duration: 6000
-      })
-
-      // Clean up URL
-      window.history.replaceState({}, document.title, window.location.pathname)
-    }
-  }, [])
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {}
@@ -136,59 +101,61 @@ export function EditProfileForm() {
   }
 
   const handleLinkedInImport = async () => {
+    if (!user) {
+      toast.error('You must be signed in to import from LinkedIn.')
+      return
+    }
+
+    const provider = user.app_metadata?.provider
+
+    // Check if user signed in with LinkedIn
+    if (provider !== 'linkedin_oidc' && provider !== 'linkedin') {
+      toast.error('LinkedIn data is only available if you signed in with LinkedIn', {
+        description: 'Please sign out and sign in using "Continue with LinkedIn" to import your profile data.',
+        duration: 6000
+      })
+      return
+    }
+
     try {
-      toast.loading('Connecting to LinkedIn...', { id: 'linkedin-auth' })
+      toast.loading('Importing from LinkedIn...', { id: 'linkedin-import' })
 
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
-        toast.dismiss('linkedin-auth')
-        toast.error('You must be signed in to import from LinkedIn.')
-        return
-      }
+      // Extract LinkedIn data from OAuth metadata
+      const oauthData = extractOAuthProfileData(user)
 
-      const backendUrl = import.meta.env.VITE_BACKEND_URL
-      const response = await fetch(`${backendUrl}/api/auth/linkedin`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`
-        }
+      console.log('[LinkedIn Import] OAuth data:', {
+        hasFirstName: !!oauthData.firstName,
+        hasLastName: !!oauthData.lastName,
+        hasPhoto: !!oauthData.profileImageUrl,
+        hasLinkedIn: !!oauthData.linkedInUrl,
       })
 
-      if (!response.ok) {
-        throw new Error('Failed to start LinkedIn authentication')
+      // Update form with OAuth data
+      setFormData(prev => ({
+        ...prev,
+        firstName: oauthData.firstName || prev.firstName,
+        lastName: oauthData.lastName || prev.lastName,
+        linkedInUrl: oauthData.linkedInUrl || prev.linkedInUrl,
+      }))
+
+      // If user has a profile photo from LinkedIn, update it
+      if (oauthData.profileImageUrl && profile) {
+        await updateProfile({
+          profileImageUrl: oauthData.profileImageUrl,
+        })
       }
 
-      const data = await response.json() as { authUrl: string; state: string }
-
-      toast.dismiss('linkedin-auth')
-      toast.success('Redirecting to LinkedIn...')
-
-      // Redirect to LinkedIn OAuth
-      window.location.href = data.authUrl
+      toast.dismiss('linkedin-import')
+      toast.success('LinkedIn data imported!', {
+        description: 'Your name and profile photo have been updated. Click Save to keep changes.',
+        duration: 5000
+      })
     } catch (error: unknown) {
-      console.error('LinkedIn auth error:', error)
-      toast.dismiss('linkedin-auth')
-
-      const err = error as { message?: string; status?: number }
-
-      // Show user-friendly error messages based on error type
-      if (err.status === 404) {
-        toast.error('LinkedIn import is not yet configured. Please contact support or fill out the form manually.', {
-          duration: 5000
-        })
-      } else if (err.status === 401) {
-        toast.error('You must be signed in to import from LinkedIn.', {
-          duration: 4000
-        })
-      } else if (err.status === 503) {
-        toast.error('LinkedIn integration is not available. Please contact support.', {
-          duration: 5000
-        })
-      } else {
-        toast.error(err.message || 'Failed to start LinkedIn import. Please try again.', {
-          duration: 4000
-        })
-      }
+      console.error('LinkedIn import error:', error)
+      toast.dismiss('linkedin-import')
+      toast.error('Failed to import LinkedIn data. Please try again.', {
+        duration: 4000
+      })
     }
   }
 
@@ -211,21 +178,22 @@ export function EditProfileForm() {
                 </p>
               </div>
             </div>
-            {!profile && (
+            {/* Show import button only for LinkedIn users */}
+            {user?.app_metadata?.provider === 'linkedin_oidc' || user?.app_metadata?.provider === 'linkedin' ? (
               <button
                 type="button"
                 onClick={handleLinkedInImport}
-                className="px-4 py-2 bg-[#0A66C2] hover:bg-[#004182] text-white rounded-lg font-medium transition-colors flex items-center gap-2"
+                className="px-4 py-2 bg-[#0A66C2] hover:bg-[#004182] text-white rounded-lg font-medium transition-colors flex items-center gap-2 shadow-sm"
               >
                 <Linkedin className="w-5 h-5" />
-                Import from LinkedIn
+                {profile ? 'Sync from LinkedIn' : 'Import from LinkedIn'}
               </button>
-            )}
+            ) : null}
           </div>
-          {!profile && (
+          {!profile && (user?.app_metadata?.provider === 'linkedin_oidc' || user?.app_metadata?.provider === 'linkedin') && (
             <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
               <p className="text-sm text-blue-900 dark:text-blue-100">
-                <strong>New here?</strong> Save time by importing your profile from LinkedIn, or fill out the form manually below.
+                <strong>Save time!</strong> Click "Import from LinkedIn" above to auto-fill your profile with data from your LinkedIn account.
               </p>
             </div>
           )}

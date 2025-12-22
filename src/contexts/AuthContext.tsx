@@ -10,6 +10,7 @@ import {
   monitorSession,
   isSessionValid,
 } from '../lib/sessionManagement'
+import { syncOAuthProfile } from '../lib/oauthProfileSync'
 import { toast } from 'sonner'
 
 interface AuthContextType {
@@ -122,7 +123,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     // Listen for auth state changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session?.user) {
         // Validate existing session or initialize new one
         const sessionValid = await validateAndRefreshSession(session.user, false)
@@ -139,6 +140,22 @@ export function AuthProvider({ children }: AuthProviderProps) {
         if (!isSessionValid()) {
           console.log('[Auth] Initializing new session for user login')
           initializeSession(session.user)
+
+          // For OAuth logins (Google, LinkedIn), auto-populate profile from OAuth data
+          const provider = session.user.app_metadata?.provider
+          if (provider === 'google' || provider === 'linkedin_oidc' || provider === 'linkedin') {
+            console.log('[Auth] OAuth login detected, syncing profile data from', provider)
+            // Sync profile asynchronously, don't block login
+            syncOAuthProfile(session.user).then((synced) => {
+              if (synced) {
+                toast.success('Profile created from LinkedIn data', {
+                  description: 'Your profile has been pre-filled. You can edit it anytime.',
+                })
+              }
+            }).catch((error) => {
+              console.error('[Auth] Failed to sync OAuth profile:', error)
+            })
+          }
         }
 
         setUser(session.user)
@@ -244,6 +261,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
         provider: 'linkedin_oidc',
         options: {
           redirectTo: `${window.location.origin}/auth/callback`,
+          // Request profile and email scopes to get user data
+          scopes: 'openid profile email',
           // Don't force consent screen - let LinkedIn decide based on authorization state
           // This gives the best UX: consent only on first login, automatic sign-in after that
         },
