@@ -108,15 +108,17 @@ export function ProfileHeader({ user, onEditProfile }: ProfileHeaderProps) {
               <MapPin className="w-4 h-4" />
               <span>{user.location}</span>
             </span>
-            <a
-              href={user.linkedInUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors font-medium"
-            >
-              <Linkedin className="w-4 h-4" />
-              <span>LinkedIn Profile</span>
-            </a>
+            {user.linkedInUrl && (
+              <a
+                href={user.linkedInUrl.startsWith('http') ? user.linkedInUrl : `https://${user.linkedInUrl}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors font-medium"
+              >
+                <Linkedin className="w-4 h-4" />
+                <span>LinkedIn Profile</span>
+              </a>
+            )}
           </div>
         </div>
       </div>

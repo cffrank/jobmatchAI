@@ -144,7 +144,7 @@ export function useProfile() {
 /**
  * Map database user to app User type
  * Maps actual schema fields: first_name, last_name, phone, location, photo_url,
- * current_title, professional_summary, years_of_experience
+ * current_title, professional_summary, years_of_experience, linkedin_url
  */
 function mapDbUserToUser(dbUser: DbUser): User {
   return {
@@ -154,7 +154,7 @@ function mapDbUserToUser(dbUser: DbUser): User {
     lastName: dbUser.last_name || '',
     phone: dbUser.phone || '',
     location: dbUser.location || '',
-    linkedInUrl: '', // Not in database schema
+    linkedInUrl: (dbUser as any).linkedin_url || '',
     profileImageUrl: dbUser.photo_url || null,
     headline: dbUser.current_title || '',
     summary: dbUser.professional_summary || '',
@@ -174,6 +174,7 @@ function mapUserToDbUser(user: Partial<Omit<User, 'id'>>): Partial<Database['pub
     photo_url: user.profileImageUrl || undefined,
     current_title: user.headline,
     professional_summary: user.summary,
-    // Note: linkedInUrl, jobPreferences, searchSettings not in database schema
+    linkedin_url: user.linkedInUrl,
+    // Note: jobPreferences, searchSettings not in database schema
   }
 }
