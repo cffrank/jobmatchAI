@@ -89,7 +89,741 @@ Flag and filter jobs requiring:
 - Credit card information
 - SSN before interview
 
-### 1.3 AI Relevance Matching (🔥 Competitive Advantage)
+### 1.3 Advanced Spam Detection System
+
+**Production-grade spam detection** with 11 red flags to automatically filter scams and low-quality postings.
+
+#### Spam Detection Algorithm (spamDetection.ts)
+
+**11 Red Flag Categories**:
+
+1. **Phone/Email Harvesting** (30 points)
+   - Job exists just to collect contact info
+   - Description asks for email/phone upfront
+   - Pattern: "Send resume to [email]"
+
+2. **Urgency Tactics** (25 points)
+   - "Apply now", "Limited time", "Act fast"
+   - Creates false FOMO to bypass critical thinking
+
+3. **Fake Salary Ranges** (35 points)
+   - Salary range >3.5x (e.g., $30k-$150k)
+   - Indicator of bait-and-switch tactics
+
+4. **Generic Company Names** (20 points)
+   - "Staffing Solutions", "Employment Services"
+   - Vague entities, not real companies
+
+5. **Upfront Payment Required** (100 points - AUTO-REJECT)
+   - "Pay for training materials"
+   - "Background check fee required"
+   - Immediate disqualification
+
+6. **Vague Job Descriptions** (15 points)
+   - <200 characters
+   - No responsibilities, requirements, or benefits
+
+7. **Poor Grammar/Spelling** (20 points)
+   - >5 spelling errors detected
+   - Unprofessional writing quality
+
+8. **Suspicious URLs** (25 points)
+   - Shortened links (bit.ly, tinyurl)
+   - Redirects to suspicious domains
+   - External application sites
+
+9. **No Company Website** (15 points)
+   - Company website doesn't exist
+   - Domain registered <30 days ago
+
+10. **Too-Good-To-Be-True** (30 points)
+    - Entry-level: $200k+ salary
+    - "No experience required, $150k+"
+
+11. **Excessive Contact Requests** (20 points)
+    - Requires SSN before interview
+    - Credit card information
+    - Bank account details
+
+#### Spam Scoring System
+
+```typescript
+// spamDetection.ts
+export function calculateSpamScore(job: RawJob): SpamResult {
+  let score = 0;
+  const flags: string[] = [];
+
+  // Check each red flag
+  if (hasPhoneHarvesting(job.description)) {
+    score += 30;
+    flags.push('PHONE_HARVESTING');
+  }
+
+  if (hasUrgencyTactics(job.description)) {
+    score += 25;
+    flags.push('URGENCY_TACTICS');
+  }
+
+  if (hasFakeSalaryRange(job.salary_min, job.salary_max)) {
+    score += 35;
+    flags.push('FAKE_SALARY');
+  }
+
+  if (requiresUpfrontPayment(job.description)) {
+    score = 100; // Auto-reject
+    flags.push('UPFRONT_PAYMENT_REQUIRED');
+  }
+
+  // ... check remaining flags
+
+  return {
+    score,
+    flags,
+    severity: score > 70 ? 'CRITICAL' : score > 40 ? 'HIGH' : 'LOW',
+    recommendation: score > 70 ? 'REJECT' : score > 40 ? 'WARN' : 'ACCEPT'
+  };
+}
+```
+
+**Result**:
+- **0-40**: Low risk (accept, show normally)
+- **41-70**: Medium risk (accept with warning badge)
+- **71-100**: High risk (auto-reject, don't show to users)
+
+#### Database: spam_detection_logs
+
+```sql
+CREATE TABLE spam_detection_logs (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  job_id UUID REFERENCES jobs(id) ON DELETE CASCADE,
+  spam_score INTEGER NOT NULL CHECK (spam_score >= 0 AND spam_score <= 100),
+  flags TEXT[] NOT NULL,
+  severity TEXT NOT NULL CHECK (severity IN ('LOW', 'HIGH', 'CRITICAL')),
+  recommendation TEXT NOT NULL CHECK (recommendation IN ('ACCEPT', 'WARN', 'REJECT')),
+  detected_at TIMESTAMPTZ DEFAULT NOW(),
+
+  CONSTRAINT unique_spam_log_per_job UNIQUE(job_id)
+);
+
+CREATE INDEX idx_spam_logs_score ON spam_detection_logs(spam_score DESC);
+CREATE INDEX idx_spam_logs_severity ON spam_detection_logs(severity);
+```
+
+#### User Reporting System
+
+```sql
+-- Crowdsourced spam detection
+CREATE TABLE user_spam_reports (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  job_id UUID REFERENCES jobs(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  reason TEXT NOT NULL CHECK (reason IN (
+    'SCAM', 'MISLEADING_SALARY', 'FAKE_COMPANY',
+    'DUPLICATE', 'EXPIRED', 'OTHER'
+  )),
+  details TEXT,
+  reported_at TIMESTAMPTZ DEFAULT NOW(),
+
+  CONSTRAINT unique_user_report UNIQUE(job_id, user_id)
+);
+
+-- Auto-reject jobs with 3+ user reports
+CREATE OR REPLACE FUNCTION auto_reject_reported_jobs()
+RETURNS TRIGGER AS $$
+BEGIN
+  -- Count reports for this job
+  IF (SELECT COUNT(*) FROM user_spam_reports WHERE job_id = NEW.job_id) >= 3 THEN
+    -- Mark job as spam
+    UPDATE jobs SET spam_score = 100, is_active = false WHERE id = NEW.job_id;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_auto_reject_spam
+AFTER INSERT ON user_spam_reports
+FOR EACH ROW
+EXECUTE FUNCTION auto_reject_reported_jobs();
+```
+
+### 1.4 Advanced Deduplication System
+
+**3-tier matching system** to consolidate the same job posted across Indeed, LinkedIn, RemoteOK, Glassdoor, etc.
+
+#### Deduplication Tiers
+
+**Tier 1: Content Hash (99% Confidence)**
+```typescript
+// deduplication.ts
+function generateContentHash(job: RawJob): string {
+  const canonical = `
+    ${job.company_name.toLowerCase().trim()}
+    ${job.job_title.toLowerCase().trim()}
+    ${job.location.toLowerCase().trim()}
+    ${job.salary_min}-${job.salary_max}
+  `.replace(/\s+/g, '');
+
+  return crypto.createHash('sha256').update(canonical).digest('hex');
+}
+```
+
+**Tier 2: Fuzzy Matching (85%+ Similarity)**
+```typescript
+function fuzzyMatch(jobA: RawJob, jobB: RawJob): number {
+  const titleSimilarity = levenshteinSimilarity(jobA.job_title, jobB.job_title);
+  const companySimilarity = levenshteinSimilarity(jobA.company_name, jobB.company_name);
+  const locationSimilarity = levenshteinSimilarity(jobA.location, jobB.location);
+
+  // Weighted average
+  return (titleSimilarity * 0.5) + (companySimilarity * 0.3) + (locationSimilarity * 0.2);
+}
+
+// If similarity >= 85%, consider duplicate
+```
+
+**Tier 3: URL Tracking (100% Confidence)**
+```typescript
+// Track all URLs for the same job
+const isDuplicateByUrl = async (jobUrl: string): Promise<boolean> => {
+  const { data } = await supabase
+    .from('job_urls')
+    .select('job_id')
+    .eq('url', jobUrl)
+    .single();
+
+  return !!data;
+};
+```
+
+#### Database: job_urls & job_duplicates
+
+```sql
+-- Track all source URLs for a canonical job
+CREATE TABLE job_urls (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  job_id UUID REFERENCES jobs(id) ON DELETE CASCADE,
+  source TEXT NOT NULL, -- 'indeed', 'linkedin', 'remoteok', 'glassdoor'
+  url TEXT UNIQUE NOT NULL,
+  is_primary BOOLEAN DEFAULT false,
+  discovered_at TIMESTAMPTZ DEFAULT NOW(),
+
+  CONSTRAINT one_primary_url_per_job UNIQUE(job_id, is_primary) WHERE is_primary = true
+);
+
+CREATE INDEX idx_job_urls_job ON job_urls(job_id);
+CREATE INDEX idx_job_urls_source ON job_urls(source);
+
+-- Audit trail of duplicate merges
+CREATE TABLE job_duplicates (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  canonical_job_id UUID REFERENCES jobs(id) ON DELETE CASCADE,
+  duplicate_job_id UUID, -- may not exist in jobs table
+  match_tier TEXT CHECK (match_tier IN ('HASH', 'FUZZY', 'URL')),
+  similarity_score NUMERIC(5,2), -- 0.00 to 100.00
+  merged_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_duplicates_canonical ON job_duplicates(canonical_job_id);
+```
+
+#### Deduplication Workflow
+
+**Before Deduplication** (user sees):
+```
+1. Software Engineer - Google - San Francisco (Indeed)
+2. Software Engineer - Google - San Francisco, CA (LinkedIn)
+3. Software Engineer @ Google (SF) (RemoteOK)
+4. Google: Software Engineer - Bay Area (Glassdoor)
+5. Software Engineer - Google - California (Company Site)
+```
+
+**After Deduplication** (user sees):
+```
+1. Software Engineer - Google - San Francisco
+   Available on: Indeed, LinkedIn, RemoteOK, Glassdoor, Company Site
+   [Apply on Indeed] [Apply on LinkedIn] [Apply on RemoteOK]
+```
+
+#### Merge Strategy
+
+```typescript
+// integration.ts - Deduplication logic
+async function handleDuplicates(newJob: RawJob): Promise<Job> {
+  // Try Tier 1: Content hash
+  const contentHash = generateContentHash(newJob);
+  const existingByHash = await findJobByHash(contentHash);
+
+  if (existingByHash) {
+    // Update existing job, add new URL
+    await addUrlToJob(existingByHash.id, newJob.url, newJob.source);
+    await logDuplicate(existingByHash.id, newJob, 'HASH', 99);
+    return existingByHash;
+  }
+
+  // Try Tier 2: Fuzzy matching
+  const candidates = await findSimilarJobs(newJob);
+  for (const candidate of candidates) {
+    const similarity = fuzzyMatch(newJob, candidate);
+    if (similarity >= 85) {
+      await addUrlToJob(candidate.id, newJob.url, newJob.source);
+      await logDuplicate(candidate.id, newJob, 'FUZZY', similarity);
+      return candidate;
+    }
+  }
+
+  // Try Tier 3: URL check
+  const existingByUrl = await findJobByUrl(newJob.url);
+  if (existingByUrl) {
+    await logDuplicate(existingByUrl.id, newJob, 'URL', 100);
+    return existingByUrl;
+  }
+
+  // Not a duplicate, create new job
+  return await createNewJob(newJob);
+}
+```
+
+**Merge Logic**:
+- Keep version with **longest, most detailed description**
+- Preserve **all source URLs** in `job_urls` table
+- Track merge in `job_duplicates` for audit
+- User sees: "Available on: Indeed, LinkedIn, RemoteOK" with all apply links
+
+### 1.5 Expiration Tracking System
+
+**Automatic job expiration** to hide stale, filled, or dead postings from search results.
+
+#### Expiration Factors
+
+```typescript
+// expiration.ts
+export function estimateExpirationDate(job: Job): Date {
+  let daysToExpire = 60; // Default: 60 days
+
+  // Factor 1: Job type
+  if (job.employment_type === 'contract') {
+    daysToExpire = 30; // Contracts expire faster
+  } else if (job.employment_type === 'internship') {
+    daysToExpire = 14; // Internships fill quickly
+  } else if (job.employment_type === 'full-time') {
+    daysToExpire = 60;
+  }
+
+  // Factor 2: Salary (high salary = longer listing)
+  if (job.salary_max && job.salary_max > 150000) {
+    daysToExpire += 30; // Senior roles take longer to fill
+  }
+
+  // Factor 3: Posted date
+  const daysSincePosted = Math.floor(
+    (Date.now() - new Date(job.posted_date).getTime()) / (1000 * 60 * 60 * 24)
+  );
+
+  if (daysSincePosted > 90) {
+    daysToExpire = 0; // Auto-expire if 90+ days old
+  }
+
+  // Factor 4: Last seen date
+  const daysSinceLastSeen = job.last_seen_at
+    ? Math.floor((Date.now() - new Date(job.last_seen_at).getTime()) / (1000 * 60 * 60 * 24))
+    : 0;
+
+  if (daysSinceLastSeen > 30) {
+    daysToExpire = Math.min(daysToExpire, 7); // Expire soon if not seen in 30 days
+  }
+
+  const expirationDate = new Date();
+  expirationDate.setDate(expirationDate.getDate() + daysToExpire);
+
+  return expirationDate;
+}
+```
+
+#### URL Health Checks
+
+```typescript
+// Check if job URL is still active
+async function checkUrlHealth(url: string): Promise<UrlHealthStatus> {
+  try {
+    const response = await fetch(url, { method: 'HEAD' });
+
+    if (response.status === 404 || response.status === 410) {
+      return 'DEAD'; // Job page removed
+    }
+
+    if (response.status >= 500) {
+      return 'ERROR'; // Server error, check later
+    }
+
+    return 'ACTIVE';
+  } catch (error) {
+    return 'UNREACHABLE';
+  }
+}
+```
+
+#### Daily Expiration Cron Job
+
+```typescript
+// api/cron/expire-jobs.ts
+export default async function handler(req: Request) {
+  const now = new Date();
+
+  // Mark jobs as expired if expiration date passed
+  const { data: expiredJobs } = await supabase
+    .from('jobs')
+    .update({
+      is_active: false,
+      expired_at: now.toISOString(),
+      expiration_reason: 'TIME_BASED'
+    })
+    .lt('expires_at', now.toISOString())
+    .eq('is_active', true)
+    .select();
+
+  // Check URL health for jobs nearing expiration
+  const { data: jobsNearExpiration } = await supabase
+    .from('jobs')
+    .select('id, job_urls(url)')
+    .gte('expires_at', now.toISOString())
+    .lte('expires_at', addDays(now, 7).toISOString())
+    .eq('is_active', true);
+
+  for (const job of jobsNearExpiration) {
+    for (const urlRecord of job.job_urls) {
+      const health = await checkUrlHealth(urlRecord.url);
+
+      if (health === 'DEAD') {
+        // Mark job as expired immediately
+        await supabase
+          .from('jobs')
+          .update({
+            is_active: false,
+            expired_at: now.toISOString(),
+            expiration_reason: 'URL_DEAD'
+          })
+          .eq('id', job.id);
+        break;
+      }
+    }
+  }
+
+  return new Response(JSON.stringify({
+    expiredCount: expiredJobs?.length || 0,
+    message: 'Expiration check complete'
+  }), {
+    headers: { 'Content-Type': 'application/json' }
+  });
+}
+```
+
+#### Database: Expiration Fields
+
+```sql
+-- Add to jobs table
+ALTER TABLE jobs
+ADD COLUMN expires_at TIMESTAMPTZ,
+ADD COLUMN expired_at TIMESTAMPTZ,
+ADD COLUMN expiration_reason TEXT CHECK (expiration_reason IN (
+  'TIME_BASED', 'URL_DEAD', 'USER_REPORTED', 'FILLED'
+)),
+ADD COLUMN last_seen_at TIMESTAMPTZ DEFAULT NOW();
+
+CREATE INDEX idx_jobs_expires_at ON jobs(expires_at);
+CREATE INDEX idx_jobs_active_expires ON jobs(is_active, expires_at);
+```
+
+#### User Experience
+
+**Visual Indicators**:
+- ✓ **Green badge**: Fresh job (<7 days old)
+- ⏱️ **Yellow badge**: Expiring soon (7-14 days left)
+- 🔴 **Red badge**: Expired/likely filled (hidden by default, show in "Expired Jobs" archive)
+
+**Filter Options**:
+- "Active jobs only" (default)
+- "Show expired jobs" (for reference)
+- "Posted within last 7 days"
+
+### 1.6 Complete Database Schema
+
+**6 tables for comprehensive job quality management**:
+
+```sql
+-- Core job data with spam & expiration tracking
+CREATE TABLE jobs (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+
+  -- Job details
+  title TEXT NOT NULL,
+  company_name TEXT NOT NULL,
+  company_logo_url TEXT,
+  location TEXT,
+  remote_type TEXT CHECK (remote_type IN ('onsite', 'hybrid', 'remote')),
+  employment_type TEXT CHECK (employment_type IN ('full-time', 'part-time', 'contract', 'internship')),
+  description TEXT NOT NULL,
+
+  -- Salary
+  salary_min INTEGER,
+  salary_max INTEGER,
+  salary_currency TEXT DEFAULT 'USD',
+
+  -- Skills & requirements
+  required_skills TEXT[],
+  nice_to_have_skills TEXT[],
+  experience_level TEXT CHECK (experience_level IN ('entry', 'mid', 'senior', 'lead', 'executive')),
+
+  -- Quality metrics
+  spam_score INTEGER DEFAULT 0 CHECK (spam_score >= 0 AND spam_score <= 100),
+  quality_score INTEGER DEFAULT 0 CHECK (quality_score >= 0 AND quality_score <= 100),
+
+  -- Expiration tracking
+  posted_date TIMESTAMPTZ NOT NULL,
+  expires_at TIMESTAMPTZ,
+  expired_at TIMESTAMPTZ,
+  expiration_reason TEXT,
+  last_seen_at TIMESTAMPTZ DEFAULT NOW(),
+
+  -- Status
+  is_active BOOLEAN DEFAULT true,
+
+  -- Metadata
+  content_hash TEXT UNIQUE NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_jobs_active ON jobs(is_active);
+CREATE INDEX idx_jobs_spam_score ON jobs(spam_score);
+CREATE INDEX idx_jobs_expires_at ON jobs(expires_at);
+CREATE INDEX idx_jobs_posted_date ON jobs(posted_date DESC);
+CREATE INDEX idx_jobs_skills ON jobs USING GIN(required_skills);
+
+-- All source URLs for each job
+CREATE TABLE job_urls (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  job_id UUID REFERENCES jobs(id) ON DELETE CASCADE,
+  source TEXT NOT NULL,
+  url TEXT UNIQUE NOT NULL,
+  is_primary BOOLEAN DEFAULT false,
+  discovered_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_job_urls_job ON job_urls(job_id);
+
+-- Spam detection audit trail
+CREATE TABLE spam_detection_logs (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  job_id UUID REFERENCES jobs(id) ON DELETE CASCADE,
+  spam_score INTEGER NOT NULL,
+  flags TEXT[],
+  severity TEXT NOT NULL,
+  recommendation TEXT NOT NULL,
+  detected_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Deduplication audit trail
+CREATE TABLE job_duplicates (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  canonical_job_id UUID REFERENCES jobs(id) ON DELETE CASCADE,
+  duplicate_job_id UUID,
+  match_tier TEXT,
+  similarity_score NUMERIC(5,2),
+  merged_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Crowdsourced spam reporting
+CREATE TABLE user_spam_reports (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  job_id UUID REFERENCES jobs(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  reason TEXT NOT NULL,
+  details TEXT,
+  reported_at TIMESTAMPTZ DEFAULT NOW(),
+  CONSTRAINT unique_user_report UNIQUE(job_id, user_id)
+);
+
+-- User saved jobs
+CREATE TABLE user_saved_jobs (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  job_id UUID REFERENCES jobs(id) ON DELETE CASCADE,
+  saved_at TIMESTAMPTZ DEFAULT NOW(),
+  notes TEXT,
+  CONSTRAINT unique_user_saved_job UNIQUE(user_id, job_id)
+);
+
+CREATE INDEX idx_saved_jobs_user ON user_saved_jobs(user_id);
+```
+
+### 1.7 Complete Integration Pipeline
+
+**End-to-end job ingestion** with spam detection, deduplication, and expiration estimation.
+
+```typescript
+// integration.ts
+export async function ingestJobComplete(rawJob: RawJob): Promise<IngestionResult> {
+  const metrics = {
+    startTime: Date.now(),
+    checks: {
+      spam: false,
+      duplicate: false,
+      expiration: false,
+      urlHealth: false
+    }
+  };
+
+  try {
+    // Step 1: Normalize job data
+    const normalizedJob = normalizeJobData(rawJob);
+
+    // Step 2: Spam detection
+    const spamResult = calculateSpamScore(normalizedJob);
+    metrics.checks.spam = true;
+
+    if (spamResult.recommendation === 'REJECT') {
+      // Critical spam detected - reject immediately
+      await logSpamDetection(normalizedJob, spamResult);
+      return {
+        success: false,
+        reason: 'SPAM_DETECTED',
+        spamScore: spamResult.score,
+        flags: spamResult.flags,
+        metrics
+      };
+    }
+
+    // Step 3: Deduplication check
+    const existingJob = await handleDuplicates(normalizedJob);
+    metrics.checks.duplicate = true;
+
+    if (existingJob) {
+      // Duplicate found - update existing job
+      await updateJobMetadata(existingJob.id, normalizedJob);
+      await logSpamDetection(existingJob, spamResult);
+
+      return {
+        success: true,
+        action: 'UPDATED',
+        job: existingJob,
+        spamScore: spamResult.score,
+        metrics
+      };
+    }
+
+    // Step 4: Create new job
+    const newJob = await createNewJob({
+      ...normalizedJob,
+      spam_score: spamResult.score,
+      content_hash: generateContentHash(normalizedJob)
+    });
+
+    // Step 5: Add primary URL
+    await addUrlToJob(newJob.id, rawJob.url, rawJob.source, true);
+
+    // Step 6: Log spam detection
+    await logSpamDetection(newJob, spamResult);
+
+    // Step 7: Estimate expiration
+    const expiresAt = estimateExpirationDate(newJob);
+    await updateJobExpiration(newJob.id, expiresAt);
+    metrics.checks.expiration = true;
+
+    // Step 8: Check URL health (async, don't block)
+    checkUrlHealthAsync(rawJob.url, newJob.id);
+    metrics.checks.urlHealth = true;
+
+    return {
+      success: true,
+      action: 'CREATED',
+      job: newJob,
+      spamScore: spamResult.score,
+      expiresAt,
+      metrics: {
+        ...metrics,
+        duration: Date.now() - metrics.startTime
+      }
+    };
+  } catch (error) {
+    return {
+      success: false,
+      reason: 'ERROR',
+      error: error.message,
+      metrics
+    };
+  }
+}
+```
+
+### 1.8 Before & After Comparison
+
+#### **Before: Raw Job Feed**
+```
+100 results from JSearch
+├── 25 scam/spam jobs (fake companies, phone harvesting)
+├── 40 duplicate jobs (same job on Indeed, LinkedIn, Glassdoor, etc.)
+├── 15 expired jobs (posted 90+ days ago, likely filled)
+├── 10 low-quality jobs (vague descriptions, no salary)
+└── 10 legitimate, unique, active jobs
+```
+
+#### **After: Filtered, Deduplicated Feed**
+```
+10 high-quality results
+├── ✓ All legitimate (spam score <40)
+├── ✓ All unique (duplicates merged)
+├── ✓ All active (expiration tracking)
+├── ✓ All detailed (complete descriptions, salary transparency)
+└── Each with multiple apply options (Indeed, LinkedIn, etc.)
+```
+
+**User sees**:
+- 90% fewer results, but **100% quality**
+- Each job shows all available sources
+- Green/yellow/red badges for freshness
+- Confidence they're not applying to scams
+
+### 1.9 Deployment Checklist
+
+**Phase 1: Database Setup**
+- [ ] Run `schema.sql` to create 6 tables
+- [ ] Apply RLS policies for user data
+- [ ] Create indexes for performance
+
+**Phase 2: Backend Integration**
+- [ ] Install files: `spamDetection.ts`, `deduplication.ts`, `expiration.ts`, `integration.ts`
+- [ ] Set environment variables:
+  - `SUPABASE_URL`
+  - `SUPABASE_KEY`
+  - `JSEARCH_API_KEY`
+- [ ] Test `ingestJobComplete()` with sample jobs
+
+**Phase 3: Cron Jobs**
+- [ ] Deploy `/api/cron/expire-jobs` endpoint
+- [ ] Configure daily cron (2 AM UTC):
+  ```json
+  {
+    "crons": [{
+      "path": "/api/cron/expire-jobs",
+      "schedule": "0 2 * * *"
+    }]
+  }
+  ```
+- [ ] Monitor cron execution logs
+
+**Phase 4: Frontend Integration**
+- [ ] Display spam warning badges for medium-risk jobs
+- [ ] Show "Available on: Indeed, LinkedIn" with all apply links
+- [ ] Add expiration indicators (green/yellow/red)
+- [ ] Implement user spam reporting UI
+
+**Phase 5: Testing**
+- [ ] Test spam detection with known scam jobs
+- [ ] Test deduplication with same job from multiple sources
+- [ ] Verify expiration tracking marks old jobs inactive
+- [ ] Load test with 1,000+ jobs
+
+### 1.10 AI Relevance Matching (🔥 Competitive Advantage)
 
 #### Skill Extraction & Matching
 ```javascript
@@ -120,27 +854,7 @@ Score Components:
 - Track: apply rate, save rate, skip rate
 - Continuous learning and improvement
 
-### 1.4 Deduplication Strategy
-
-**Problem**: Same job posted on multiple boards
-
-**Solution**:
-```javascript
-const canonicalJobId = hash(
-  job.company_name +
-  job.job_title +
-  job.location +
-  job.salary_range
-);
-```
-
-**Merge Logic**:
-- Keep version with best description (longest, most detailed)
-- Track all source boards
-- Show "Posted on: Indeed, LinkedIn, Company Site"
-- Preserve all apply links
-
-### 1.5 User Segmentation
+### 1.11 User Segmentation
 
 Tailor job sources based on user profile:
 
@@ -163,57 +877,37 @@ Tailor job sources based on user profile:
 - **Sources**: Upwork, Fiverr, Gun.io, Toptal
 - **Types**: W2, 1099, Corp-to-Corp
 
-### 1.6 Database Schema
+### 1.12 Implementation Timeline
 
-```sql
-CREATE TABLE cached_jobs (
-  id UUID PRIMARY KEY,
-  job_id TEXT UNIQUE NOT NULL,
-  source TEXT NOT NULL, -- 'jsearch', 'remoteok', 'direct'
-  company_name TEXT,
-  company_logo_url TEXT,
-  job_title TEXT,
-  location TEXT,
-  remote_type TEXT, -- 'onsite', 'hybrid', 'remote'
-  salary_min INTEGER,
-  salary_max INTEGER,
-  salary_currency TEXT DEFAULT 'USD',
-  description TEXT,
-  required_skills TEXT[], -- extracted via NLP
-  nice_to_have_skills TEXT[],
-  experience_level TEXT, -- 'entry', 'mid', 'senior', 'lead'
-  posted_date TIMESTAMPTZ,
-  expires_at TIMESTAMPTZ,
-  quality_score INTEGER, -- 0-100
-  relevance_scores JSONB, -- {user_id: score} for cached scores
-  source_urls JSONB, -- {indeed: 'url', linkedin: 'url'}
-  company_data JSONB, -- {website, size, industry, rating}
-  cached_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
+**Week 1-2**: Database setup + spam detection system
+**Week 3-4**: Deduplication + expiration tracking
+**Week 5-6**: JSearch API integration + caching
+**Week 7-8**: AI relevance matching with Claude API
+**Week 9**: RemoteOK integration (if needed)
+**Week 10**: Frontend integration + user reporting UI
 
-CREATE INDEX idx_cached_jobs_expires ON cached_jobs(expires_at);
-CREATE INDEX idx_cached_jobs_quality ON cached_jobs(quality_score);
-CREATE INDEX idx_cached_jobs_posted ON cached_jobs(posted_date DESC);
-CREATE INDEX idx_cached_jobs_skills ON cached_jobs USING GIN(required_skills);
-```
+### 1.13 Success Metrics
 
-### 1.7 Implementation Timeline
+#### Quality Metrics
+- **Spam filter effectiveness**: % of spam jobs correctly identified
+- **Deduplication accuracy**: % of duplicate jobs merged correctly
+- **Expiration accuracy**: % of expired jobs correctly marked
+- **User report accuracy**: % of user-reported spam confirmed
 
-**Week 1**: JSearch API integration + basic caching
-**Week 2**: Quality filtering pipeline
-**Week 3-4**: AI relevance matching with Claude API
-**Week 5**: RemoteOK integration (if needed)
-
-### 1.8 Success Metrics
-
+#### User Engagement Metrics
 - **Salary transparency rate**: % jobs with salary listed
 - **Average relevance score**: Target 75+ for featured jobs
 - **Apply rate**: % users who apply after viewing
 - **Time to apply**: Faster = better relevance
 - **ML prediction accuracy**: % correct predictions
 
-### 1.9 Cost Estimate
+#### System Performance
+- **Job ingestion speed**: <500ms per job
+- **Duplicate check speed**: <100ms per job
+- **Daily cron execution**: <5 minutes
+- **Database query performance**: <50ms for search
+
+### 1.14 Cost Estimate
 
 | Component | Monthly Cost |
 |-----------|-------------|
