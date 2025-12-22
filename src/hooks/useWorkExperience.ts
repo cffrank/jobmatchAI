@@ -100,6 +100,7 @@ export function useWorkExperience() {
       user_id: userId,
       company: data.company,
       title: data.position,
+      location: data.location,
       description: data.description,
       start_date: data.startDate,
       end_date: data.endDate || null,
@@ -118,6 +119,7 @@ export function useWorkExperience() {
     const updateData: Partial<Database['public']['Tables']['work_experience']['Update']> = {}
     if (data.company !== undefined) updateData.company = data.company
     if (data.position !== undefined) updateData.title = data.position
+    if (data.location !== undefined) updateData.location = data.location
     if (data.description !== undefined) updateData.description = data.description
     if (data.startDate !== undefined) updateData.start_date = data.startDate
     if (data.endDate !== undefined) updateData.end_date = data.endDate || null
@@ -165,7 +167,7 @@ function mapDbWorkExperience(dbExp: DbWorkExperience): WorkExperience {
     id: dbExp.id,
     company: dbExp.company,
     position: dbExp.title,
-    location: '', // Not in database schema
+    location: dbExp.location || '',
     startDate: dbExp.start_date,
     endDate: dbExp.end_date || '',
     current: dbExp.is_current || false,
