@@ -88,19 +88,33 @@ export function useResumeParser() {
       setParsing(true)
       setProgress(40)
 
-      // Call Edge Function to parse resume
-      const { data, error: parseError } = await supabase.functions.invoke<ParsedResume>('parse-resume', {
-        body: { fileUrl: downloadURL },
+      // Get auth session for API call
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        throw new Error('No active session')
+      }
+
+      // Call Railway backend API to parse resume
+      const backendUrl = import.meta.env.VITE_BACKEND_URL
+      if (!backendUrl) {
+        throw new Error('Backend URL not configured')
+      }
+
+      const response = await fetch(`${backendUrl}/api/resume/parse`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ fileUrl: downloadURL }),
       })
 
-      if (parseError) {
-        console.error('Parse error:', parseError)
-        throw parseError
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Failed to parse resume' }))
+        throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`)
       }
 
-      if (!data) {
-        throw new Error('No data returned from resume parser')
-      }
+      const data = await response.json() as ParsedResume
 
       setProgress(100)
       setParsing(false)

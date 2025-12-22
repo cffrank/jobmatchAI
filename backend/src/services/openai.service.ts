@@ -439,3 +439,162 @@ Provide a JSON response with:
     };
   }
 }
+
+// =============================================================================
+// Resume Parsing
+// =============================================================================
+
+export interface ParsedProfile {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  location: string;
+  headline: string;
+  summary: string;
+  linkedInUrl?: string;
+}
+
+export interface ParsedWorkExperience {
+  company: string;
+  position: string;
+  location: string;
+  startDate: string;
+  endDate: string | null;
+  current: boolean;
+  description: string;
+  accomplishments: string[];
+}
+
+export interface ParsedEducation {
+  institution: string;
+  degree: string;
+  fieldOfStudy: string;
+  startDate: string;
+  endDate: string | null;
+  current: boolean;
+  grade?: string;
+}
+
+export interface ParsedSkill {
+  name: string;
+  endorsements: number;
+}
+
+export interface ParsedResume {
+  profile: ParsedProfile;
+  workExperience: ParsedWorkExperience[];
+  education: ParsedEducation[];
+  skills: ParsedSkill[];
+}
+
+/**
+ * Parse resume file and extract structured information using AI
+ *
+ * @param fileUrl - Public URL of the uploaded resume file
+ * @returns Parsed resume data
+ */
+export async function parseResume(fileUrl: string): Promise<ParsedResume> {
+  try {
+    const openai = getOpenAI();
+
+    const prompt = `
+You are an expert resume parser. Extract all information from this resume and return it as structured JSON.
+
+Please extract:
+1. Personal Information (first name, last name, email, phone, location, headline/title, professional summary, LinkedIn URL if present)
+2. Work Experience (for each job: company, position/title, location, start date, end date or "current", description, key accomplishments as array)
+3. Education (for each: institution, degree, field of study, start date, end date or "current", GPA/grade if present)
+4. Skills (extract all skills mentioned, set endorsements to 0)
+
+Important formatting rules:
+- Dates should be in YYYY-MM-DD format (use YYYY-MM-01 if only month/year given, YYYY-01-01 if only year given)
+- For current positions, set "current" to true and "endDate" to null
+- Extract accomplishments as separate bullet points where possible
+- For phone numbers, preserve the format found in resume
+- Set endorsements to 0 for all skills
+
+Return the response as JSON with this EXACT structure:
+{
+  "profile": {
+    "firstName": "string",
+    "lastName": "string",
+    "email": "string",
+    "phone": "string",
+    "location": "string",
+    "headline": "string (professional title/headline)",
+    "summary": "string (professional summary/about section)",
+    "linkedInUrl": "string or empty"
+  },
+  "workExperience": [
+    {
+      "company": "string",
+      "position": "string",
+      "location": "string",
+      "startDate": "YYYY-MM-DD",
+      "endDate": "YYYY-MM-DD or null",
+      "current": boolean,
+      "description": "string",
+      "accomplishments": ["string", "string", ...]
+    }
+  ],
+  "education": [
+    {
+      "institution": "string",
+      "degree": "string",
+      "fieldOfStudy": "string",
+      "startDate": "YYYY-MM-DD",
+      "endDate": "YYYY-MM-DD or null",
+      "current": boolean,
+      "grade": "string or empty"
+    }
+  ],
+  "skills": [
+    {
+      "name": "string",
+      "endorsements": 0
+    }
+  ]
+}
+`;
+
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [
+        {
+          role: 'system',
+          content: 'You are an expert resume parser. Extract all information from resumes and return valid JSON only. Be thorough and accurate.',
+        },
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: prompt,
+            },
+            {
+              type: 'image_url',
+              image_url: {
+                url: fileUrl,
+              },
+            },
+          ],
+        },
+      ],
+      response_format: { type: 'json_object' },
+      temperature: 0.3,
+      max_tokens: 4000,
+    });
+
+    const content = completion.choices[0]?.message.content;
+    if (!content) {
+      throw new Error('No content in OpenAI response');
+    }
+
+    const parsedData = JSON.parse(content) as ParsedResume;
+    return parsedData;
+  } catch (error) {
+    console.error('Resume parsing failed:', error);
+    throw error;
+  }
+}

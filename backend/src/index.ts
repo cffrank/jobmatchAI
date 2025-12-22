@@ -25,6 +25,7 @@ import emailsRouter from './routes/emails';
 import authRouter from './routes/auth';
 import jobsRouter from './routes/jobs';
 import exportsRouter from './routes/exports';
+import resumeRouter from './routes/resume';
 
 // Middleware imports
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
@@ -151,6 +152,7 @@ app.use('/api/emails', emailsRouter);
 app.use('/api/auth', authRouter);
 app.use('/api/jobs', jobsRouter);
 app.use('/api/exports', exportsRouter);
+app.use('/api/resume', resumeRouter);
 
 // =============================================================================
 // API Documentation (development only)
@@ -188,6 +190,9 @@ if (NODE_ENV === 'development') {
         exports: {
           'POST /api/exports/pdf': 'Export application as PDF',
           'POST /api/exports/docx': 'Export application as DOCX',
+        },
+        resume: {
+          'POST /api/resume/parse': 'Parse resume file using AI',
         },
       },
       authentication: 'Bearer token in Authorization header',
