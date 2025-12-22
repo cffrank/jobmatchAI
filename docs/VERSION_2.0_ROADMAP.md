@@ -28,10 +28,11 @@ Version 2.0 transforms JobMatch AI from a basic job application tracker into a *
 4. [Feature 4: Career Analytics & Insights](#feature-4-career-analytics--insights)
 5. [Feature 5: Network Intelligence](#feature-5-network-intelligence)
 6. [Feature 6: Salary Intelligence](#feature-6-salary-intelligence)
-7. [Technical Infrastructure Upgrades](#technical-infrastructure-upgrades)
-8. [Implementation Timeline](#implementation-timeline)
-9. [Budget & Resources](#budget--resources)
-10. [Success Metrics](#success-metrics)
+7. [Feature 7: LinkedIn Browser Extension](#feature-7-linkedin-browser-extension)
+8. [Technical Infrastructure Upgrades](#technical-infrastructure-upgrades)
+9. [Implementation Timeline](#implementation-timeline)
+10. [Budget & Resources](#budget--resources)
+11. [Success Metrics](#success-metrics)
 
 ---
 
@@ -821,6 +822,516 @@ const equityValue = calculateEquityValue({
 - **Negotiation success rate**: % users who negotiate successfully
 - **Avg salary increase**: $X gained through negotiation
 - **User satisfaction**: NPS for salary intelligence
+
+---
+
+## Feature 7: LinkedIn Browser Extension
+
+### Overview
+
+A Chrome/Edge browser extension that enables **one-click job capture** directly from LinkedIn job listings, eliminating manual data entry and streamlining the application tracking workflow.
+
+**Value Proposition**: Instead of manually copying job details, users can capture complete job information with a single click while browsing LinkedIn, automatically syncing to their JobMatch dashboard.
+
+### 7.1 Effort Level Assessment
+
+#### MVP (Basic Job Capture) - **1-2 Weeks**
+- Extract job title, company, location, and description from LinkedIn
+- Save to Supabase database
+- Basic UI (popup with capture button)
+- Single developer, part-time effort
+
+#### Production-Ready Extension - **3-4 Weeks**
+- Full job detail extraction (skills, salary, application deadline)
+- Real-time sync with JobMatch dashboard
+- Error handling and retry logic
+- Chrome Web Store submission and approval
+- Comprehensive testing across LinkedIn UI variations
+- Analytics and usage tracking
+
+### 7.2 Technical Architecture
+
+#### Browser Extension Components
+
+**1. Manifest V3 Configuration**
+```json
+{
+  "manifest_version": 3,
+  "name": "JobMatch LinkedIn Capture",
+  "version": "1.0.0",
+  "description": "Capture LinkedIn jobs directly to JobMatch AI",
+  "permissions": [
+    "activeTab",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://www.linkedin.com/*"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": "icon.png"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://www.linkedin.com/jobs/*"],
+      "js": ["content.js"]
+    }
+  ],
+  "background": {
+    "service_worker": "background.js"
+  }
+}
+```
+
+**2. Content Script (DOM Extraction)**
+```javascript
+// content.js - Extracts job data from LinkedIn DOM
+function extractJobData() {
+  const jobData = {
+    title: document.querySelector('.job-details-jobs-unified-top-card__job-title')?.innerText,
+    company: document.querySelector('.job-details-jobs-unified-top-card__company-name')?.innerText,
+    location: document.querySelector('.job-details-jobs-unified-top-card__bullet')?.innerText,
+    description: document.querySelector('.jobs-description__content')?.innerText,
+    salary: document.querySelector('.job-details-jobs-unified-top-card__job-insight span')?.innerText,
+    jobUrl: window.location.href,
+    postedDate: document.querySelector('.jobs-unified-top-card__posted-date')?.innerText,
+    applicantCount: document.querySelector('.jobs-unified-top-card__applicant-count')?.innerText,
+
+    // Advanced extraction
+    skills: extractSkills(),
+    benefits: extractBenefits(),
+    employmentType: extractEmploymentType(),
+    experienceLevel: extractExperienceLevel()
+  };
+
+  return jobData;
+}
+
+function extractSkills() {
+  const skillElements = document.querySelectorAll('.job-details-skill-match-status-list__skill');
+  return Array.from(skillElements).map(el => el.innerText.trim());
+}
+
+// Send to background script
+chrome.runtime.sendMessage({
+  action: 'captureJob',
+  data: extractJobData()
+});
+```
+
+**3. Background Service Worker (Supabase Integration)**
+```javascript
+// background.js - Communicates with Supabase
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  'https://lrzhpnsykasqrousgmdh.supabase.co',
+  'YOUR_ANON_KEY'
+);
+
+chrome.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
+  if (request.action === 'captureJob') {
+    try {
+      // Get current user session
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (!session) {
+        sendResponse({ success: false, error: 'Not authenticated' });
+        return;
+      }
+
+      // Save job to Supabase
+      const { data, error } = await supabase
+        .from('linkedin_captures')
+        .insert({
+          user_id: session.user.id,
+          title: request.data.title,
+          company: request.data.company,
+          location: request.data.location,
+          description: request.data.description,
+          salary: request.data.salary,
+          job_url: request.data.jobUrl,
+          posted_date: request.data.postedDate,
+          applicant_count: request.data.applicantCount,
+          skills: request.data.skills,
+          benefits: request.data.benefits,
+          employment_type: request.data.employmentType,
+          experience_level: request.data.experienceLevel,
+          captured_at: new Date().toISOString()
+        });
+
+      if (error) throw error;
+
+      // Show success notification
+      chrome.notifications.create({
+        type: 'basic',
+        iconUrl: 'icon.png',
+        title: 'Job Captured!',
+        message: `${request.data.title} at ${request.data.company} saved to JobMatch`
+      });
+
+      sendResponse({ success: true, data });
+    } catch (error) {
+      sendResponse({ success: false, error: error.message });
+    }
+  }
+  return true; // Keep channel open for async response
+});
+```
+
+**4. Popup UI (User Interface)**
+```html
+<!-- popup.html -->
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body {
+      width: 320px;
+      padding: 16px;
+      font-family: system-ui;
+    }
+    .btn-capture {
+      width: 100%;
+      padding: 12px;
+      background: #0a66c2;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    .btn-capture:hover {
+      background: #004182;
+    }
+    .status {
+      margin-top: 12px;
+      padding: 8px;
+      border-radius: 4px;
+      font-size: 12px;
+    }
+    .success {
+      background: #d4edda;
+      color: #155724;
+    }
+    .error {
+      background: #f8d7da;
+      color: #721c24;
+    }
+  </style>
+</head>
+<body>
+  <h3>JobMatch LinkedIn Capture</h3>
+  <button class="btn-capture" id="captureBtn">
+    📋 Capture This Job
+  </button>
+  <div id="status"></div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
+```
+
+### 7.3 Database Schema
+
+#### New Table: linkedin_captures
+```sql
+-- Stores jobs captured from LinkedIn browser extension
+CREATE TABLE linkedin_captures (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+
+  -- Basic job info
+  title TEXT NOT NULL,
+  company TEXT NOT NULL,
+  location TEXT,
+  description TEXT,
+  job_url TEXT UNIQUE NOT NULL,
+
+  -- LinkedIn-specific data
+  posted_date TEXT,
+  applicant_count TEXT,
+  salary TEXT,
+
+  -- Extracted details
+  skills TEXT[],
+  benefits TEXT[],
+  employment_type TEXT, -- 'Full-time', 'Part-time', 'Contract', etc.
+  experience_level TEXT, -- 'Entry level', 'Mid-Senior level', 'Executive', etc.
+
+  -- Metadata
+  captured_at TIMESTAMPTZ DEFAULT NOW(),
+  processed BOOLEAN DEFAULT FALSE,
+  migrated_to_applications BOOLEAN DEFAULT FALSE,
+
+  -- Indexes
+  CONSTRAINT unique_user_job UNIQUE(user_id, job_url)
+);
+
+-- Indexes for performance
+CREATE INDEX idx_linkedin_captures_user ON linkedin_captures(user_id);
+CREATE INDEX idx_linkedin_captures_processed ON linkedin_captures(processed);
+CREATE INDEX idx_linkedin_captures_captured_at ON linkedin_captures(captured_at DESC);
+
+-- RLS policies
+ALTER TABLE linkedin_captures ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view own captures"
+  ON linkedin_captures FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert own captures"
+  ON linkedin_captures FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update own captures"
+  ON linkedin_captures FOR UPDATE
+  USING (auth.uid() = user_id);
+```
+
+### 7.4 Supabase Edge Function Integration
+
+```typescript
+// supabase/functions/save-linkedin-job/index.ts
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+
+serve(async (req) => {
+  try {
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+    )
+
+    // Get user from auth header
+    const authHeader = req.headers.get('Authorization')!
+    const { data: { user }, error: userError } = await supabase.auth.getUser(
+      authHeader.replace('Bearer ', '')
+    )
+
+    if (userError || !user) {
+      return new Response('Unauthorized', { status: 401 })
+    }
+
+    // Parse job data from request
+    const jobData = await req.json()
+
+    // Validate required fields
+    if (!jobData.title || !jobData.company || !jobData.job_url) {
+      return new Response('Missing required fields', { status: 400 })
+    }
+
+    // Save to database
+    const { data, error } = await supabase
+      .from('linkedin_captures')
+      .insert({
+        user_id: user.id,
+        ...jobData,
+        captured_at: new Date().toISOString()
+      })
+      .select()
+      .single()
+
+    if (error) {
+      // Handle duplicate job_url (already captured)
+      if (error.code === '23505') {
+        return new Response(
+          JSON.stringify({ message: 'Job already captured' }),
+          { status: 409, headers: { 'Content-Type': 'application/json' } }
+        )
+      }
+      throw error
+    }
+
+    return new Response(
+      JSON.stringify({ success: true, data }),
+      { headers: { 'Content-Type': 'application/json' } }
+    )
+  } catch (error) {
+    return new Response(
+      JSON.stringify({ error: error.message }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    )
+  }
+})
+```
+
+### 7.5 Key Technical Challenges
+
+#### 1. LinkedIn DOM Changes
+**Challenge**: LinkedIn frequently updates their UI, breaking selectors
+**Solution**:
+- Use multiple fallback selectors for each field
+- Implement fuzzy matching for common patterns
+- Monitor and update selectors via auto-update mechanism
+- Graceful degradation when extraction fails
+
+```javascript
+// Robust selector strategy
+function getJobTitle() {
+  const selectors = [
+    '.job-details-jobs-unified-top-card__job-title',
+    '.jobs-unified-top-card__job-title',
+    'h1.t-24',
+    '[data-test-job-title]'
+  ];
+
+  for (const selector of selectors) {
+    const element = document.querySelector(selector);
+    if (element?.innerText) return element.innerText.trim();
+  }
+
+  return null; // Failed to extract
+}
+```
+
+#### 2. LinkedIn Anti-Bot Measures
+**Challenge**: LinkedIn may detect and block automated scraping
+**Mitigation**:
+- Extension operates on **user-initiated actions** (clicks), not automation
+- Respect LinkedIn rate limits (no bulk scraping)
+- Clear user consent and authentication
+- Comply with LinkedIn Terms of Service for browser extensions
+
+#### 3. Authentication & Session Management
+**Challenge**: Browser extension needs Supabase auth session
+**Solution**:
+- Users must be logged into JobMatch web app
+- Extension retrieves session from chrome.storage.local
+- Refresh token mechanism for long-lived sessions
+- Fallback to manual login in extension popup
+
+#### 4. Cross-Browser Compatibility
+**Challenge**: Chrome, Edge, Firefox have different extension APIs
+**Solution**:
+- Start with Chromium-based browsers (Chrome, Edge) - Manifest V3
+- Use browser polyfill for Firefox support (Manifest V2/V3 hybrid)
+- Prioritize Chrome (80%+ market share)
+
+### 7.6 Alternative: Hybrid Approach (URL Paste)
+
+If full browser extension proves too complex, implement **URL paste workflow**:
+
+**How it works**:
+1. User copies LinkedIn job URL
+2. Pastes into JobMatch dashboard
+3. Backend scrapes job details via server-side headless browser
+4. Populates application form automatically
+
+**Advantages**:
+- No browser extension required
+- Easier to maintain (single scraper, not browser-specific)
+- Works on mobile devices
+
+**Disadvantages**:
+- Extra step (copy/paste vs. one-click)
+- Slower (server-side scraping takes 2-5 seconds)
+- Rate limiting concerns
+
+```typescript
+// Example: Server-side LinkedIn scraper using Puppeteer
+import puppeteer from 'puppeteer';
+
+export async function scrapeLinkedInJob(jobUrl: string) {
+  const browser = await puppeteer.launch({ headless: true });
+  const page = await browser.newPage();
+
+  await page.goto(jobUrl, { waitUntil: 'networkidle2' });
+
+  const jobData = await page.evaluate(() => {
+    return {
+      title: document.querySelector('.job-details-jobs-unified-top-card__job-title')?.innerText,
+      company: document.querySelector('.job-details-jobs-unified-top-card__company-name')?.innerText,
+      // ... extract other fields
+    };
+  });
+
+  await browser.close();
+  return jobData;
+}
+```
+
+### 7.7 Implementation Timeline
+
+#### Week 1: Foundation
+- [ ] Set up extension project structure
+- [ ] Implement Manifest V3 configuration
+- [ ] Create content script with basic DOM extraction
+- [ ] Test on 10+ LinkedIn job listings
+- [ ] Handle edge cases (missing fields, different layouts)
+
+#### Week 2: Supabase Integration
+- [ ] Implement background service worker
+- [ ] Add Supabase authentication flow
+- [ ] Create `linkedin_captures` table and RLS policies
+- [ ] Build Edge Function for job saving
+- [ ] Test end-to-end capture workflow
+
+#### Week 3: UI & UX Polish
+- [ ] Design extension popup interface
+- [ ] Add success/error notifications
+- [ ] Implement duplicate job detection
+- [ ] Show capture history in popup
+- [ ] Add settings page (auto-sync, notifications)
+
+#### Week 4: Testing & Deployment
+- [ ] Cross-browser testing (Chrome, Edge)
+- [ ] Handle LinkedIn UI variations
+- [ ] Implement analytics (capture success rate)
+- [ ] Prepare Chrome Web Store listing
+- [ ] Submit for review and approval (5-7 day turnaround)
+
+### 7.8 User Workflow
+
+**Step 1**: User installs JobMatch browser extension from Chrome Web Store
+
+**Step 2**: User logs into JobMatch web app (establishes session)
+
+**Step 3**: User browses LinkedIn jobs as normal
+
+**Step 4**: On interesting job, clicks extension icon → "📋 Capture This Job"
+
+**Step 5**: Extension extracts job details and saves to Supabase
+
+**Step 6**: User sees success notification: "Job captured! View in JobMatch"
+
+**Step 7**: Job appears in JobMatch dashboard under "Captured Jobs" section
+
+**Step 8**: User can:
+- View full job details
+- Move to "Applications" to start applying
+- AI generates tailored resume/cover letter
+- Track application status
+
+### 7.9 Success Metrics
+
+#### Adoption Metrics
+- **Extension installs**: Target 500 in first month
+- **Active users**: % of extension users who capture ≥1 job/week
+- **Capture volume**: Average jobs captured per user per week
+
+#### Quality Metrics
+- **Extraction accuracy**: % of jobs with all required fields captured
+- **Error rate**: % of capture attempts that fail
+- **Duplicate rate**: % of jobs already in user's tracker
+
+#### Engagement Metrics
+- **Conversion rate**: % of captured jobs that become applications
+- **Time saved**: Avg time saved vs. manual entry (estimate: 2-3 minutes per job)
+- **User satisfaction**: NPS score for extension feature
+
+### 7.10 Monetization Potential
+
+**Free Tier**: 10 job captures per month
+**Premium Tier**: Unlimited captures + advanced features:
+- Bulk capture (select multiple jobs, capture all at once)
+- Auto-apply integration (capture → AI-apply in one click)
+- Capture from other platforms (Indeed, Glassdoor via separate content scripts)
+- Company research auto-fill (extract company culture, reviews, funding)
+
+**Estimated Revenue Impact**:
+- 20% of extension users upgrade to premium ($9.99/month)
+- 500 active users × 20% × $9.99 = **$1,000/month additional MRR**
 
 ---
 
