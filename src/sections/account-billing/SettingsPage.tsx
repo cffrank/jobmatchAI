@@ -74,7 +74,25 @@ export default function SettingsPage() {
   console.log('SettingsPage - Security data:', security)
 
   const [notifications, setNotifications] = useState<NotificationPreferences>(data.notificationPreferences)
+
   const [privacy, setPrivacy] = useState<PrivacySettings>(data.privacySettings)
+
+  // Update connected accounts when user data becomes available
+  useEffect(() => {
+    if (user) {
+      const connectedAccounts = [{
+        id: user.id,
+        provider: user.app_metadata?.provider === 'linkedin_oidc' ? 'linkedin' :
+                  user.app_metadata?.provider === 'google' ? 'google' : 'email',
+        email: user.email || '',
+        connectedAt: user.created_at || new Date().toISOString()
+      }]
+      setPrivacy(prev => ({
+        ...prev,
+        connectedAccounts
+      }))
+    }
+  }, [user])
 
   // Subscription state
   const [subscription, setSubscription] = useState<Subscription>(data.subscription)
