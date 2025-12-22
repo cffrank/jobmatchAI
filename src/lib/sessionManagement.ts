@@ -158,6 +158,15 @@ export async function validateAndRefreshSession(
     return false
   }
 
+  // Check if this is a brand new session (no lastActivity set yet)
+  // This happens during login before initializeSession completes
+  const lastActivity = sessionStorage.getItem(LAST_ACTIVITY_KEY)
+  if (!lastActivity) {
+    // New session being initialized, don't validate yet
+    console.log('[Session] New session detected, skipping validation')
+    return true
+  }
+
   // Check if session is still valid
   if (!isSessionValid()) {
     console.warn('[Session] Session expired due to inactivity')

@@ -13,6 +13,8 @@
     "migrate": "tsx scripts/migrate-mock-data-client.ts",
     "create-test-users": "tsx scripts/create-test-users-client.ts",
     "test:storage": "tsx scripts/test-storage.ts",
+    "test:auth": "node test-supabase-auth.js",
+    "test:security": "node test-supabase-auth.js",
     "deploy:storage": "./scripts/deploy-storage.sh"
   },
   "dependencies": {
