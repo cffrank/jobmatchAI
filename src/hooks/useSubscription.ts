@@ -40,7 +40,19 @@ export function useSubscription() {
         }
 
         if (mounted) {
-          setSubscription(data as Subscription | null)
+          // Map database fields to TypeScript types
+          const mappedSubscription = data ? {
+            id: data.id,
+            userId: data.user_id,
+            plan: data.plan,
+            billingCycle: data.billing_cycle,
+            status: data.status,
+            currentPeriodStart: data.current_period_start,
+            currentPeriodEnd: data.current_period_end,
+            cancelAtPeriodEnd: data.cancel_at_period_end || false,
+          } as Subscription : null
+
+          setSubscription(mappedSubscription)
           setError(null)
         }
       } catch (err) {
@@ -68,8 +80,19 @@ export function useSubscription() {
           filter: `user_id=eq.${userId}`
         },
         (payload) => {
-          if (mounted) {
-            setSubscription(payload.new as Subscription)
+          if (mounted && payload.new) {
+            const data = payload.new
+            const mappedSubscription = {
+              id: data.id,
+              userId: data.user_id,
+              plan: data.plan,
+              billingCycle: data.billing_cycle,
+              status: data.status,
+              currentPeriodStart: data.current_period_start,
+              currentPeriodEnd: data.current_period_end,
+              cancelAtPeriodEnd: data.cancel_at_period_end || false,
+            } as Subscription
+            setSubscription(mappedSubscription)
           }
         }
       )

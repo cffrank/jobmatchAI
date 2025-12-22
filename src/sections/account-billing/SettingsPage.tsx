@@ -7,6 +7,8 @@ import { SubscriptionOverview } from './components/SubscriptionOverview'
 import { useProfile } from '@/hooks/useProfile'
 import { useProfilePhoto } from '@/hooks/useProfilePhoto'
 import { useSecuritySettings } from '@/hooks/useSecuritySettings'
+import { useSubscription, useUsageLimits } from '@/hooks/useSubscription'
+import { useUsageMetrics } from '@/hooks/useUsageMetrics'
 import { useAuth } from '@/contexts/AuthContext'
 import data from './data.json'
 import type {
@@ -25,6 +27,9 @@ export default function SettingsPage() {
   const { profile: firestoreProfile, loading: profileLoading, updateProfile: updateFirestoreProfile } = useProfile()
   const { uploadProfilePhoto, uploading: photoUploading, error: photoError } = useProfilePhoto()
   const { security, loading: securityLoading, revokeSession, enable2FA, disable2FA, generateBackupCodes } = useSecuritySettings()
+  const { subscription: dbSubscription, loading: subscriptionLoading, updateSubscription } = useSubscription()
+  const { usageLimits: dbUsageLimits, loading: usageLimitsLoading } = useUsageLimits()
+  const { metrics: usageMetrics, loading: metricsLoading } = useUsageMetrics()
   const [profileInitialized, setProfileInitialized] = useState(false)
 
   // Debug logging
@@ -94,9 +99,31 @@ export default function SettingsPage() {
     }
   }, [user])
 
-  // Subscription state
-  const [subscription, setSubscription] = useState<Subscription>(data.subscription)
-  const [usage] = useState<UsageLimits>(data.usage)
+  // Build real subscription data
+  const subscription: Subscription = dbSubscription || {
+    id: '',
+    userId: user?.id || '',
+    plan: 'basic',
+    billingCycle: 'monthly',
+    status: 'active',
+    currentPeriodStart: new Date().toISOString().split('T')[0],
+    currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    cancelAtPeriodEnd: false,
+  }
+
+  // Build real usage data
+  const usage: UsageLimits = {
+    userId: user?.id || '',
+    period: new Date().toISOString().slice(0, 7), // YYYY-MM format
+    applicationsTracked: usageMetrics.applicationsTracked,
+    resumeVariantsCreated: usageMetrics.resumeVariantsCreated,
+    jobSearchesPerformed: usageMetrics.jobSearchesPerformed,
+    limits: {
+      maxApplications: subscription.plan === 'premium' ? 'unlimited' : (dbUsageLimits?.ai_generations_limit || 10),
+      maxResumeVariants: subscription.plan === 'premium' ? 'unlimited' : 3,
+      maxJobSearches: subscription.plan === 'premium' ? 'unlimited' : (dbUsageLimits?.job_searches_limit || 50),
+    },
+  }
 
   // Account handlers
   const handleUpdateProfile = async (updates: Partial<UserProfile>) => {
@@ -215,59 +242,84 @@ export default function SettingsPage() {
   }
 
   // Subscription handlers
-  const handleUpgrade = (tier: PlanTier, billingCycle: BillingCycle) => {
-    setSubscription({
-      ...subscription,
-      plan: tier,
-      billingCycle,
-      status: 'active'
-    })
-    console.log('Upgrade to:', tier, billingCycle)
+  const handleUpgrade = async (tier: PlanTier, billingCycle: BillingCycle) => {
+    try {
+      await updateSubscription({
+        plan: tier,
+        billing_cycle: billingCycle,
+        status: 'active',
+      })
+      alert(`Upgraded to ${tier} plan!`)
+      console.log('Upgrade to:', tier, billingCycle)
+    } catch (error) {
+      console.error('Failed to upgrade:', error)
+      alert(`Failed to upgrade: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
   }
 
-  const handleDowngrade = (tier: PlanTier) => {
-    setSubscription({
-      ...subscription,
-      plan: tier,
-      cancelAtPeriodEnd: false
-    })
-    console.log('Downgrade to:', tier)
+  const handleDowngrade = async (tier: PlanTier) => {
+    try {
+      await updateSubscription({
+        plan: tier,
+        cancel_at_period_end: false,
+      })
+      alert(`Downgraded to ${tier} plan!`)
+      console.log('Downgrade to:', tier)
+    } catch (error) {
+      console.error('Failed to downgrade:', error)
+      alert(`Failed to downgrade: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
   }
 
-  const handleChangeBillingCycle = (billingCycle: BillingCycle) => {
-    setSubscription({
-      ...subscription,
-      billingCycle
-    })
-    console.log('Change billing cycle to:', billingCycle)
+  const handleChangeBillingCycle = async (billingCycle: BillingCycle) => {
+    try {
+      await updateSubscription({
+        billing_cycle: billingCycle,
+      })
+      alert(`Billing cycle changed to ${billingCycle}!`)
+      console.log('Change billing cycle to:', billingCycle)
+    } catch (error) {
+      console.error('Failed to change billing cycle:', error)
+      alert(`Failed to change billing cycle: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
   }
 
-  const handleCancelSubscription = () => {
-    setSubscription({
-      ...subscription,
-      cancelAtPeriodEnd: true
-    })
-    console.log('Cancel subscription at period end')
+  const handleCancelSubscription = async () => {
+    try {
+      await updateSubscription({
+        cancel_at_period_end: true,
+      })
+      alert('Subscription will be canceled at the end of the current period.')
+      console.log('Cancel subscription at period end')
+    } catch (error) {
+      console.error('Failed to cancel subscription:', error)
+      alert(`Failed to cancel: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
   }
 
-  const handleReactivateSubscription = () => {
-    setSubscription({
-      ...subscription,
-      cancelAtPeriodEnd: false
-    })
-    console.log('Reactivate subscription')
+  const handleReactivateSubscription = async () => {
+    try {
+      await updateSubscription({
+        cancel_at_period_end: false,
+      })
+      alert('Subscription reactivated!')
+      console.log('Reactivate subscription')
+    } catch (error) {
+      console.error('Failed to reactivate subscription:', error)
+      alert(`Failed to reactivate: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
   }
 
   const currentPlan = data.availablePlans.find(p => p.tier === subscription.plan)!
 
-  // Show loading state while profile or security data is being fetched
-  if (profileLoading || securityLoading) {
+  // Show loading state while data is being fetched
+  if (profileLoading || securityLoading || subscriptionLoading || usageLimitsLoading || metricsLoading) {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <p className="text-slate-600 dark:text-slate-400">
-            {profileLoading ? 'Loading profile...' : 'Loading security settings...'}
+            Loading settings...
           </p>
         </div>
       </div>
