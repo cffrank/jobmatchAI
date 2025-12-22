@@ -149,10 +149,10 @@
       "tier": "premium",
       "displayName": "Premium",
       "description": "Unlimited access to accelerate your job search",
-      "monthlyPrice": 19,
-      "annualPrice": 15,
-      "annualTotal": 180,
-      "annualSavings": 48,
+      "monthlyPrice": 29,
+      "annualPrice": 23,
+      "annualTotal": 276,
+      "annualSavings": 72,
       "features": [
         "Unlimited tracked applications",
         "Unlimited resume variants",
@@ -240,7 +240,7 @@
         "id": "inv-001",
         "userId": "user-002",
         "date": "2024-11-15",
-        "amount": 180.0,
+        "amount": 276.0,
         "status": "paid",
         "paymentMethod": {
           "brand": "Visa",
@@ -252,8 +252,8 @@
           {
             "description": "Premium Plan (Annual)",
             "quantity": 1,
-            "unitPrice": 180.0,
-            "total": 180.0
+            "unitPrice": 276.0,
+            "total": 276.0
           }
         ]
       },
@@ -261,7 +261,7 @@
         "id": "inv-002",
         "userId": "user-002",
         "date": "2024-10-15",
-        "amount": 19.0,
+        "amount": 29.0,
         "status": "paid",
         "paymentMethod": {
           "brand": "Visa",
@@ -273,8 +273,8 @@
           {
             "description": "Premium Plan (Monthly)",
             "quantity": 1,
-            "unitPrice": 19.0,
-            "total": 19.0
+            "unitPrice": 29.0,
+            "total": 29.0
           }
         ]
       },
@@ -282,7 +282,7 @@
         "id": "inv-003",
         "userId": "user-002",
         "date": "2024-09-15",
-        "amount": 19.0,
+        "amount": 29.0,
         "status": "paid",
         "paymentMethod": {
           "brand": "Visa",
@@ -294,8 +294,8 @@
           {
             "description": "Premium Plan (Monthly)",
             "quantity": 1,
-            "unitPrice": 19.0,
-            "total": 19.0
+            "unitPrice": 29.0,
+            "total": 29.0
           }
         ]
       }
