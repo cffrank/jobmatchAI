@@ -1,4 +1,5 @@
 import type { ProfileOverviewProps } from '../types'
+import { Upload } from 'lucide-react'
 import { ProfileHeader } from './ProfileHeader'
 import { ExperienceTimeline } from './ExperienceTimeline'
 import { SkillsGrid } from './SkillsGrid'
@@ -28,6 +29,7 @@ export function ProfileOverview({
   onDownloadResume,
   onUploadResumeFile,
   onDeleteResumeFile,
+  onImportResume,
   onAcceptSuggestion,
   onDismissSuggestion,
 }: ProfileOverviewProps) {
@@ -36,9 +38,20 @@ export function ProfileOverview({
       <div className="max-w-7xl mx-auto p-6 lg:p-8">
         {/* Page header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100 mb-2">
-            Profile & Resume
-          </h1>
+          <div className="flex items-center justify-between mb-2">
+            <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">
+              Profile & Resume
+            </h1>
+            {onImportResume && (
+              <button
+                onClick={onImportResume}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700 text-white rounded-lg transition-colors font-medium shadow-sm"
+              >
+                <Upload className="w-5 h-5" />
+                <span>Import Resume</span>
+              </button>
+            )}
+          </div>
           <p className="text-slate-600 dark:text-slate-400">
             Manage your professional profile, work experience, and resume
           </p>

@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { ProfileOverview } from './components/ProfileOverview'
+import { ResumeUploadDialog } from './components/ResumeUploadDialog'
 import { useProfile } from '@/hooks/useProfile'
 import { useWorkExperience } from '@/hooks/useWorkExperience'
 import { useEducation } from '@/hooks/useEducation'
@@ -23,6 +24,7 @@ export default function ProfileOverviewPage() {
 
   // Resume files state (would be fetched from Firestore in real implementation)
   const [resumeFiles, setResumeFiles] = useState<ResumeFile[]>([])
+  const [isResumeUploadDialogOpen, setIsResumeUploadDialogOpen] = useState(false)
 
   const loading = profileLoading || workExpLoading || educationLoading || skillsLoading || resumesLoading
 
@@ -109,6 +111,15 @@ export default function ProfileOverviewPage() {
     console.log('Dismiss suggestion:', id)
   }
 
+  const handleImportResume = () => {
+    setIsResumeUploadDialogOpen(true)
+  }
+
+  const handleResumeUploadSuccess = () => {
+    // Reload the page data after successful import
+    window.location.reload()
+  }
+
   const handleUploadResumeFile = async (file: File) => {
     try {
       const resumeId = resumes?.[0]?.id || data.resume.id
@@ -159,29 +170,38 @@ export default function ProfileOverviewPage() {
   }
 
   return (
-    <ProfileOverview
-      user={profile}
-      workExperience={workExperience}
-      education={education}
-      skills={skills}
-      resume={resumes?.[0]}
-      optimizationSuggestions={[]} // TODO: Build real AI suggestion feature in future phase
-      resumeFiles={resumeFiles}
-      onEditProfile={handleEditProfile}
-      onEditExperience={handleEditExperience}
-      onDeleteExperience={handleDeleteExperience}
-      onAddExperience={handleAddExperience}
-      onEditEducation={handleEditEducation}
-      onDeleteEducation={handleDeleteEducation}
-      onAddEducation={handleAddEducation}
-      onEditSkills={handleEditSkills}
-      onViewResume={handleViewResume}
-      onEditResume={handleEditResume}
-      onDownloadResume={handleDownloadResume}
-      onUploadResumeFile={handleUploadResumeFile}
-      onDeleteResumeFile={handleDeleteResumeFile}
-      onAcceptSuggestion={handleAcceptSuggestion}
-      onDismissSuggestion={handleDismissSuggestion}
-    />
+    <>
+      <ProfileOverview
+        user={profile}
+        workExperience={workExperience}
+        education={education}
+        skills={skills}
+        resume={resumes?.[0]}
+        optimizationSuggestions={[]} // TODO: Build real AI suggestion feature in future phase
+        resumeFiles={resumeFiles}
+        onEditProfile={handleEditProfile}
+        onEditExperience={handleEditExperience}
+        onDeleteExperience={handleDeleteExperience}
+        onAddExperience={handleAddExperience}
+        onEditEducation={handleEditEducation}
+        onDeleteEducation={handleDeleteEducation}
+        onAddEducation={handleAddEducation}
+        onEditSkills={handleEditSkills}
+        onViewResume={handleViewResume}
+        onEditResume={handleEditResume}
+        onDownloadResume={handleDownloadResume}
+        onUploadResumeFile={handleUploadResumeFile}
+        onDeleteResumeFile={handleDeleteResumeFile}
+        onAcceptSuggestion={handleAcceptSuggestion}
+        onDismissSuggestion={handleDismissSuggestion}
+        onImportResume={handleImportResume}
+      />
+
+      <ResumeUploadDialog
+        isOpen={isResumeUploadDialogOpen}
+        onClose={() => setIsResumeUploadDialogOpen(false)}
+        onSuccess={handleResumeUploadSuccess}
+      />
+    </>
   )
 }

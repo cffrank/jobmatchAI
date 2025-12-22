@@ -172,6 +172,8 @@ export interface ProfileOverviewProps {
   onUploadResumeFile?: (file: File) => Promise<void>
   /** Called when user deletes a resume file */
   onDeleteResumeFile?: (format: 'pdf' | 'docx' | 'txt') => Promise<void>
+  /** Called when user wants to import a resume to auto-fill profile */
+  onImportResume?: () => void
   /** Called when user accepts an optimization suggestion */
   onAcceptSuggestion?: (id: string) => void
   /** Called when user dismisses an optimization suggestion */
