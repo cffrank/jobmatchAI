@@ -33,9 +33,10 @@ export function ProtectedRoute({
 
   // Block access if email verification is required and not verified
   // Exception: OAuth providers (Google, LinkedIn) auto-verify emails
-  const isOAuthUser = user.providerData.some(
-    provider => provider.providerId === 'google.com' || provider.providerId.includes('linkedin')
-  )
+  // Supabase user.app_metadata.provider contains the OAuth provider
+  const isOAuthUser = user.app_metadata?.provider === 'google' ||
+                      user.app_metadata?.provider === 'linkedin_oidc' ||
+                      user.app_metadata?.provider === 'linkedin'
 
   if (requireEmailVerification && !user.emailVerified && !isOAuthUser) {
     return (
