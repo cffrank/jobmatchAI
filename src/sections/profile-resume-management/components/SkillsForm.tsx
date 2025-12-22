@@ -12,6 +12,7 @@ export function SkillsForm() {
   const [localSkills, setLocalSkills] = useState<Array<Skill & { isNew?: boolean }>>([])
   const [editingId, setEditingId] = useState<string | null>(null)
   const [newSkillName, setNewSkillName] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   useEffect(() => {
     setLocalSkills(skills)
@@ -32,6 +33,7 @@ export function SkillsForm() {
       return
     }
 
+    setIsSubmitting(true)
     try {
       await addSkill({
         name: newSkillName.trim(),
@@ -42,6 +44,8 @@ export function SkillsForm() {
     } catch (error) {
       console.error('Error adding skill:', error)
       toast.error('Failed to add skill. Please try again.')
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -51,6 +55,7 @@ export function SkillsForm() {
       return
     }
 
+    setIsSubmitting(true)
     try {
       await updateSkill(id, { name: name.trim(), endorsements })
       setEditingId(null)
@@ -58,6 +63,8 @@ export function SkillsForm() {
     } catch (error) {
       console.error('Error updating skill:', error)
       toast.error('Failed to update skill. Please try again.')
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -66,12 +73,15 @@ export function SkillsForm() {
       return
     }
 
+    setIsSubmitting(true)
     try {
       await deleteSkill(id)
       toast.success('Skill deleted successfully!')
     } catch (error) {
       console.error('Error deleting skill:', error)
       toast.error('Failed to delete skill. Please try again.')
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
