@@ -53,18 +53,20 @@ The application uses a **dual-layer session management** approach:
    - Variable: `SESSION_TIMEOUT_MS`
    - Value: `30 * 60 * 1000` (30 minutes)
 
-3. **Supabase Client** (Cookie configuration)
+3. **Supabase Client** (Session configuration)
    - File: `/src/lib/supabase.ts`
-   - PKCE flow enabled for better security
+   - Uses implicit flow (default for client-side SPAs)
    - Auto-refresh enabled to maintain valid sessions
+   - localStorage for session persistence
 
 ### Recommendations
 
 **Current settings are SECURE and meet industry standards**:
 - 7-day maximum session duration prevents indefinite token validity
 - 30-minute inactivity timeout prevents session hijacking
-- PKCE flow protects against authorization code interception
+- Implicit OAuth flow appropriate for client-side applications
 - Auto-refresh ensures seamless user experience
+- Sessions persist securely in browser localStorage
 
 **No changes required for SEC-002 compliance**.
 

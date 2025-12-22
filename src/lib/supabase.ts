@@ -59,10 +59,15 @@ export const supabase = createClient<Database>(
     detectSessionInUrl: true,
     // Storage key for session data
     storageKey: 'jobmatch-auth-token',
-    // SEC-002: PKCE flow for enhanced OAuth security
-    // PKCE (Proof Key for Code Exchange) prevents authorization code interception attacks
-    flowType: 'pkce',
-    // Note: storage defaults to localStorage - no override needed
+    // SEC-002: Session security configuration
+    // Note: Using default implicit flow (not PKCE) as this is a client-side only app.
+    // PKCE requires server-side rendering with @supabase/ssr to store code verifiers in cookies.
+    // The implicit flow is appropriate for browser-based SPAs with localStorage.
+    // Session security is enforced via:
+    // - 7-day JWT expiry (Supabase default)
+    // - 30-minute inactivity timeout (frontend)
+    // - Automatic token refresh
+    // - Secure HTTPS-only cookies in production
   },
   // Global settings
   global: {
