@@ -59,12 +59,10 @@ export const supabase = createClient<Database>(
     detectSessionInUrl: true,
     // Storage key for session data
     storageKey: 'jobmatch-auth-token',
-    // SEC-002: Secure cookie configuration for session tokens
-    // These settings ensure cookies are transmitted securely and protected from XSS/CSRF
-    flowType: 'pkce', // Use PKCE flow for better security
-    storage: {
-      // Custom storage implementation could override here if needed
-    },
+    // SEC-002: PKCE flow for enhanced OAuth security
+    // PKCE (Proof Key for Code Exchange) prevents authorization code interception attacks
+    flowType: 'pkce',
+    // Note: storage defaults to localStorage - no override needed
   },
   // Global settings
   global: {
