@@ -43,13 +43,13 @@ export function useSecuritySettings() {
       const currentSessionId = sessionInfo?.sessionId || ''
 
       // Clean up expired sessions first
-      await cleanupExpiredSessions(user.uid)
+      await cleanupExpiredSessions(user.id)
 
       // Fetch all security data in parallel
       const [twoFactorSettings, activeSessions, recentActivity] = await Promise.all([
-        get2FASettings(user.uid),
-        getActiveSessions(user.uid, currentSessionId),
-        getRecentSecurityEvents(user.uid, 20),
+        get2FASettings(user.id),
+        getActiveSessions(user.id, currentSessionId),
+        getRecentSecurityEvents(user.id, 20),
       ])
 
       setSecurity({
@@ -83,7 +83,7 @@ export function useSecuritySettings() {
 
     const interval = setInterval(async () => {
       try {
-        await updateSessionActivity(user.uid, sessionInfo.sessionId)
+        await updateSessionActivity(user.id, sessionInfo.sessionId)
       } catch (error) {
         console.error('[useSecuritySettings] Failed to update session activity:', error)
       }
@@ -101,7 +101,7 @@ export function useSecuritySettings() {
     }
 
     try {
-      await revokeSessionService(user.uid, sessionId)
+      await revokeSessionService(user.id, sessionId)
 
       // Update local state immediately for better UX
       setSecurity((prev) => ({
@@ -126,7 +126,7 @@ export function useSecuritySettings() {
     }
 
     // TODO: Implement actual 2FA setup flow
-    console.log('[useSecuritySettings] Enable 2FA - not implemented yet')
+    console.log('[useSecuritySettings] Enable 2FA - not implemented yet for user:', user.id)
     throw new Error('2FA setup not implemented yet')
   }, [user])
 
@@ -139,7 +139,7 @@ export function useSecuritySettings() {
     }
 
     // TODO: Implement actual 2FA disable flow
-    console.log('[useSecuritySettings] Disable 2FA - not implemented yet')
+    console.log('[useSecuritySettings] Disable 2FA - not implemented yet for user:', user.id)
     throw new Error('2FA disable not implemented yet')
   }, [user])
 
@@ -152,7 +152,7 @@ export function useSecuritySettings() {
     }
 
     // TODO: Implement backup codes generation
-    console.log('[useSecuritySettings] Generate backup codes - not implemented yet')
+    console.log('[useSecuritySettings] Generate backup codes - not implemented yet for user:', user.id)
     throw new Error('Backup codes generation not implemented yet')
   }, [user])
 
