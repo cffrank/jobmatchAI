@@ -9,8 +9,17 @@ export function EmailVerificationBanner() {
   const [dismissed, setDismissed] = useState(false)
   const [sending, setSending] = useState(false)
 
-  // Don't show if user is not logged in, email is verified, or banner is dismissed
-  if (!user || user.emailVerified || dismissed) {
+  // Check if user is OAuth user (Google, LinkedIn)
+  // OAuth providers auto-verify emails, so don't show banner
+  const isOAuthUser = user?.app_metadata?.provider === 'google' ||
+                      user?.app_metadata?.provider === 'linkedin_oidc' ||
+                      user?.app_metadata?.provider === 'linkedin'
+
+  // Check if email is verified (Supabase uses email_confirmed_at)
+  const isEmailVerified = !!user?.email_confirmed_at
+
+  // Don't show if user is not logged in, email is verified, OAuth user, or banner is dismissed
+  if (!user || isEmailVerified || isOAuthUser || dismissed) {
     return null
   }
 

@@ -38,7 +38,10 @@ export function ProtectedRoute({
                       user.app_metadata?.provider === 'linkedin_oidc' ||
                       user.app_metadata?.provider === 'linkedin'
 
-  if (requireEmailVerification && !user.emailVerified && !isOAuthUser) {
+  // Check if email is verified (Supabase uses email_confirmed_at)
+  const isEmailVerified = !!user.email_confirmed_at
+
+  if (requireEmailVerification && !isEmailVerified && !isOAuthUser) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
         <div className="max-w-md w-full p-6">
