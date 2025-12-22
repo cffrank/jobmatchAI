@@ -227,9 +227,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
         provider: 'google',
         options: {
           redirectTo: `${window.location.origin}/auth/callback`,
-          queryParams: {
-            prompt: 'consent',
-          },
+          // Don't force consent screen - let Google decide based on authorization state
+          // This gives the best UX: consent only on first login, automatic sign-in after that
         },
       })
     )
@@ -245,9 +244,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
         provider: 'linkedin_oidc',
         options: {
           redirectTo: `${window.location.origin}/auth/callback`,
-          queryParams: {
-            prompt: 'consent',
-          },
+          // Don't force consent screen - let LinkedIn decide based on authorization state
+          // This gives the best UX: consent only on first login, automatic sign-in after that
         },
       })
     )
