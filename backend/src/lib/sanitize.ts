@@ -13,6 +13,7 @@
  */
 
 import sanitizeHtml from 'sanitize-html';
+import type { Request, Response, NextFunction } from 'express';
 
 // =============================================================================
 // Sanitization Configurations
@@ -77,7 +78,7 @@ const RICH_TEXT_OPTIONS: sanitizeHtml.IOptions = {
   enforceHtmlBoundary: true,
   // Transform relative URLs to absolute (if needed)
   transformTags: {
-    'a': (tagName, attribs) => {
+    'a': (_tagName, attribs) => {
       // Ensure links open in new tab and have noopener
       return {
         tagName: 'a',
@@ -376,9 +377,9 @@ export function sanitizeApplicationContent(
  * });
  */
 export function sanitizeBodyMiddleware(
-  req: Express.Request,
-  _res: Express.Response,
-  next: Express.NextFunction
+  req: Request,
+  _res: Response,
+  next: NextFunction
 ): void {
   if (req.body && typeof req.body === 'object') {
     req.body = sanitizeObject(req.body);

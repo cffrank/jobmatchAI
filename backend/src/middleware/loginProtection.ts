@@ -40,7 +40,10 @@ function getClientIP(req: Request): string {
   if (forwarded) {
     // x-forwarded-for can contain multiple IPs, use the first one
     const ips = (forwarded as string).split(',');
-    return ips[0].trim();
+    const firstIP = ips[0];
+    if (firstIP) {
+      return firstIP.trim();
+    }
   }
 
   const realIP = req.headers['x-real-ip'];
