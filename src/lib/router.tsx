@@ -3,6 +3,7 @@ import AppLayout from '@/components/AppLayout'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import LoginPage from '@/pages/LoginPage'
 import SignupPage from '@/pages/SignupPage'
+import AuthCallbackPage from '@/pages/AuthCallbackPage'
 
 // Profile & Resume Management
 import ProfileOverviewPage from '@/sections/profile-resume-management/ProfileOverviewPage'
@@ -38,6 +39,10 @@ export const router = createBrowserRouter([
   {
     path: '/signup',
     element: <SignupPage />,
+  },
+  {
+    path: '/auth/callback',
+    element: <AuthCallbackPage />,
   },
   {
     path: '/',
