@@ -392,15 +392,18 @@ export function EditProfileForm() {
                     LinkedIn URL
                   </label>
                   <input
-                    type="url"
+                    type="text"
                     id="linkedInUrl"
                     value={formData.linkedInUrl}
                     onChange={(e) =>
                       setFormData({ ...formData, linkedInUrl: e.target.value })
                     }
                     className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="https://linkedin.com/in/johndoe"
+                    placeholder="linkedin.com/in/johndoe"
                   />
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    Just enter your LinkedIn profile URL (no need to include https://)
+                  </p>
                 </div>
               </div>
             </div>
