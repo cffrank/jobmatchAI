@@ -36,10 +36,6 @@ export function ManualJobForm({ onSubmit, onCancel }: ManualJobFormProps) {
     location: '',
     description: '',
     url: '',
-    jobType: undefined,
-    experienceLevel: undefined,
-    salaryMin: undefined,
-    salaryMax: undefined,
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -149,11 +145,11 @@ export function ManualJobForm({ onSubmit, onCancel }: ManualJobFormProps) {
             <div className="space-y-2">
               <Label htmlFor="jobType">Job Type</Label>
               <Select
-                value={formData.jobType}
+                value={formData.jobType ?? ''}
                 onValueChange={(value) =>
                   setFormData({
                     ...formData,
-                    jobType: value as ManualJobData['jobType'],
+                    jobType: value ? (value as ManualJobData['jobType']) : undefined,
                   })
                 }
               >
@@ -174,11 +170,11 @@ export function ManualJobForm({ onSubmit, onCancel }: ManualJobFormProps) {
             <div className="space-y-2">
               <Label htmlFor="experienceLevel">Experience Level</Label>
               <Select
-                value={formData.experienceLevel}
+                value={formData.experienceLevel ?? ''}
                 onValueChange={(value) =>
                   setFormData({
                     ...formData,
-                    experienceLevel: value as ManualJobData['experienceLevel'],
+                    experienceLevel: value ? (value as ManualJobData['experienceLevel']) : undefined,
                   })
                 }
               >

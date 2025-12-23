@@ -154,7 +154,7 @@ export function JobDetail({
                 Job Description
               </h2>
               <div className="prose prose-slate dark:prose-invert max-w-none">
-                {job.description.split('\n\n').map((paragraph, idx) => (
+                {(job.description || 'No description available').split('\n\n').map((paragraph, idx) => (
                   <p key={idx} className="text-slate-700 dark:text-slate-300 leading-relaxed mb-4 last:mb-0">
                     {paragraph}
                   </p>
@@ -163,14 +163,15 @@ export function JobDetail({
             </div>
 
             {/* Required Skills */}
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-8 shadow-sm">
-              <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-50 mb-6 flex items-center gap-3">
-                <div className="w-2 h-8 bg-emerald-600 rounded-full" />
-                Required Skills
-              </h2>
-              <div className="flex flex-wrap gap-3">
-                {job.requiredSkills.map((skill) => {
-                  const isMissing = job.missingSkills.includes(skill)
+            {job.requiredSkills && job.requiredSkills.length > 0 && (
+              <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-8 shadow-sm">
+                <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-50 mb-6 flex items-center gap-3">
+                  <div className="w-2 h-8 bg-emerald-600 rounded-full" />
+                  Required Skills
+                </h2>
+                <div className="flex flex-wrap gap-3">
+                  {job.requiredSkills.map((skill) => {
+                    const isMissing = job.missingSkills?.includes(skill) ?? false
                   return (
                     <div
                       key={skill}
@@ -193,22 +194,23 @@ export function JobDetail({
                 })}
               </div>
 
-              {job.missingSkills.length > 0 && (
-                <div className="mt-6 p-4 bg-amber-50 dark:bg-amber-950/20 border-2 border-amber-200 dark:border-amber-800 rounded-xl">
-                  <div className="flex items-start gap-3">
-                    <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <p className="font-semibold text-amber-900 dark:text-amber-300 mb-1">
-                        {job.missingSkills.length} Skill Gap{job.missingSkills.length > 1 ? 's' : ''} Identified
-                      </p>
-                      <p className="text-sm text-amber-700 dark:text-amber-400">
-                        Don't let this discourage you! Highlight your transferable skills and willingness to learn in your application.
-                      </p>
+                {job.missingSkills && job.missingSkills.length > 0 && (
+                  <div className="mt-6 p-4 bg-amber-50 dark:bg-amber-950/20 border-2 border-amber-200 dark:border-amber-800 rounded-xl">
+                    <div className="flex items-start gap-3">
+                      <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-semibold text-amber-900 dark:text-amber-300 mb-1">
+                          {job.missingSkills.length} Skill Gap{job.missingSkills.length > 1 ? 's' : ''} Identified
+                        </p>
+                        <p className="text-sm text-amber-700 dark:text-amber-400">
+                          Don't let this discourage you! Highlight your transferable skills and willingness to learn in your application.
+                        </p>
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Right Column - Sidebar */}
@@ -223,22 +225,22 @@ export function JobDetail({
               <div className="space-y-4">
                 <CompatibilityBar
                   label="Skill Match"
-                  score={job.compatibilityBreakdown.skillMatch}
+                  score={job.compatibilityBreakdown?.skillMatch ?? 0}
                   getColor={getBreakdownColor}
                 />
                 <CompatibilityBar
                   label="Experience Match"
-                  score={job.compatibilityBreakdown.experienceMatch}
+                  score={job.compatibilityBreakdown?.experienceMatch ?? 0}
                   getColor={getBreakdownColor}
                 />
                 <CompatibilityBar
                   label="Industry Match"
-                  score={job.compatibilityBreakdown.industryMatch}
+                  score={job.compatibilityBreakdown?.industryMatch ?? 0}
                   getColor={getBreakdownColor}
                 />
                 <CompatibilityBar
                   label="Location Match"
-                  score={job.compatibilityBreakdown.locationMatch}
+                  score={job.compatibilityBreakdown?.locationMatch ?? 0}
                   getColor={getBreakdownColor}
                 />
               </div>
@@ -260,26 +262,28 @@ export function JobDetail({
             </div>
 
             {/* AI Recommendations */}
-            <div className="bg-gradient-to-br from-blue-50 to-emerald-50 dark:from-blue-950/30 dark:to-emerald-950/30 rounded-2xl border border-blue-200 dark:border-blue-800 p-6 shadow-sm">
-              <h3 className="text-lg font-bold text-slate-900 dark:text-slate-50 mb-4 flex items-center gap-2">
-                <Lightbulb className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                AI Recommendations
-              </h3>
+            {job.recommendations && job.recommendations.length > 0 && (
+              <div className="bg-gradient-to-br from-blue-50 to-emerald-50 dark:from-blue-950/30 dark:to-emerald-950/30 rounded-2xl border border-blue-200 dark:border-blue-800 p-6 shadow-sm">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-slate-50 mb-4 flex items-center gap-2">
+                  <Lightbulb className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                  AI Recommendations
+                </h3>
 
-              <div className="space-y-3">
-                {job.recommendations.map((recommendation, idx) => (
-                  <div
-                    key={idx}
-                    className="flex items-start gap-3 p-3 bg-white/60 dark:bg-slate-900/60 backdrop-blur-sm rounded-lg border border-blue-200/50 dark:border-blue-800/50"
-                  >
-                    <TrendingUp className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
-                    <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
-                      {recommendation}
-                    </p>
-                  </div>
-                ))}
+                <div className="space-y-3">
+                  {job.recommendations.map((recommendation, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-start gap-3 p-3 bg-white/60 dark:bg-slate-900/60 backdrop-blur-sm rounded-lg border border-blue-200/50 dark:border-blue-800/50"
+                    >
+                      <TrendingUp className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+                      <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
+                        {recommendation}
+                      </p>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Apply CTA */}
             <button
