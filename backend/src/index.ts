@@ -103,6 +103,7 @@ const corsOptions = {
       APP_URL,
       'https://jobmatch-ai.railway.app',
       'https://jobmatch-ai.vercel.app',
+      'https://jobmatchai-production.up.railway.app', // Railway production frontend
     ];
 
     if (allowedOrigins.includes(origin)) {
