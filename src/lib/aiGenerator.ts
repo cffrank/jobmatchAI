@@ -2,20 +2,35 @@ import { supabase } from './supabase'
 import type { GeneratedApplication } from '@/sections/application-generator/types'
 
 /**
- * Call Supabase Edge Function to generate AI-powered resume and cover letter variants
+ * Call Railway backend API to generate AI-powered resume and cover letter variants
  * Uses OpenAI GPT-4 to create tailored applications based on job requirements
  */
 export async function generateApplicationVariants(jobId: string): Promise<GeneratedApplication> {
   try {
-    // Call the Supabase Edge Function
-    const { data, error } = await supabase.functions.invoke<GeneratedApplication & { applicationId: string }>('generate-application', {
-      body: { jobId },
+    // Get authentication token
+    const { data: { session } } = await supabase.auth.getSession()
+
+    if (!session) {
+      throw new Error('Please sign in to generate applications')
+    }
+
+    // Call the Railway backend API
+    const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'
+    const response = await fetch(`${backendUrl}/api/applications/generate`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ jobId }),
     })
 
-    if (error) {
-      console.error('Edge Function error:', error)
-      throw error
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: `HTTP ${response.status}` }))
+      throw new Error(errorData.error || `Failed to generate application: ${response.status}`)
     }
+
+    const data = await response.json()
 
     if (!data) {
       throw new Error('No data returned from AI generation service')
@@ -37,7 +52,7 @@ export async function generateApplicationVariants(jobId: string): Promise<Genera
       throw new Error('Job or profile not found. Please try again.')
     }
 
-    if (errorMessage.includes('Profile not found')) {
+    if (errorMessage.includes('Profile not found') || errorMessage.includes('work experience')) {
       throw new Error('Please complete your profile before generating applications')
     }
 
