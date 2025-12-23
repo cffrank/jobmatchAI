@@ -40,17 +40,30 @@ export function useJobScraping(): UseJobScrapingReturn {
       setError(null);
 
       try {
-        // Call the Supabase Edge Function
-        const { data, error: invokeError } = await supabase.functions.invoke<JobSearchResult>(
-          'scrape-jobs',
-          {
-            body: params,
-          }
-        );
+        // Get authentication token
+        const { data: { session } } = await supabase.auth.getSession();
 
-        if (invokeError) {
-          throw invokeError;
+        if (!session) {
+          throw new Error('Please sign in to scrape jobs');
         }
+
+        // Call the Railway backend API
+        const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+        const response = await fetch(`${backendUrl}/api/jobs/scrape`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(params),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ error: `HTTP ${response.status}` }));
+          throw new Error(errorData.error || `Failed to scrape jobs: ${response.status}`);
+        }
+
+        const data: JobSearchResult = await response.json();
 
         if (!data) {
           throw new Error('No data returned from job scraping service');
