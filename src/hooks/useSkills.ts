@@ -100,6 +100,7 @@ export function useSkills() {
       user_id: userId,
       name: data.name,
       proficiency_level: 'intermediate', // Default proficiency
+      endorsed_count: data.endorsements || 0,
     })
 
     if (insertError) throw insertError
@@ -111,12 +112,13 @@ export function useSkills() {
   const updateSkill = async (id: string, data: Partial<Omit<Skill, 'id'>>) => {
     if (!userId) throw new Error('User not authenticated')
 
+    const updateData: Record<string, unknown> = {}
+    if (data.name !== undefined) updateData.name = data.name
+    if (data.endorsements !== undefined) updateData.endorsed_count = data.endorsements
+
     const { error: updateError } = await supabase
       .from('skills')
-      .update({
-        name: data.name,
-        // Note: endorsements field not in database schema
-      })
+      .update(updateData)
       .eq('id', id)
       .eq('user_id', userId)
 
@@ -155,6 +157,6 @@ function mapDbSkillToSkill(dbSkill: DbSkill): Skill {
   return {
     id: dbSkill.id,
     name: dbSkill.name,
-    endorsements: 0, // Not in database schema, default to 0
+    endorsements: dbSkill.endorsed_count || 0,
   }
 }

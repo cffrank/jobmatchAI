@@ -362,6 +362,45 @@ export function useJob(jobId: string | undefined) {
 }
 
 /**
+ * Create a new job manually
+ */
+export async function createJob(jobData: {
+  title: string
+  company: string
+  location?: string
+  description?: string
+  url?: string
+  jobType?: 'full-time' | 'part-time' | 'contract' | 'internship' | 'temporary' | 'remote'
+  experienceLevel?: 'entry' | 'mid' | 'senior' | 'lead' | 'executive'
+  salaryMin?: number
+  salaryMax?: number
+  userId: string
+}): Promise<string> {
+  const { data, error } = await supabase
+    .from('jobs')
+    .insert({
+      user_id: jobData.userId,
+      title: jobData.title,
+      company: jobData.company,
+      location: jobData.location,
+      description: jobData.description,
+      url: jobData.url,
+      source: 'manual',
+      job_type: jobData.jobType,
+      experience_level: jobData.experienceLevel,
+      salary_min: jobData.salaryMin,
+      salary_max: jobData.salaryMax,
+      saved: false,
+      archived: false,
+    })
+    .select('id')
+    .single()
+
+  if (error) throw error
+  return data.id
+}
+
+/**
  * Hook to fetch saved jobs
  */
 export function useSavedJobs() {

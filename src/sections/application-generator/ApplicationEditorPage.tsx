@@ -97,7 +97,8 @@ export default function ApplicationEditorPage() {
         toast.success('Application generated! Review and edit as needed.')
       } catch (error: unknown) {
         console.error('Generation error:', error)
-        toast.error(error.message || 'Failed to generate application. Please try again.')
+        const err = error as { message?: string }
+        toast.error(err.message || 'Failed to generate application. Please try again.')
         navigate('/jobs')
       } finally {
         setGenerating(false)
@@ -232,6 +233,28 @@ export default function ApplicationEditorPage() {
             onClose={() => setEmailDialogOpen(false)}
           />
         </>
+      )
+    }
+
+    // If job loading finished but job is null, show error
+    if (!jobLoading && !job) {
+      return (
+        <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center">
+          <div className="text-center max-w-md">
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2">
+              Job Not Found
+            </h1>
+            <p className="text-slate-600 dark:text-slate-400 mb-4">
+              The job you're trying to apply to doesn't exist or you don't have access to it.
+            </p>
+            <button
+              onClick={() => navigate('/jobs')}
+              className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-colors"
+            >
+              Browse Jobs
+            </button>
+          </div>
+        </div>
       )
     }
 

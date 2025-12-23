@@ -18,6 +18,7 @@ import SkillsPage from '@/sections/profile-resume-management/SkillsPage'
 // Job Discovery & Matching
 import JobListPage from '@/sections/job-discovery-matching/JobListPage'
 import JobDetailPage from '@/sections/job-discovery-matching/JobDetailPage'
+import AddJobPage from '@/sections/job-discovery-matching/AddJobPage'
 
 // Application Generator
 import ApplicationListPage from '@/sections/application-generator/ApplicationListPage'
@@ -95,6 +96,10 @@ export const router = createBrowserRouter([
       {
         path: 'jobs',
         element: <JobListPage />,
+      },
+      {
+        path: 'jobs/add',
+        element: <AddJobPage />,
       },
       {
         path: 'jobs/:id',

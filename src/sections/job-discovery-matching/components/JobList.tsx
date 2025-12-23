@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Search, SlidersHorizontal, Bookmark, BookmarkCheck, Sparkles, MapPin, Briefcase, DollarSign, TrendingUp, AlertCircle } from 'lucide-react'
+import { Search, SlidersHorizontal, Bookmark, BookmarkCheck, Sparkles, MapPin, Briefcase, DollarSign, TrendingUp, AlertCircle, Plus } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import type { JobDiscoveryProps, JobFilters, Job } from '../types'
 
 export function JobList({
@@ -12,6 +13,7 @@ export function JobList({
   onSearch,
   onFilter
 }: JobDiscoveryProps) {
+  const navigate = useNavigate()
   const [searchQuery, setSearchQuery] = useState('')
   const [showFilters, setShowFilters] = useState(false)
   const [filters, setFilters] = useState<JobFilters>({
@@ -84,9 +86,18 @@ export function JobList({
                 {filteredJobs.length} positions matched to your profile
               </p>
             </div>
-            <div className="hidden sm:flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
-              <Bookmark className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{savedCount} Saved</span>
+            <div className="hidden sm:flex items-center gap-3">
+              <button
+                onClick={() => navigate('/jobs/add')}
+                className="flex items-center gap-2 px-4 py-2 bg-lime-500 hover:bg-lime-600 dark:bg-lime-600 dark:hover:bg-lime-700 text-white rounded-xl font-medium shadow-sm transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                Add Job
+              </button>
+              <div className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                <Bookmark className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{savedCount} Saved</span>
+              </div>
             </div>
           </div>
 
