@@ -52,6 +52,12 @@ export async function authenticateUser(
   next: NextFunction
 ): Promise<void> {
   try {
+    // Skip authentication for OPTIONS requests (CORS preflight)
+    if (req.method === 'OPTIONS') {
+      next();
+      return;
+    }
+
     // Extract token from Authorization header
     const authHeader = req.headers.authorization;
 
