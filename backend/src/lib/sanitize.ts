@@ -78,10 +78,10 @@ const RICH_TEXT_OPTIONS: sanitizeHtml.IOptions = {
   enforceHtmlBoundary: true,
   // Transform relative URLs to absolute (if needed)
   transformTags: {
-    'a': (_tagName, attribs) => {
+    'a': (tagName, attribs) => {
       // Ensure links open in new tab and have noopener
       return {
-        tagName: 'a',
+        tagName: tagName,
         attribs: {
           ...attribs,
           target: '_blank',
@@ -377,7 +377,7 @@ export function sanitizeApplicationContent(
  * });
  */
 export function sanitizeBodyMiddleware(
-  req: Request,
+  req: Request<unknown, unknown, Record<string, unknown>>,
   _res: Response,
   next: NextFunction
 ): void {

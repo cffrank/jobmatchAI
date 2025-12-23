@@ -85,7 +85,8 @@ const corsOptions = {
       const ALLOWED_DEV_PORTS = ['5173', '3000', '4173']; // Vite dev, backend dev, Vite preview
       const portMatch = origin.match(/:(\d+)$/);
 
-      if (portMatch && portMatch[1] && ALLOWED_DEV_PORTS.includes(portMatch[1])) {
+      const capturedPort = portMatch?.[1];
+      if (portMatch && capturedPort && ALLOWED_DEV_PORTS.includes(capturedPort)) {
         const isLocalhost = origin.includes('localhost') || origin.includes('127.0.0.1');
         if (isLocalhost) {
           callback(null, true);

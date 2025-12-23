@@ -41,7 +41,7 @@ function getClientIP(req: Request): string {
     // x-forwarded-for can contain multiple IPs, use the first one
     const ips = (forwarded as string).split(',');
     const firstIP = ips[0];
-    if (firstIP) {
+    if (firstIP !== undefined) {
       return firstIP.trim();
     }
   }
