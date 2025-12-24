@@ -82,9 +82,18 @@ export default function SettingsPage() {
   console.log('SettingsPage - Using profile:', profile)
   console.log('SettingsPage - Security data:', security)
 
-  const [notifications, setNotifications] = useState<NotificationPreferences>(data.notificationPreferences)
+  const [_notifications, _setNotifications] = useState<NotificationPreferences>({
+    ...data.notificationPreferences,
+    frequency: data.notificationPreferences.frequency as 'immediate' | 'daily' | 'weekly'
+  })
 
-  const [privacy, setPrivacy] = useState<PrivacySettings>(data.privacySettings)
+  const [privacy, setPrivacy] = useState<PrivacySettings>({
+    ...data.privacySettings,
+    connectedAccounts: data.privacySettings.connectedAccounts.map(acc => ({
+      ...acc,
+      provider: acc.provider as 'linkedin' | 'google' | 'github'
+    }))
+  })
 
   // Update connected accounts when user data becomes available
   useEffect(() => {
@@ -166,10 +175,6 @@ export default function SettingsPage() {
     }
   }
 
-  const _handleChangePassword = (currentPassword: string, newPassword: string) => {
-    console.log('Change password:', { currentPassword, newPassword })
-  }
-
   const handleUploadPhoto = async (file: File) => {
     console.log('handleUploadPhoto called with file:', file.name, file.size, file.type)
     try {
@@ -225,11 +230,6 @@ export default function SettingsPage() {
       console.error('Failed to revoke session:', error)
       alert(`Failed to revoke session: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
-  }
-
-  const _handleUpdateNotifications = (updates: Partial<NotificationPreferences>) => {
-    setNotifications({ ...notifications, ...updates })
-    console.log('Update notifications:', updates)
   }
 
   const handleUpdatePrivacy = (updates: Partial<PrivacySettings>) => {

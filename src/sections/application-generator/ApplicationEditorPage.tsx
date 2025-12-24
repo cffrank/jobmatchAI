@@ -8,7 +8,6 @@ import { exportApplication, ExportError } from '@/lib/exportApplication'
 import { EmailDialog } from './components/EmailDialog'
 import { toast } from 'sonner'
 import { Sparkles } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
 import type { GeneratedApplication } from './types'
 
 export default function ApplicationEditorPage() {
@@ -26,7 +25,7 @@ export default function ApplicationEditorPage() {
 
   // State for email dialog
   const [emailDialogOpen, setEmailDialogOpen] = useState(false)
-  const [currentApplicationId, setCurrentApplicationId] = useState<string | null>(null)
+  const [_currentApplicationId, setCurrentApplicationId] = useState<string | null>(null)
 
   // Use Firestore hook to fetch application (skip if creating new)
   const { application, loading, error } = useApplication(isNewApplication ? undefined : id)
@@ -34,52 +33,6 @@ export default function ApplicationEditorPage() {
 
   // Fetch job details if generating new application
   const { job, loading: jobLoading } = useJob(jobId || undefined)
-
-  // Email sending function (shared between new and existing applications)
-  const _handleSendEmail = async (recipientEmail: string) => {
-    if (!currentApplicationId) {
-      throw new Error('No application selected')
-    }
-
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) {
-      throw new Error('You must be signed in to send emails')
-    }
-
-    try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL
-      const response = await fetch(`${backendUrl}/api/emails/send`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          applicationId: currentApplicationId,
-          recipientEmail
-        })
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.message || 'Failed to send email')
-      }
-
-      const data = await response.json() as { success: boolean; message: string; emailId?: string }
-
-      if (data.success) {
-        toast.success('Email sent successfully!')
-      } else {
-        throw new Error(data.message || 'Failed to send email')
-      }
-    } catch (error: unknown) {
-      console.error('Email send error:', error)
-      // Extract user-friendly error message
-      const err = error as { message?: string }
-      const errorMessage = err.message || 'Failed to send email. Please try again.'
-      throw new Error(errorMessage)
-    }
-  }
 
   // Generate application when data is ready
   useEffect(() => {
