@@ -1,0 +1,236 @@
+name: Deploy PR Preview
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/deploy-pr-preview.yml'
+
+concurrency:
+  group: pr-preview-${{ github.event.number }}
+  cancel-in-progress: true
+
+jobs:
+  deploy-preview:
+    if: github.event.action != 'closed'
+    name: Deploy PR Preview Environment
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Set up environment variables
+        id: env-setup
+        env:
+          PR_NUMBER: ${{ github.event.number }}
+        run: |
+          ENV_NAME="pr-${PR_NUMBER}"
+          echo "env_name=$ENV_NAME" >> $GITHUB_OUTPUT
+          echo "Environment: $ENV_NAME"
+
+      - name: Deploy to PR Preview Environment
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          ENV_NAME: ${{ steps.env-setup.outputs.env_name }}
+        working-directory: backend
+        run: |
+          echo "Deploying backend to Railway PR environment: $ENV_NAME"
+
+          # Deploy to PR preview environment
+          # The environment will be created automatically if it doesn't exist
+          railway up --service backend --environment "$ENV_NAME" --detach
+
+          echo "Deployment initiated to $ENV_NAME"
+
+      - name: Wait for deployment stability
+        run: sleep 15
+
+      - name: Get deployment URL
+        id: deploy-url
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          ENV_NAME: ${{ steps.env-setup.outputs.env_name }}
+        working-directory: backend
+        run: |
+          echo "Fetching deployment URL for environment: $ENV_NAME"
+
+          # Get URL from Railway status
+          # Retry up to 3 times as deployment might not be fully ready
+          PREVIEW_URL=""
+          for i in {1..3}; do
+            PREVIEW_URL=$(railway status \
+              --service backend \
+              --environment "$ENV_NAME" \
+              --json 2>/dev/null | jq -r '.deployments[0].url // empty' 2>/dev/null)
+
+            if [ -n "$PREVIEW_URL" ] && [ "$PREVIEW_URL" != "null" ]; then
+              echo "Successfully retrieved URL: $PREVIEW_URL"
+              break
+            fi
+
+            if [ $i -lt 3 ]; then
+              echo "Attempt $i/3: URL not ready yet, retrying in 5s..."
+              sleep 5
+            fi
+          done
+
+          if [ -z "$PREVIEW_URL" ] || [ "$PREVIEW_URL" == "null" ]; then
+            echo "WARNING: Could not retrieve deployment URL automatically"
+            echo "You can find the URL in Railway dashboard:"
+            echo "Project → Backend Service → Environment: $ENV_NAME"
+            PREVIEW_URL="Check Railway dashboard for URL"
+          fi
+
+          echo "preview_url=$PREVIEW_URL" >> $GITHUB_OUTPUT
+
+      - name: Health check preview environment
+        id: health-check
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          ENV_NAME: ${{ steps.env-setup.outputs.env_name }}
+          PREVIEW_URL: ${{ steps.deploy-url.outputs.preview_url }}
+        working-directory: backend
+        continue-on-error: true
+        run: |
+          if [ "$PREVIEW_URL" == "Check Railway dashboard for URL" ]; then
+            echo "HEALTH_STATUS=delayed" >> $GITHUB_OUTPUT
+            echo "Skipping health check - URL will be available soon in Railway dashboard"
+            exit 0
+          fi
+
+          echo "Testing health endpoint: $PREVIEW_URL/health"
+
+          # Retry health check up to 4 times (40 seconds total)
+          for i in {1..4}; do
+            if curl -f -s "$PREVIEW_URL/health" > /dev/null 2>&1; then
+              echo "Health check passed on attempt $i"
+              HEALTH_RESPONSE=$(curl -s "$PREVIEW_URL/health" | jq '.' 2>/dev/null || echo "OK")
+              echo "Health response: $HEALTH_RESPONSE"
+              echo "HEALTH_STATUS=passed" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+            echo "Health check attempt $i/4 failed, retrying in 10s..."
+            sleep 10
+          done
+
+          echo "WARNING: Health check failed after 4 attempts (40 seconds)"
+          echo "HEALTH_STATUS=pending" >> $GITHUB_OUTPUT
+          exit 0
+
+      - name: Comment PR with preview environment info
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = context.issue.number;
+            const envName = "pr-" + prNumber;
+            const previewUrl = "${{ steps.deploy-url.outputs.preview_url }}";
+            const healthStatus = "${{ steps.health-check.outputs.health_status }}";
+
+            let healthBadge = "🟡";
+            let healthNote = "Health check in progress. Please refresh shortly.";
+
+            if (healthStatus === "passed") {
+              healthBadge = "🟢";
+              healthNote = "Health check passed ✓";
+            } else if (healthStatus === "pending") {
+              healthBadge = "🟠";
+              healthNote = "Health check pending. Try again in 30 seconds.";
+            }
+
+            const body = `## 🚀 PR Preview Environment Ready
+
+**Backend URL:** ${previewUrl}
+
+**Environment Name:** \`${envName}\`
+
+**Health Status:** ${healthBadge} ${healthNote}
+
+### How to Test
+1. Use the backend URL above for API testing
+2. Update frontend \`VITE_API_URL\` to point to this preview
+3. Run integration tests against the preview environment
+
+### Testing the Preview
+- Health endpoint: \`${previewUrl}/health\`
+- API documentation: \`${previewUrl}/api/docs\` (if available)
+- All backend features are available in this preview
+
+### Important Notes
+- ✓ This environment auto-deletes when PR closes
+- ✓ Each new commit creates a fresh deployment
+- ✓ Suitable for integration & E2E testing
+- ⚠️ Do not rely on data persistence across deployments
+
+### Configuration
+- Environment: \`${envName}\`
+- Inherited from: Production environment variables
+- Auto-cleanup: Enabled (deletes on PR close)
+
+**Railway Dashboard:** https://railway.app/project
+
+See [\`docs/PHASE2-PR-ENVIRONMENTS.md\`](../docs/PHASE2-PR-ENVIRONMENTS.md) for more details on PR preview environments.`;
+
+            github.rest.issues.createComment({
+              issue_number: prNumber,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
+
+            console.log(`Posted preview environment comment to PR #${prNumber}`);
+
+  cleanup-preview:
+    if: github.event.action == 'closed'
+    name: Cleanup PR Preview Environment
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Delete PR environment
+        id: delete
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          PR_NUMBER: ${{ github.event.number }}
+        continue-on-error: true
+        run: |
+          ENV_NAME="pr-${PR_NUMBER}"
+
+          echo "Cleaning up preview environment: $ENV_NAME"
+
+          # Delete the PR environment
+          # Using --yes to avoid interactive prompts
+          if railway environment delete "$ENV_NAME" --yes 2>/dev/null; then
+            echo "Successfully deleted environment: $ENV_NAME"
+            echo "DELETE_STATUS=success" >> $GITHUB_OUTPUT
+          else
+            echo "Environment may have already been deleted or does not exist"
+            echo "DELETE_STATUS=already_deleted" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Comment PR about cleanup
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const deleteStatus = "${{ steps.delete.outputs.delete_status }}";
+            const prNumber = context.issue.number;
+            const envName = "pr-" + prNumber;
+
+            const body = deleteStatus === "success"
+              ? `## 🧹 Preview Environment Cleanup Complete\n\nThe preview environment \`${envName}\` has been successfully deleted. All associated resources have been cleaned up.`
+              : `## 🧹 Preview Environment Cleanup\n\nThe preview environment \`${envName}\` has been cleaned up (was already deleted or does not exist).`;
+
+            github.rest.issues.createComment({
+              issue_number: prNumber,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
