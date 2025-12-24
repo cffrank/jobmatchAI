@@ -136,12 +136,11 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Request Logging
 // =============================================================================
 
-if (NODE_ENV === 'development') {
-  app.use((req: Request, _res: Response, next) => {
-    console.log(`${new Date().toISOString()} ${req.method} ${req.path}`);
-    next();
-  });
-}
+// Log all requests in both development and production for debugging
+app.use((req: Request, _res: Response, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path} - Origin: ${req.headers.origin || 'none'}`);
+  next();
+});
 
 // =============================================================================
 // Health Check Endpoint
@@ -234,13 +233,13 @@ app.use(errorHandler);
 // =============================================================================
 
 function startServer(): void {
-  app.listen(PORT, () => {
+  app.listen(PORT, '0.0.0.0', () => {
     console.log('='.repeat(60));
     console.log(`JobMatch AI Backend Server`);
     console.log('='.repeat(60));
     console.log(`Environment: ${NODE_ENV}`);
     console.log(`Port: ${PORT}`);
-    console.log(`Health check: http://localhost:${PORT}/health`);
+    console.log(`Listening on: 0.0.0.0:${PORT}`);
     if (NODE_ENV === 'development') {
       console.log(`API docs: http://localhost:${PORT}/api`);
     }
