@@ -1,5 +1,5 @@
 import { Mail, Phone, MapPin, Linkedin, Edit2 } from 'lucide-react'
-import type { User } from '@/../product/sections/profile-resume-management/types'
+import type { User } from '../types'
 
 interface ProfileHeaderProps {
   user?: User | null

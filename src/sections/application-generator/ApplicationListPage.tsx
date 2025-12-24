@@ -2,7 +2,6 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ApplicationList } from './components/ApplicationList'
 import { useApplications } from '@/hooks/useApplications'
 import { toast } from 'sonner'
-import type { GeneratedApplication } from './types'
 
 export default function ApplicationListPage() {
   const navigate = useNavigate()
@@ -26,7 +25,7 @@ export default function ApplicationListPage() {
     }
   }
 
-  const handleExport = (applicationId: string, format: 'pdf' | 'docx') => {
+  const handleExport = (_applicationId: string, format: 'pdf' | 'docx') => {
     toast.info(`Export as ${format.toUpperCase()} - coming soon!`)
     // TODO: Implement export via Cloud Function
   }

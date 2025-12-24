@@ -3,8 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { X, Save, User, Linkedin } from 'lucide-react'
 import { toast } from 'sonner'
 import { useProfile } from '@/hooks/useProfile'
-import { supabase } from '@/lib/supabase'
-import { updateProfileFromOAuth, extractOAuthProfileData } from '@/lib/oauthProfileSync'
+import { extractOAuthProfileData } from '@/lib/oauthProfileSync'
 import { useAuth } from '@/contexts/AuthContext'
 // UserType import available if needed for type annotations
 

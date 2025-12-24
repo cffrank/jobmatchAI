@@ -1,5 +1,5 @@
 import { Download, Edit2, X, FileText, Check } from 'lucide-react'
-import type { ResumePreviewProps } from '@/../product/sections/profile-resume-management/types'
+import type { ResumePreviewProps } from '../types'
 
 export function ResumePreview({
   resume,

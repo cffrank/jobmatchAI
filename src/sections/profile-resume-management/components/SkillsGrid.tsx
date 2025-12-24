@@ -1,5 +1,5 @@
 import { ThumbsUp, Edit2 } from 'lucide-react'
-import type { Skill } from '@/../product/sections/profile-resume-management/types'
+import type { Skill } from '../types'
 
 interface SkillsGridProps {
   skills: Skill[]

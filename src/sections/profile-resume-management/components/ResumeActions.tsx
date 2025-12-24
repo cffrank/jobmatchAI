@@ -1,5 +1,5 @@
 import { FileText, Edit2, Download, Eye } from 'lucide-react'
-import type { Resume } from '@/../product/sections/profile-resume-management/types'
+import type { Resume } from '../types'
 
 interface ResumeActionsProps {
   resume: Resume
