@@ -134,7 +134,7 @@ export async function createOrUpdateSession(
       browser,
       os,
       device_type: deviceType,
-      ip_address: ipAddress,
+      ip_address: ipAddress as unknown, // Database uses 'unknown' type for ip_address (inet type in Postgres)
       location,
       user_agent: userAgent,
       created_at: now.toISOString(),
@@ -208,10 +208,10 @@ export async function getActiveSessions(
 
     const sessions: ActiveSession[] = data.map((session: SessionRow) => ({
       id: session.session_id,
-      device: session.device,
-      browser: session.browser,
-      location: session.location,
-      ipAddress: session.ip_address,
+      device: session.device ?? 'Unknown Device',
+      browser: session.browser ?? 'Unknown Browser',
+      location: session.location ?? 'Unknown Location',
+      ipAddress: String(session.ip_address ?? 'Unknown IP'),
       lastActive: session.last_active,
       current: session.session_id === currentSessionId,
     }))
@@ -298,10 +298,10 @@ export async function logSecurityEvent(
       browser,
       os,
       location,
-      ip_address: ipAddress,
+      ip_address: ipAddress as unknown, // Database uses 'unknown' type for ip_address (inet type in Postgres)
       user_agent: userAgent,
       status,
-      metadata: metadata || null,
+      metadata: metadata ? (metadata as Database['public']['Tables']['security_events']['Insert']['metadata']) : null,
       timestamp: new Date().toISOString(),
     }
 
@@ -340,9 +340,9 @@ export async function getRecentSecurityEvents(
       id: event.id,
       date: event.timestamp,
       action: event.action,
-      device: event.device,
-      location: event.location,
-      ipAddress: event.ip_address,
+      device: event.device ?? 'Unknown Device',
+      location: event.location ?? 'Unknown Location',
+      ipAddress: String(event.ip_address ?? 'Unknown IP'),
       status: event.status,
     }))
 
@@ -355,6 +355,7 @@ export async function getRecentSecurityEvents(
 
 /**
  * Get 2FA settings for a user
+ * Note: two_factor_setup_complete and backup_codes_generated columns may not exist in the database yet
  */
 export async function get2FASettings(userId: string): Promise<{
   twoFactorEnabled: boolean
@@ -364,16 +365,20 @@ export async function get2FASettings(userId: string): Promise<{
   try {
     const { data, error } = await supabase
       .from('users')
-      .select('two_factor_enabled, two_factor_setup_complete, backup_codes_generated')
+      .select('two_factor_enabled')
       .eq('id', userId)
       .single()
 
     if (error) throw error
 
+    // Only two_factor_enabled exists in the database currently
+    // The other fields are derived: if 2FA is enabled, we assume setup is complete
+    const twoFactorEnabled = data?.two_factor_enabled || false
+
     return {
-      twoFactorEnabled: data?.two_factor_enabled || false,
-      twoFactorSetupComplete: data?.two_factor_setup_complete || false,
-      backupCodesGenerated: data?.backup_codes_generated || false,
+      twoFactorEnabled,
+      twoFactorSetupComplete: twoFactorEnabled, // Assume setup is complete if enabled
+      backupCodesGenerated: twoFactorEnabled, // Assume backup codes exist if enabled
     }
   } catch (error) {
     console.error('[Security] Failed to fetch 2FA settings:', error)

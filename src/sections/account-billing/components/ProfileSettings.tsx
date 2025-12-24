@@ -1,4 +1,4 @@
-import { User, Mail, Phone, Camera, MapPin } from 'lucide-react'
+import { User, Mail, Phone, Camera } from 'lucide-react'
 import { useState } from 'react'
 import type { UserProfile } from '../types'
 

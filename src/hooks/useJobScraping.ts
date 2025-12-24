@@ -113,11 +113,12 @@ interface JobSearch {
 
 /**
  * Hook for fetching user's job search history
+ * Note: job_searches table doesn't exist in schema - this is a placeholder
  */
 export function useJobSearchHistory(): UseJobSearchHistoryReturn {
-  const [searches, setSearches] = useState<JobSearch[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [searches] = useState<JobSearch[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error] = useState<string | null>(null);
   const { user } = useAuth();
 
   useEffect(() => {
@@ -126,55 +127,8 @@ export function useJobSearchHistory(): UseJobSearchHistoryReturn {
       return;
     }
 
-    // Fetch job searches from Supabase
-    const fetchSearches = async () => {
-      try {
-        const { data, error: fetchError } = await supabase
-          .from('job_searches')
-          .select('id, created_at, job_count')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
-          .limit(10);
-
-        if (fetchError) throw fetchError;
-
-        const searchData = (data || []).map((row) => ({
-          id: row.id,
-          createdAt: new Date(row.created_at),
-          jobCount: row.job_count || 0,
-        }));
-
-        setSearches(searchData);
-        setLoading(false);
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Failed to fetch search history';
-        setError(errorMessage);
-        setLoading(false);
-      }
-    };
-
-    void fetchSearches();
-
-    // Subscribe to real-time updates
-    const channel = supabase
-      .channel('job_searches_changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'job_searches',
-          filter: `user_id=eq.${user.id}`,
-        },
-        () => {
-          void fetchSearches();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      void supabase.removeChannel(channel);
-    };
+    // TODO: Implement when job_searches table is added to schema
+    setLoading(false);
   }, [user]);
 
   return { searches, loading, error };

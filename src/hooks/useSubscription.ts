@@ -165,12 +165,27 @@ export function useInvoices() {
           .from('invoices')
           .select('*')
           .eq('user_id', userId)
-          .order('date', { ascending: false })
+          .order('invoice_date', { ascending: false })
 
         if (fetchError) throw fetchError
 
         if (mounted) {
-          setInvoices((data as Invoice[]) || [])
+          // Map database fields (snake_case) to app types (camelCase)
+          const mappedInvoices = (data || []).map((dbInvoice) => ({
+            id: dbInvoice.id,
+            userId: dbInvoice.user_id,
+            date: dbInvoice.invoice_date,
+            amount: dbInvoice.amount_due,
+            status: dbInvoice.status as Invoice['status'],
+            paymentMethod: {
+              brand: 'visa', // Default, can be enhanced later
+              last4: '0000', // Default, can be enhanced later
+            },
+            description: `Invoice ${dbInvoice.invoice_number || dbInvoice.id}`,
+            pdfUrl: dbInvoice.invoice_pdf_url || undefined,
+            lineItems: [], // Not stored in current schema
+          }))
+          setInvoices(mappedInvoices)
           setError(null)
         }
       } catch (err) {
@@ -252,7 +267,18 @@ export function usePaymentMethods() {
         if (fetchError) throw fetchError
 
         if (mounted) {
-          setPaymentMethods((data as PaymentMethod[]) || [])
+          // Map database fields (snake_case) to app types (camelCase)
+          const mappedPaymentMethods = (data || []).map((dbMethod) => ({
+            id: dbMethod.id,
+            type: 'card' as const,
+            brand: (dbMethod.brand || 'visa') as PaymentMethod['brand'],
+            last4: dbMethod.last4 || '0000',
+            expiryMonth: dbMethod.exp_month || 12,
+            expiryYear: dbMethod.exp_year || new Date().getFullYear(),
+            isDefault: dbMethod.is_default || false,
+            addedAt: dbMethod.added_at || new Date().toISOString(),
+          }))
+          setPaymentMethods(mappedPaymentMethods)
           setError(null)
         }
       } catch (err) {

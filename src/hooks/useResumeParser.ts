@@ -169,13 +169,14 @@ export function useResumeParser() {
       // Add education entries
       for (const edu of data.education) {
         await addEducation({
-          institution: edu.institution,
+          school: edu.institution,
           degree: edu.degree,
-          fieldOfStudy: edu.fieldOfStudy,
+          field: edu.fieldOfStudy,
+          location: '',
           startDate: edu.startDate,
           endDate: edu.endDate || '',
-          current: edu.current,
-          grade: edu.grade || '',
+          gpa: edu.grade ? parseFloat(edu.grade) : undefined,
+          highlights: [],
         })
       }
       setProgress(75)

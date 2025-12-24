@@ -1,4 +1,4 @@
-import { Check, Crown, Zap, TrendingUp, ArrowRight, AlertCircle } from 'lucide-react'
+import { Check, Crown, Zap, TrendingUp, AlertCircle } from 'lucide-react'
 import { useState } from 'react'
 import type { SubscriptionOverviewProps, BillingCycle, PlanTier } from '../types'
 

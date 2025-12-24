@@ -22,7 +22,7 @@ export function useApplications(pageSize = 20) {
   const [hasMore, setHasMore] = useState(true)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
-  const [totalCount, setTotalCount] = useState(0)
+  const [_totalCount, setTotalCount] = useState(0)
 
   // Fetch applications with pagination
   useEffect(() => {

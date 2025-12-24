@@ -1,4 +1,4 @@
-import { User, Shield, Bell, Lock, Mail, Phone, Camera, Smartphone, Monitor, MapPin, AlertTriangle, Download, Trash2, LogOut, Linkedin, Chrome } from 'lucide-react'
+import { User, Shield, Bell, Lock, Mail, Camera, Smartphone, Monitor, MapPin, AlertTriangle, Download, Trash2, LogOut, Linkedin, Chrome } from 'lucide-react'
 import { useState } from 'react'
 import type {
   AccountSettingsProps,
