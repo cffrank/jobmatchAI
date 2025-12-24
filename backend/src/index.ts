@@ -98,18 +98,14 @@ const corsOptions = {
       console.warn(`Allowed ports: ${ALLOWED_DEV_PORTS.join(', ')}`);
     }
 
-    // Check against allowed origins (production)
-    const allowedOrigins = [
-      APP_URL,
-      'https://jobmatch-ai.railway.app',
-      'https://jobmatch-ai.vercel.app',
-      'https://jobmatchai-production.up.railway.app', // Railway production frontend
-    ];
-
-    if (allowedOrigins.includes(origin)) {
+    // Multi-environment CORS: Use APP_URL environment variable
+    // This allows each environment (dev, staging, production) to have its own frontend URL
+    if (origin === APP_URL) {
       callback(null, true);
     } else {
       console.warn(`CORS blocked origin: ${origin}`);
+      console.warn(`Allowed origin: ${APP_URL}`);
+      console.warn(`Set APP_URL environment variable to allow this origin`);
       callback(new Error('Not allowed by CORS'));
     }
   },

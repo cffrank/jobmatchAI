@@ -61,7 +61,6 @@
 ### 1.4 Update Development Variables
 - [ ] Backend service → Variables tab
 - [ ] Update `APP_URL` = [dev frontend URL]
-- [ ] Update `CORS_ORIGIN` = [dev frontend URL]
 - [ ] Consider: Separate Supabase project for dev
 - [ ] Save
 
@@ -93,7 +92,6 @@
 ### 2.3 Update Staging Variables
 - [ ] Backend service → Variables tab
 - [ ] Update `APP_URL` = [staging frontend URL]
-- [ ] Update `CORS_ORIGIN` = [staging frontend URL]
 - [ ] Mirror production config
 - [ ] Save
 
