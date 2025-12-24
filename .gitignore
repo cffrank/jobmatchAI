@@ -7,10 +7,12 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-# Firebase
+# Firebase (legacy - not used, migrated to Railway/Supabase)
 .firebase/
 *-debug.log
 firebase-debug.*.log
+firebase.json
+.firebaserc
 
 # Service account keys (NEVER commit these!)
 *service-account*.json
