@@ -9,8 +9,8 @@
 builder = "NIXPACKS"
 
 # Build command - TypeScript compilation
-# Note: Using 'npm ci' instead of deprecated 'npm install --production'
-buildCommand = "npm ci && npm run build"
+# Install all deps for build, then prune devDependencies for production
+buildCommand = "npm ci && npm run build && npm prune --omit=dev"
 
 # Watch patterns - trigger rebuild on these file changes
 watchPatterns = ["src/**/*.ts", "package.json", "tsconfig.json"]
