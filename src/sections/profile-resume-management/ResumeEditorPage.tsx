@@ -31,11 +31,20 @@ export default function ResumeEditorPage() {
 
   return (
     <ResumeEditor
-      resume={data.resume}
+      resume={{
+        ...data.resume,
+        type: data.resume.type as 'master' | 'tailored',
+        formats: data.resume.formats as ('pdf' | 'docx' | 'txt')[]
+      }}
       workExperience={data.workExperience}
       education={data.education}
       skills={data.skills}
-      optimizationSuggestions={data.optimizationSuggestions}
+      optimizationSuggestions={data.optimizationSuggestions.map(s => ({
+        ...s,
+        section: s.section as 'summary' | 'experience' | 'education' | 'skills',
+        priority: s.priority as 'high' | 'medium' | 'low',
+        type: s.type as 'impact' | 'keywords' | 'formatting' | 'organization'
+      }))}
       onSave={handleSave}
       onCancel={handleCancel}
       onPreview={handlePreview}
