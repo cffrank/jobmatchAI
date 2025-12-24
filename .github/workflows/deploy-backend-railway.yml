@@ -3,20 +3,62 @@ name: Deploy Backend to Railway
 on:
   push:
     branches:
-      - main
+      - main      # → production environment
+      - staging   # → staging environment
+      - develop   # → development environment
     paths:
       - 'backend/**'
       - '.github/workflows/deploy-backend-railway.yml'
   workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        type: choice
+        options:
+          - production
+          - staging
+          - development
 
 jobs:
   deploy:
     name: Deploy Backend
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Determine deployment environment
+        id: env-setup
+        run: |
+          # Determine environment based on branch or manual input
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            ENV_NAME="${{ github.event.inputs.environment }}"
+            BRANCH_NAME="${GITHUB_REF#refs/heads/}"
+          else
+            BRANCH_NAME="${GITHUB_REF#refs/heads/}"
+            case "$BRANCH_NAME" in
+              main)
+                ENV_NAME="production"
+                ;;
+              staging)
+                ENV_NAME="staging"
+                ;;
+              develop)
+                ENV_NAME="development"
+                ;;
+              *)
+                echo "Error: Unknown branch $BRANCH_NAME"
+                exit 1
+                ;;
+            esac
+          fi
+
+          echo "environment=$ENV_NAME" >> $GITHUB_OUTPUT
+          echo "branch=$BRANCH_NAME" >> $GITHUB_OUTPUT
+          echo "Deploying branch '$BRANCH_NAME' to environment '$ENV_NAME'"
 
       - name: Install Railway CLI
         run: npm install -g @railway/cli
@@ -24,12 +66,14 @@ jobs:
       - name: Deploy to Railway
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          ENVIRONMENT: ${{ steps.env-setup.outputs.environment }}
         run: |
           cd backend
-          railway up --service backend --detach
+          echo "Deploying to Railway environment: $ENVIRONMENT"
+          railway up --service backend --environment "$ENVIRONMENT" --detach
 
       # IMPORTANT: Environment variables are pre-configured in Railway dashboard
-      # See: docs/RAILWAY_SETUP_GUIDE.md for complete list of variables
+      # See: docs/RAILWAY-MULTI-ENVIRONMENT-SETUP.md for complete list of variables
       # They are NOT set via CLI to avoid triggering unnecessary redeploys
       # This approach:
       # - Eliminates 1.5-2 minute redeploy cycles
@@ -41,24 +85,28 @@ jobs:
         run: sleep 15
 
       - name: Health Check
+        id: health-check
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          ENVIRONMENT: ${{ steps.env-setup.outputs.environment }}
         run: |
           cd backend
 
-          # Get backend URL from Railway
-          BACKEND_URL=$(railway status --service backend --json | jq -r '.deployments[0].url')
+          # Get backend URL from Railway for specific environment
+          BACKEND_URL=$(railway status \
+            --service backend \
+            --environment "$ENVIRONMENT" \
+            --json | jq -r '.deployments[0].url')
 
-          if [ -z "$BACKEND_URL" ]; then
-            echo "Failed to get backend URL"
+          if [ -z "$BACKEND_URL" ] || [ "$BACKEND_URL" == "null" ]; then
+            echo "Failed to get backend URL for environment: $ENVIRONMENT"
             exit 1
           fi
 
           echo "Testing health endpoint: $BACKEND_URL/health"
+          echo "backend_url=$BACKEND_URL" >> $GITHUB_OUTPUT
 
-          # Retry health check up to 5 times (reduced from 10)
-          # Each retry is 10 seconds, so total max wait is ~50 seconds
-          # Combined with 15s startup wait = ~65s total deployment validation
+          # Retry health check up to 5 times
           for i in {1..5}; do
             if curl -f -s "$BACKEND_URL/health" > /dev/null; then
               echo "Health check passed on attempt $i"
@@ -69,26 +117,63 @@ jobs:
             sleep 10
           done
 
-          echo "Health check failed after 5 attempts (50 seconds)"
+          echo "Health check failed after 5 attempts"
           exit 1
 
-      - name: Output Backend URL
+      - name: Deployment Summary
         if: success()
         env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          ENVIRONMENT: ${{ steps.env-setup.outputs.environment }}
+          BRANCH: ${{ steps.env-setup.outputs.branch }}
+          BACKEND_URL: ${{ steps.health-check.outputs.backend_url }}
         run: |
-          cd backend
-          BACKEND_URL=$(railway status --service backend --json | jq -r '.deployments[0].url')
-          echo "Backend deployed successfully!"
+          echo "=========================================="
+          echo "Deployment Successful!"
+          echo "=========================================="
+          echo "Branch: $BRANCH"
+          echo "Environment: $ENVIRONMENT"
           echo "Backend URL: $BACKEND_URL"
-          echo "Health endpoint: $BACKEND_URL/health"
+          echo "Health Endpoint: $BACKEND_URL/health"
+          echo "=========================================="
           echo ""
-          echo "Deployment Summary:"
-          echo "- Time: ~2-3 minutes (optimized from 3-5 minutes)"
-          echo "- Variables: Pre-configured in Railway dashboard"
-          echo "- Rollback: Available in Railway dashboard deployment history"
+          echo "Next Steps:"
+          case "$ENVIRONMENT" in
+            production)
+              echo "✓ Production is now live with latest changes"
+              echo "- Monitor Railway dashboard for any issues"
+              echo "- Check error tracking (if configured)"
+              echo "- Verify critical user flows"
+              ;;
+            staging)
+              echo "✓ Staging environment updated"
+              echo "- Run QA test suite against staging"
+              echo "- Verify all features work as expected"
+              echo "- If tests pass, create PR: staging → main"
+              ;;
+            development)
+              echo "✓ Development environment updated"
+              echo "- Test integrated features"
+              echo "- Verify API endpoints work correctly"
+              echo "- If stable, create PR: develop → staging"
+              ;;
+          esac
+
+      - name: Notify on Failure
+        if: failure()
+        env:
+          ENVIRONMENT: ${{ steps.env-setup.outputs.environment }}
+          BRANCH: ${{ steps.env-setup.outputs.branch }}
+        run: |
+          echo "=========================================="
+          echo "Deployment Failed!"
+          echo "=========================================="
+          echo "Branch: $BRANCH"
+          echo "Environment: $ENVIRONMENT"
           echo ""
-          echo "Next steps:"
-          echo "1. Update frontend VITE_BACKEND_URL if URL changed"
-          echo "2. Verify API endpoints are responding"
-          echo "3. Check Railway dashboard for any warnings"
+          echo "Troubleshooting Steps:"
+          echo "1. Check Railway dashboard for deployment logs"
+          echo "2. Verify environment variables are set correctly"
+          echo "3. Check backend build logs for errors"
+          echo "4. Verify health endpoint is accessible"
+          echo ""
+          echo "Railway Dashboard: https://railway.app/project"
