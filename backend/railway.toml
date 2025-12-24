@@ -9,7 +9,8 @@
 builder = "NIXPACKS"
 
 # Build command - TypeScript compilation
-buildCommand = "npm install && npm run build"
+# Note: Using 'npm ci' instead of deprecated 'npm install --production'
+buildCommand = "npm ci && npm run build"
 
 # Watch patterns - trigger rebuild on these file changes
 watchPatterns = ["src/**/*.ts", "package.json", "tsconfig.json"]
