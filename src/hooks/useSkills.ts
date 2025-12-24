@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
-import type { Database } from '@/lib/database.types'
+import type { Database } from '@/types/supabase'
 import type { Skill } from '@/sections/profile-resume-management/types'
 
 type DbSkill = Database['public']['Tables']['skills']['Row']

@@ -6,7 +6,7 @@ import { rankJobs } from '@/lib/jobMatching'
 import { useProfile } from './useProfile'
 import { useSkills } from './useSkills'
 import { useWorkExperience } from './useWorkExperience'
-import type { Database } from '@/lib/database.types'
+import type { Database } from '@/types/supabase'
 
 type JobRow = Database['public']['Tables']['jobs']['Row']
 

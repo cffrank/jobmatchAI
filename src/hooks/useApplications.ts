@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
-import type { Database } from '@/lib/database.types'
+import type { Database } from '@/types/supabase'
 import type { GeneratedApplication } from '@/sections/application-generator/types'
 
 type DbApplication = Database['public']['Tables']['applications']['Row']
