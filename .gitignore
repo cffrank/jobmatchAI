@@ -78,3 +78,6 @@ dist-ssr
 # MCP server configuration (contains personal access tokens)
 .mcp.json
 .mcp.*.json
+
+# Railway environment variable JSON files
+vars/*.json
