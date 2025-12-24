@@ -174,7 +174,7 @@ interface ApplicationCardProps {
   onSubmit?: () => void
   onDelete?: () => void
   getStatusColor: (status: GeneratedApplication['status']) => string
-  getStatusIcon: (status: GeneratedApplication['status']) => JSX.Element
+  getStatusIcon: (status: GeneratedApplication['status']) => React.ReactElement
   getStatusLabel: (status: GeneratedApplication['status']) => string
   formatDate: (dateStr: string) => string
 }

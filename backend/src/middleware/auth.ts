@@ -95,10 +95,11 @@ export async function authenticateUser(
       });
 
       // Map Supabase errors to appropriate HTTP responses
-      if (error.message.includes('expired')) {
+      const errorMessage = error.message.toLowerCase();
+      if (errorMessage.includes('expired')) {
         throw new HttpError(401, 'Token has expired', 'TOKEN_EXPIRED');
       }
-      if (error.message.includes('invalid')) {
+      if (errorMessage.includes('invalid')) {
         throw new HttpError(401, 'Invalid token', 'INVALID_TOKEN');
       }
       throw new HttpError(401, 'Authentication failed', 'AUTH_FAILED');

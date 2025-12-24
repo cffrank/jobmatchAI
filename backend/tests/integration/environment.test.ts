@@ -73,8 +73,8 @@ describe('Environment Variables Validation', () => {
     it('should have JWT_SECRET or use Supabase JWT verification', () => {
       // We use Supabase for JWT verification, so this is informational
       const hasSupabaseConfig =
-        process.env.SUPABASE_URL &&
-        process.env.SUPABASE_ANON_KEY;
+        !!(process.env.SUPABASE_URL &&
+        process.env.SUPABASE_ANON_KEY);
 
       expect(hasSupabaseConfig).toBe(true);
     });

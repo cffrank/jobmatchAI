@@ -8,24 +8,28 @@ export function JobDetail({
   onUnsaveJob,
   onApply
 }: JobDetailProps) {
-  const getMatchScoreColor = (score: number) => {
+  const getMatchScoreColor = (score?: number) => {
+    if (!score) return 'from-slate-500 to-slate-600'
     if (score >= 85) return 'from-emerald-500 to-emerald-600'
     if (score >= 70) return 'from-blue-500 to-blue-600'
     return 'from-slate-500 to-slate-600'
   }
 
-  const getMatchScoreLabel = (score: number) => {
+  const getMatchScoreLabel = (score?: number) => {
+    if (!score) return 'Match Score Not Available'
     if (score >= 85) return 'Excellent Match'
     if (score >= 70) return 'Good Match'
     return 'Potential Match'
   }
 
-  const formatSalary = (min: number, max: number) => {
+  const formatSalary = (min?: number, max?: number) => {
+    if (min === undefined || max === undefined) return 'Salary not disclosed'
     const format = (num: number) => `$${(num / 1000).toFixed(0)}k`
     return `${format(min)} - ${format(max)}`
   }
 
-  const formatDate = (dateStr: string) => {
+  const formatDate = (dateStr?: string) => {
+    if (!dateStr) return 'Not specified'
     return new Date(dateStr).toLocaleDateString('en-US', {
       month: 'long',
       day: 'numeric',

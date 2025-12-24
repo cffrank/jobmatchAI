@@ -14,7 +14,10 @@ const BACKEND_URL = 'https://intelligent-celebration-production-57e4.up.railway.
 const FRONTEND_ORIGIN = 'https://jobmatchai-production.up.railway.app';
 const EVIL_ORIGIN = 'https://evil.com';
 
-describe('Production Backend Direct Tests', () => {
+// Skip these tests in CI - they test live production backend
+const shouldSkip = process.env.CI === 'true' || process.env.NODE_ENV === 'test';
+
+describe.skipIf(shouldSkip)('Production Backend Direct Tests', () => {
   describe('Health Check', () => {
     it('should be accessible and return 200', async () => {
       const response = await fetch(`${BACKEND_URL}/health`);
@@ -348,7 +351,7 @@ describe('Production Frontend Origin Variations', () => {
   });
 });
 
-describe('Environment Variable Verification', () => {
+describe.skipIf(shouldSkip)('Environment Variable Verification', () => {
   it('should log what environment the backend thinks it is', async () => {
     const response = await fetch(`${BACKEND_URL}/health`);
     const data = await response.json();

@@ -98,13 +98,18 @@ export interface TrackedApplication {
 
 export interface ApplicationFilters {
   status?: ApplicationStatus[]
+  statuses?: ApplicationStatus[]
   dateRange?: {
     start: string
     end: string
   }
+  dateFrom?: string
+  dateTo?: string
   company?: string
+  jobTitle?: string
   searchQuery?: string
   archived?: boolean
+  showArchived?: boolean
 }
 
 export interface AnalyticsData {
