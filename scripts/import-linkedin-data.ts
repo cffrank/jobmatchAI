@@ -85,7 +85,7 @@ function parseDuration(duration: string): { startDate: Date | null; endDate: Dat
         endDate = null
       }
     }
-  } catch (error) {
+  } catch {
     console.log(`   ⚠️  Could not parse duration: "${duration}"`)
   }
 

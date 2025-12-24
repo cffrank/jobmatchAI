@@ -21,13 +21,12 @@ import { HttpError } from '../types';
 
 /**
  * Extend Express Request to include authenticated user
+ * Using module augmentation instead of namespace for ESLint compliance
  */
-declare global {
-  namespace Express {
-    interface Request {
-      user?: User;
-      userId?: string;
-    }
+declare module 'express-serve-static-core' {
+  interface Request {
+    user?: User;
+    userId?: string;
   }
 }
 

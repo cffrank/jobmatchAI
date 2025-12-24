@@ -102,7 +102,7 @@ async function scrapeLinkedInProfile(profileUrl: string): Promise<LinkedInProfil
       const nameElement = page.locator('h1.text-heading-xlarge').first()
       profile.name = (await nameElement.textContent()) || ''
       console.log('   Name:', profile.name)
-    } catch (error) {
+    } catch {
       console.log('   ⚠️  Could not extract name')
     }
 
@@ -111,7 +111,7 @@ async function scrapeLinkedInProfile(profileUrl: string): Promise<LinkedInProfil
       const headlineElement = page.locator('.text-body-medium.break-words').first()
       profile.headline = (await headlineElement.textContent()) || ''
       console.log('   Headline:', profile.headline)
-    } catch (error) {
+    } catch {
       console.log('   ⚠️  Could not extract headline')
     }
 
@@ -120,7 +120,7 @@ async function scrapeLinkedInProfile(profileUrl: string): Promise<LinkedInProfil
       const locationElement = page.locator('.text-body-small.inline.t-black--light.break-words').first()
       profile.location = (await locationElement.textContent()) || ''
       console.log('   Location:', profile.location)
-    } catch (error) {
+    } catch {
       console.log('   ⚠️  Could not extract location')
     }
 

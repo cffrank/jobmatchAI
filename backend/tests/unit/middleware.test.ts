@@ -5,6 +5,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Request, Response, NextFunction } from 'express';
+import type { AuthResponse } from '@supabase/supabase-js';
 import { authenticateUser, optionalAuth } from '../../src/middleware/auth';
 import { supabase } from '../../src/config/supabase';
 
@@ -124,7 +125,7 @@ describe('Authentication Middleware', () => {
       vi.mocked(supabase.auth.getUser).mockResolvedValue({
         data: { user: mockUser },
         error: null,
-      } as any);
+      } as AuthResponse);
 
       await authenticateUser(
         mockRequest as Request,
@@ -145,7 +146,7 @@ describe('Authentication Middleware', () => {
       vi.mocked(supabase.auth.getUser).mockResolvedValue({
         data: { user: null },
         error: new Error('Token has expired'),
-      } as any);
+      } as AuthResponse);
 
       await authenticateUser(
         mockRequest as Request,
@@ -169,7 +170,7 @@ describe('Authentication Middleware', () => {
       vi.mocked(supabase.auth.getUser).mockResolvedValue({
         data: { user: null },
         error: new Error('Invalid token'),
-      } as any);
+      } as AuthResponse);
 
       await authenticateUser(
         mockRequest as Request,
@@ -213,7 +214,7 @@ describe('Authentication Middleware', () => {
       vi.mocked(supabase.auth.getUser).mockResolvedValue({
         data: { user: mockUser },
         error: null,
-      } as any);
+      } as AuthResponse);
 
       await optionalAuth(
         mockRequest as Request,
@@ -233,7 +234,7 @@ describe('Authentication Middleware', () => {
       vi.mocked(supabase.auth.getUser).mockResolvedValue({
         data: { user: null },
         error: new Error('Invalid token'),
-      } as any);
+      } as AuthResponse);
 
       await optionalAuth(
         mockRequest as Request,
