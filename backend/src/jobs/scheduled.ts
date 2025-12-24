@@ -48,11 +48,11 @@ async function cleanupOldJobs(): Promise<ScheduledJobResult> {
     const { data, error } = await supabaseAdmin
       .from(TABLES.JOBS)
       .update({
-        is_archived: true,
+        archived: true,
         updated_at: new Date().toISOString(),
       })
       .lt('created_at', cutoffDate.toISOString())
-      .eq('is_archived', false)
+      .eq('archived', false)
       .select('id');
 
     if (error) {
@@ -189,7 +189,7 @@ async function searchJobsForAllUsers(): Promise<ScheduledJobResult> {
     // Fetch users with auto-search enabled
     const { data: users, error: usersError } = await supabaseAdmin
       .from(TABLES.USERS)
-      .select('id, job_preferences')
+      .select('id')
       .eq('auto_search_enabled', true);
 
     if (usersError) {
