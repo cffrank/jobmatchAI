@@ -10,7 +10,7 @@
  */
 
 import { createClient } from '@supabase/supabase-js'
-import type { Database } from './database.types'
+import type { Database } from '@/types/supabase'
 
 // Validate environment variables
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL

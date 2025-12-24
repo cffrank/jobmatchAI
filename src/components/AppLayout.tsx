@@ -1,6 +1,7 @@
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { AppShell } from './AppShell'
 import { useAuth } from '@/contexts/AuthContext'
+import { useProfile } from '@/hooks/useProfile'
 import { toast } from 'sonner'
 import type { NavigationItem } from './AppShell'
 
@@ -8,12 +9,17 @@ export default function AppLayout() {
   const location = useLocation()
   const navigate = useNavigate()
   const { user, logOut } = useAuth()
+  const { profile } = useProfile()
 
-  // Map Firebase user to AppShell user format
+  // Map Supabase user to AppShell user format
+  const displayName = profile?.firstName
+    ? `${profile.firstName}${profile.lastName ? ' ' + profile.lastName : ''}`
+    : user?.email?.split('@')[0] || 'User'
+
   const appUser = {
-    name: user?.displayName || user?.email?.split('@')[0] || 'User',
+    name: displayName,
     email: user?.email || '',
-    avatarUrl: user?.photoURL || undefined,
+    avatarUrl: profile?.profileImageUrl || undefined,
   }
 
   const navigationItems: NavigationItem[] = [

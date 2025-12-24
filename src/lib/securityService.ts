@@ -1,7 +1,7 @@
 import { supabase } from './supabase'
 import { UAParser } from 'ua-parser-js'
 import type { ActiveSession, ActivityLogEntry } from '@/sections/account-billing/types'
-import type { Database } from './database.types'
+import type { Database } from '@/types/supabase'
 
 // Type aliases for database tables
 type SessionRow = Database['public']['Tables']['sessions']['Row']

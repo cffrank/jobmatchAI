@@ -42,14 +42,18 @@ export default function SettingsPage() {
       if (!profileLoading && !firestoreProfile && user && !profileInitialized) {
         console.log('Creating default profile for new user:', user.email)
         try {
+          // Get name from user_metadata or email
+          const firstName = user.user_metadata?.first_name || user.email?.split('@')[0] || 'User'
+          const lastName = user.user_metadata?.last_name || ''
+
           await updateFirestoreProfile({
-            firstName: user.displayName?.split(' ')[0] || 'User',
-            lastName: user.displayName?.split(' ').slice(1).join(' ') || '',
+            firstName,
+            lastName,
             email: user.email || '',
             phone: '',
             location: '',
             linkedInUrl: '',
-            profileImageUrl: user.photoURL || null,
+            profileImageUrl: user.user_metadata?.avatar_url || null,
             headline: '',
             summary: '',
             createdAt: new Date().toISOString(),
@@ -85,10 +89,20 @@ export default function SettingsPage() {
   // Update connected accounts when user data becomes available
   useEffect(() => {
     if (user) {
+      const provider = user.app_metadata?.provider
+      let accountProvider: 'linkedin' | 'google' | 'github' = 'google'
+
+      if (provider === 'linkedin_oidc' || provider === 'linkedin') {
+        accountProvider = 'linkedin'
+      } else if (provider === 'google') {
+        accountProvider = 'google'
+      } else if (provider === 'github') {
+        accountProvider = 'github'
+      }
+
       const connectedAccounts = [{
         id: user.id,
-        provider: user.app_metadata?.provider === 'linkedin_oidc' ? 'linkedin' :
-                  user.app_metadata?.provider === 'google' ? 'google' : 'email',
+        provider: accountProvider,
         email: user.email || '',
         connectedAt: user.created_at || new Date().toISOString()
       }]
@@ -246,7 +260,7 @@ export default function SettingsPage() {
     try {
       await updateSubscription({
         plan: tier,
-        billing_cycle: billingCycle,
+        billingCycle: billingCycle,
         status: 'active',
       })
       alert(`Upgraded to ${tier} plan!`)
@@ -261,7 +275,7 @@ export default function SettingsPage() {
     try {
       await updateSubscription({
         plan: tier,
-        cancel_at_period_end: false,
+        cancelAtPeriodEnd: false,
       })
       alert(`Downgraded to ${tier} plan!`)
       console.log('Downgrade to:', tier)
@@ -274,7 +288,7 @@ export default function SettingsPage() {
   const handleChangeBillingCycle = async (billingCycle: BillingCycle) => {
     try {
       await updateSubscription({
-        billing_cycle: billingCycle,
+        billingCycle: billingCycle,
       })
       alert(`Billing cycle changed to ${billingCycle}!`)
       console.log('Change billing cycle to:', billingCycle)
@@ -287,7 +301,7 @@ export default function SettingsPage() {
   const handleCancelSubscription = async () => {
     try {
       await updateSubscription({
-        cancel_at_period_end: true,
+        cancelAtPeriodEnd: true,
       })
       alert('Subscription will be canceled at the end of the current period.')
       console.log('Cancel subscription at period end')
@@ -300,7 +314,7 @@ export default function SettingsPage() {
   const handleReactivateSubscription = async () => {
     try {
       await updateSubscription({
-        cancel_at_period_end: false,
+        cancelAtPeriodEnd: false,
       })
       alert('Subscription reactivated!')
       console.log('Reactivate subscription')
@@ -310,7 +324,8 @@ export default function SettingsPage() {
     }
   }
 
-  const currentPlan = data.availablePlans.find(p => p.tier === subscription.plan)!
+  const availablePlans = data.availablePlans as SubscriptionPlan[]
+  const currentPlan = availablePlans.find(p => p.tier === subscription.plan)!
 
   // Show loading state while data is being fetched
   if (profileLoading || securityLoading || subscriptionLoading || usageLimitsLoading || metricsLoading) {
@@ -413,7 +428,7 @@ export default function SettingsPage() {
         <SubscriptionOverview
           subscription={subscription}
           currentPlan={currentPlan}
-          availablePlans={data.availablePlans}
+          availablePlans={availablePlans}
           usage={subscription.plan === 'basic' ? usage : undefined}
           onUpgrade={handleUpgrade}
           onDowngrade={handleDowngrade}

@@ -336,7 +336,7 @@ export function useJob(jobId: string | undefined) {
 
     // Update local state
     if (job && job.id === jobId) {
-      setJob({ ...job, saved: true, isSaved: true })
+      setJob({ ...job, isSaved: true })
     }
   }
 
@@ -356,7 +356,7 @@ export function useJob(jobId: string | undefined) {
 
     // Update local state
     if (job && job.id === jobId) {
-      setJob({ ...job, saved: false, isSaved: false })
+      setJob({ ...job, isSaved: false })
     }
   }
 

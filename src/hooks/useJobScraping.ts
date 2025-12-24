@@ -215,11 +215,10 @@ export function useSavedJobs(): UseSavedJobsReturn {
           description: job.description,
           url: job.url,
           source: job.source,
-          salary_range: job.salaryRange,
-          job_type: job.jobType,
-          scraped_at: job.scrapedAt,
-          is_saved: true,
-          saved_at: new Date().toISOString(),
+          salary_min: job.salaryMin,
+          salary_max: job.salaryMax,
+          saved: true,
+          added_at: new Date().toISOString(),
         });
 
       if (saveError) {
@@ -237,7 +236,7 @@ export function useSavedJobs(): UseSavedJobsReturn {
 
       const { error: unsaveError } = await supabase
         .from('jobs')
-        .update({ is_saved: false })
+        .update({ saved: false })
         .eq('id', jobId)
         .eq('user_id', user.id);
 
@@ -261,8 +260,8 @@ export function useSavedJobs(): UseSavedJobsReturn {
           .from('jobs')
           .select('*')
           .eq('user_id', user.id)
-          .eq('is_saved', true)
-          .order('saved_at', { ascending: false });
+          .eq('saved', true)
+          .order('added_at', { ascending: false });
 
         if (fetchError) throw fetchError;
 
@@ -270,14 +269,17 @@ export function useSavedJobs(): UseSavedJobsReturn {
           id: row.id,
           title: row.title,
           company: row.company,
-          location: row.location,
-          description: row.description,
-          url: row.url,
-          source: row.source,
-          salaryRange: row.salary_range,
-          jobType: row.job_type,
-          scrapedAt: row.scraped_at ? new Date(row.scraped_at) : undefined,
-          isSaved: row.is_saved,
+          companyLogo: '',
+          location: row.location || '',
+          workArrangement: 'Unknown' as const,
+          salaryMin: row.salary_min || 0,
+          salaryMax: row.salary_max || 0,
+          postedDate: row.created_at,
+          description: row.description || '',
+          isSaved: row.saved || false,
+          url: row.url || undefined,
+          source: row.source as 'linkedin' | 'indeed' | 'manual' | undefined,
+          scrapedAt: row.created_at ? new Date(row.created_at) : undefined,
         })) as Job[];
 
         setSavedJobs(jobs);

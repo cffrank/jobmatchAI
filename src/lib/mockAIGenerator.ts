@@ -98,9 +98,9 @@ function generateKeywordOptimizedVariant(
         location: exp.location,
         startDate: formatDate(exp.startDate),
         endDate: exp.current ? 'Present' : formatDate(exp.endDate),
-        bullets: enhanceWithKeywords(exp.accomplishments.slice(0, 4), job.requiredSkills)
+        bullets: enhanceWithKeywords(exp.accomplishments.slice(0, 4), job.requiredSkills || [])
       })),
-      skills: [...extractRelevantSkills(skills, job).map(s => s.name), ...job.requiredSkills.slice(0, 3)].filter((v, i, a) => a.indexOf(v) === i),
+      skills: [...extractRelevantSkills(skills, job).map(s => s.name), ...(job.requiredSkills || []).slice(0, 3)].filter((v, i, a) => a.indexOf(v) === i),
       education: education.map(edu => ({
         degree: `${edu.degree} in ${edu.field}`,
         school: edu.school,
@@ -158,19 +158,23 @@ function generateConciseVariant(
 
 function generateSummary(user: User, job: Job, style: 'impact' | 'keyword' | 'concise'): string {
   const years = calculateYearsOfExperience(user)
-  const jobLevel = job.experienceLevel || 'Mid-level'
+  const jobLevel = 'Mid-level' // experienceLevel not available on Job type
+  const skills = job.requiredSkills || []
 
   if (style === 'impact') {
-    return `${jobLevel} ${job.title} with ${years}+ years driving measurable business outcomes in fast-paced environments. Proven track record of ${job.requiredSkills.slice(0, 2).join(' and ')} with demonstrated success in ${job.department || 'cross-functional teams'}. Passionate about leveraging technology to solve complex challenges and deliver exceptional results.`
+    const topSkills = skills.slice(0, 2).join(' and ') || 'key technologies'
+    return `${jobLevel} ${job.title} with ${years}+ years driving measurable business outcomes in fast-paced environments. Proven track record of ${topSkills} with demonstrated success in cross-functional teams. Passionate about leveraging technology to solve complex challenges and deliver exceptional results.`
   }
 
   if (style === 'keyword') {
-    const keywords = job.requiredSkills.slice(0, 4).join(', ')
-    return `Experienced ${job.title} specializing in ${keywords}. Strong background in ${job.department || 'product development'} with expertise across ${job.requiredSkills.slice(4, 7).join(', ')}. Track record of successful project delivery and team collaboration in ${job.industry || 'technology'} sector.`
+    const keywords = skills.slice(0, 4).join(', ') || 'relevant technologies'
+    const moreSkills = skills.slice(4, 7).join(', ') || 'various domains'
+    return `Experienced ${job.title} specializing in ${keywords}. Strong background in product development with expertise across ${moreSkills}. Track record of successful project delivery and team collaboration in technology sector.`
   }
 
   // concise
-  return `${jobLevel} ${job.title} with ${years}+ years of experience. Expertise in ${job.requiredSkills.slice(0, 3).join(', ')}. Proven ability to deliver results in dynamic environments.`
+  const topThreeSkills = skills.slice(0, 3).join(', ') || 'relevant skills'
+  return `${jobLevel} ${job.title} with ${years}+ years of experience. Expertise in ${topThreeSkills}. Proven ability to deliver results in dynamic environments.`
 }
 
 function generateCoverLetter(
@@ -180,21 +184,23 @@ function generateCoverLetter(
   style: 'impact' | 'keyword' | 'concise'
 ): string {
   const mostRecentRole = workExperience[0]
+  const skills = job.requiredSkills || []
+  const topTwoSkills = skills.slice(0, 2).join(' and ') || 'relevant technologies'
 
   return `Dear Hiring Manager,
 
-I am writing to express my strong interest in the ${job.title} position at ${job.company}. With my background in ${mostRecentRole.position} and proven expertise in ${job.requiredSkills.slice(0, 2).join(' and ')}, I am excited about the opportunity to contribute to your team.
+I am writing to express my strong interest in the ${job.title} position at ${job.company}. With my background in ${mostRecentRole.position} and proven expertise in ${topTwoSkills}, I am excited about the opportunity to contribute to your team.
 
 ${style === 'impact'
-  ? `In my current role at ${mostRecentRole.company}, I have ${mostRecentRole.accomplishments[0].toLowerCase()}. This experience has prepared me to take on the challenges outlined in your job description, particularly around ${job.requiredSkills[0]} and ${job.requiredSkills[1]}.`
+  ? `In my current role at ${mostRecentRole.company}, I have ${mostRecentRole.accomplishments[0]?.toLowerCase() || 'driven significant impact'}. This experience has prepared me to take on the challenges outlined in your job description${skills.length >= 2 ? `, particularly around ${skills[0]} and ${skills[1]}` : ''}.`
   : `My experience includes ${mostRecentRole.accomplishments.slice(0, 2).map(a => a.toLowerCase()).join(', and ')}. These accomplishments demonstrate my capability to excel in the ${job.title} role.`
 }
 
-${job.requiredSkills.slice(0, 3).map(skill =>
+${skills.slice(0, 3).map(skill =>
   `I bring strong expertise in ${skill}, having applied this skill across multiple projects to drive successful outcomes.`
 ).join(' ')}
 
-I am particularly drawn to ${job.company} because of ${job.culture || 'your innovative approach and collaborative culture'}. I am confident that my skills and experience make me a strong fit for this role, and I look forward to the opportunity to discuss how I can contribute to your team's success.
+I am particularly drawn to ${job.company} because of your innovative approach and collaborative culture. I am confident that my skills and experience make me a strong fit for this role, and I look forward to the opportunity to discuss how I can contribute to your team's success.
 
 Thank you for your consideration.
 
@@ -203,11 +209,12 @@ ${user.firstName} ${user.lastName}`
 }
 
 function extractRelevantSkills(skills: Skill[], job: Job): Skill[] {
+  const requiredSkills = job.requiredSkills || []
   // Sort by relevance to job (matching required skills first, then by endorsements)
   return skills
     .map(skill => ({
       ...skill,
-      relevance: job.requiredSkills.some(req =>
+      relevance: requiredSkills.some(req =>
         req.toLowerCase().includes(skill.name.toLowerCase()) ||
         skill.name.toLowerCase().includes(req.toLowerCase())
       ) ? 100 : skill.endorsements
