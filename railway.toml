@@ -29,9 +29,5 @@ restartPolicyType = "ON_FAILURE"
 # Maximum restart attempts
 restartPolicyMaxRetries = 10
 
-[env]
-# Node environment
-NODE_ENV = "production"
-
-# Port - Railway injects this automatically
-PORT = "3000"
+# Railway automatically injects PORT and NODE_ENV environment variables
+# No [env] section needed - let Railway manage environment variables
