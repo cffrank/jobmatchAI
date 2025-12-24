@@ -2,15 +2,15 @@
 # Multi-stage build for Vite React app
 
 # Stage 1: Build the application
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 
 WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies (use npm install if package-lock.json doesn't exist)
-RUN npm install
+# Install dependencies - use npm ci for reproducible builds
+RUN npm ci
 
 # Copy source files
 COPY . .
@@ -37,7 +37,7 @@ ENV VITE_LINKEDIN_REDIRECT_URI=$VITE_LINKEDIN_REDIRECT_URI
 RUN npm run build
 
 # Stage 2: Serve with a lightweight static server
-FROM node:20-alpine
+FROM node:22-alpine
 
 WORKDIR /app
 
