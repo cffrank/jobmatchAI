@@ -1,0 +1,18 @@
+{
+  "NODE_ENV": "production",
+  "APP_URL": "https://your-staging-frontend.railway.app",
+  "SUPABASE_URL": "https://your-staging-project.supabase.co",
+  "SUPABASE_ANON_KEY": "your-staging-anon-key",
+  "SUPABASE_SERVICE_ROLE_KEY": "your-staging-service-role-key",
+  "OPENAI_API_KEY": "sk-your-openai-key",
+  "SENDGRID_API_KEY": "SG.your-sendgrid-key",
+  "SENDGRID_FROM_EMAIL": "noreply@jobmatch-ai.com",
+  "LINKEDIN_CLIENT_ID": "your-linkedin-client-id",
+  "LINKEDIN_CLIENT_SECRET": "your-linkedin-client-secret",
+  "LINKEDIN_REDIRECT_URI": "https://your-staging-backend.railway.app/api/auth/linkedin/callback",
+  "APIFY_API_TOKEN": "your-apify-token",
+  "JWT_SECRET": "your-staging-jwt-secret-min-32-chars",
+  "RATE_LIMIT_MAX_REQUESTS": "100",
+  "RATE_LIMIT_WINDOW_MS": "900000",
+  "STORAGE_BUCKET": "exports"
+}
