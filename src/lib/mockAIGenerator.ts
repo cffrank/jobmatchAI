@@ -239,7 +239,8 @@ function formatDate(dateStr: string | null): string {
   return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
 }
 
-function calculateYearsOfExperience(_user: User): number {
+function calculateYearsOfExperience(): number {
   // Simple heuristic - in real app, would calculate from work experience
+  // User parameter not currently used - would analyze work_experience field
   return 8
 }

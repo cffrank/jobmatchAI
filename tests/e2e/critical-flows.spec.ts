@@ -68,7 +68,8 @@ test.describe('Critical User Flows', () => {
 });
 
 test.describe('Application Generation Flow', () => {
-  test('Should show AI generation button on job details', async ({ page, context }) => {
+  test('Should show AI generation button on job details', async ({ page }) => {
+    // context parameter reserved for future use (e.g., browser context manipulation)
     // This test requires authenticated user
     // Skip if no test credentials available
     const testEmail = process.env.TEST_USER_EMAIL;

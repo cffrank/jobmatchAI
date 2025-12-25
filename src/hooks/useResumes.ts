@@ -127,7 +127,7 @@ export function useResumes() {
 
     if (data.type !== undefined) updateData.type = data.type
     if (data.title !== undefined) updateData.title = data.title
-    if (data.sections !== undefined) updateData.sections = data.sections as any
+    if (data.sections !== undefined) updateData.sections = data.sections as unknown
     if (data.formats !== undefined) updateData.formats = data.formats
 
     const { error: updateError } = await supabase
@@ -191,7 +191,7 @@ function mapDbResume(dbResume: DbResume): Resume {
     title: dbResume.title,
     createdAt: dbResume.created_at,
     updatedAt: dbResume.updated_at,
-    sections: (dbResume.sections as any) || {
+    sections: (dbResume.sections as unknown) || {
       header: { name: '', title: '', contact: { email: '', phone: '', location: '', linkedIn: '' } },
       summary: '',
       experience: [],

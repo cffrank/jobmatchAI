@@ -23,8 +23,9 @@ export default function ApplicationEditorPage() {
   const [generating, setGenerating] = useState(false)
   const [generatedApp, setGeneratedApp] = useState<GeneratedApplication | null>(null)
 
-  // State for email dialog
+  // State for email dialog (reserved for future implementation)
   const [emailDialogOpen, setEmailDialogOpen] = useState(false)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [_currentApplicationId, setCurrentApplicationId] = useState<string | null>(null)
 
   // Use Firestore hook to fetch application (skip if creating new)

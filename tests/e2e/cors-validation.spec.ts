@@ -129,7 +129,7 @@ test.describe('Live CORS Validation', () => {
 });
 
 test.describe('Production CORS Configuration', () => {
-  test.skip(({ }, testInfo) => {
+  test.skip(() => {
     // Only run in production or staging environments
     const isProduction =
       BACKEND_URL.includes('railway.app') ||
@@ -154,7 +154,8 @@ test.describe('Production CORS Configuration', () => {
     expect(headers['access-control-allow-origin']).toBeTruthy();
   });
 
-  test('Production backend uses HTTPS', async ({ request }) => {
+  test('Production backend uses HTTPS', async () => {
+    // request parameter reserved for future use
     if (process.env.NODE_ENV === 'production') {
       expect(BACKEND_URL).toMatch(/^https:/);
     }

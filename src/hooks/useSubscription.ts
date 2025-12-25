@@ -79,18 +79,18 @@ export function useSubscription() {
           table: 'subscriptions',
           filter: `user_id=eq.${userId}`
         },
-        (payload) => {
+        (payload: { new: Record<string, unknown> }) => {
           if (mounted && payload.new) {
-            const data = payload.new as any
+            const data = payload.new
             const mappedSubscription = {
-              id: data.id,
-              userId: data.user_id,
-              plan: data.plan,
+              id: data.id as string,
+              userId: data.user_id as string,
+              plan: data.plan as Subscription['plan'],
               billingCycle: 'monthly' as const, // Default to monthly, billing_cycle column doesn't exist in DB
-              status: data.status,
-              currentPeriodStart: data.current_period_start,
-              currentPeriodEnd: data.current_period_end,
-              cancelAtPeriodEnd: data.cancel_at_period_end || false,
+              status: data.status as Subscription['status'],
+              currentPeriodStart: data.current_period_start as string,
+              currentPeriodEnd: data.current_period_end as string,
+              cancelAtPeriodEnd: (data.cancel_at_period_end as boolean) || false,
             } as Subscription
             setSubscription(mappedSubscription)
           }

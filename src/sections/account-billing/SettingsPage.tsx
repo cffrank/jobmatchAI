@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { User, Shield, Lock, CreditCard } from 'lucide-react'
 import { ProfileSettings } from './components/ProfileSettings'
 import { SecurityTab } from './components/SecurityTab'
@@ -13,7 +13,6 @@ import { useAuth } from '@/contexts/AuthContext'
 import data from './data.json'
 import type {
   UserProfile,
-  NotificationPreferences,
   PrivacySettings,
   Subscription,
   SubscriptionPlan,
@@ -82,57 +81,64 @@ export default function SettingsPage() {
   console.log('SettingsPage - Using profile:', profile)
   console.log('SettingsPage - Security data:', security)
 
-  const [_notifications, _setNotifications] = useState<NotificationPreferences>({
-    ...data.notificationPreferences,
-    frequency: data.notificationPreferences.frequency as 'immediate' | 'daily' | 'weekly'
-  })
+  // Notification preferences are not currently used in the UI
+  // const [notifications, setNotifications] = useState<NotificationPreferences>({
+  //   ...data.notificationPreferences,
+  //   frequency: data.notificationPreferences.frequency as 'immediate' | 'daily' | 'weekly'
+  // })
+
+  // Build connected accounts from user data directly (no useEffect needed)
+  const connectedAccounts = useMemo(() => {
+    if (!user) {
+      return data.privacySettings.connectedAccounts.map(acc => ({
+        ...acc,
+        provider: acc.provider as 'linkedin' | 'google' | 'github'
+      }))
+    }
+
+    const provider = user.app_metadata?.provider
+    let accountProvider: 'linkedin' | 'google' | 'github' = 'google'
+
+    if (provider === 'linkedin_oidc' || provider === 'linkedin') {
+      accountProvider = 'linkedin'
+    } else if (provider === 'google') {
+      accountProvider = 'google'
+    } else if (provider === 'github') {
+      accountProvider = 'github'
+    }
+
+    return [{
+      id: user.id,
+      provider: accountProvider,
+      email: user.email || '',
+      connectedAt: user.created_at || new Date().toISOString()
+    }]
+  }, [user])
 
   const [privacy, setPrivacy] = useState<PrivacySettings>({
     ...data.privacySettings,
-    connectedAccounts: data.privacySettings.connectedAccounts.map(acc => ({
-      ...acc,
-      provider: acc.provider as 'linkedin' | 'google' | 'github'
-    }))
+    connectedAccounts: connectedAccounts
   })
 
-  // Update connected accounts when user data becomes available
-  useEffect(() => {
-    if (user) {
-      const provider = user.app_metadata?.provider
-      let accountProvider: 'linkedin' | 'google' | 'github' = 'google'
+  // Build real subscription data - memoize to avoid Date.now() in render
+  // Default subscription for users without active subscriptions
+  const defaultSubscription: Subscription = useMemo(() => {
+    const today = new Date()
+    const thirtyDaysFromNow = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000)
 
-      if (provider === 'linkedin_oidc' || provider === 'linkedin') {
-        accountProvider = 'linkedin'
-      } else if (provider === 'google') {
-        accountProvider = 'google'
-      } else if (provider === 'github') {
-        accountProvider = 'github'
-      }
-
-      const connectedAccounts = [{
-        id: user.id,
-        provider: accountProvider,
-        email: user.email || '',
-        connectedAt: user.created_at || new Date().toISOString()
-      }]
-      setPrivacy(prev => ({
-        ...prev,
-        connectedAccounts
-      }))
+    return {
+      id: '',
+      userId: user?.id || '',
+      plan: 'basic',
+      billingCycle: 'monthly',
+      status: 'active',
+      currentPeriodStart: today.toISOString().split('T')[0],
+      currentPeriodEnd: thirtyDaysFromNow.toISOString().split('T')[0],
+      cancelAtPeriodEnd: false,
     }
-  }, [user])
+  }, [user?.id])
 
-  // Build real subscription data
-  const subscription: Subscription = dbSubscription || {
-    id: '',
-    userId: user?.id || '',
-    plan: 'basic',
-    billingCycle: 'monthly',
-    status: 'active',
-    currentPeriodStart: new Date().toISOString().split('T')[0],
-    currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    cancelAtPeriodEnd: false,
-  }
+  const subscription: Subscription = dbSubscription || defaultSubscription
 
   // Build real usage data
   const usage: UsageLimits = {

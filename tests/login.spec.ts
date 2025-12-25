@@ -62,10 +62,10 @@ test.describe('Login Flow', () => {
     // Wait a bit for the page to fully load
     await page.waitForLoadState('networkidle');
 
-    // Check for session initialization in console
-    const sessionLogs = await page.evaluate(() => {
-      return (window as any).__sessionLogs || [];
-    });
+    // Check for session initialization in console (for debugging if needed)
+    // const sessionLogs = await page.evaluate(() => {
+    //   return (window as Record<string, unknown>).__sessionLogs || [];
+    // });
 
     // Verify no critical console errors
     const criticalErrors = consoleErrors.filter(err =>

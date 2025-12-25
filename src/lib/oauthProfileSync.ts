@@ -115,7 +115,7 @@ export async function updateProfileFromOAuth(user: User): Promise<boolean> {
     const oauthData = extractOAuthProfileData(user)
 
     // Only update fields that are empty
-    const updates: Record<string, any> = {}
+    const updates: Record<string, unknown> = {}
 
     if (!existingProfile.first_name && oauthData.firstName) {
       updates.first_name = oauthData.firstName
