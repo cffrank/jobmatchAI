@@ -65,11 +65,37 @@ jobs:
 
       - name: Deploy to Railway
         env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_TOKEN_PRODUCTION: ${{ secrets.RAILWAY_TOKEN_PRODUCTION }}
+          RAILWAY_TOKEN_STAGING: ${{ secrets.RAILWAY_TOKEN_STAGING }}
+          RAILWAY_TOKEN_DEVELOPMENT: ${{ secrets.RAILWAY_TOKEN_DEVELOPMENT }}
           ENVIRONMENT: ${{ steps.env-setup.outputs.environment }}
         run: |
           cd backend
           echo "Deploying to Railway environment: $ENVIRONMENT"
+
+          # Select the appropriate token for the environment
+          case "$ENVIRONMENT" in
+            production)
+              export RAILWAY_TOKEN="$RAILWAY_TOKEN_PRODUCTION"
+              ;;
+            staging)
+              export RAILWAY_TOKEN="$RAILWAY_TOKEN_STAGING"
+              ;;
+            development)
+              export RAILWAY_TOKEN="$RAILWAY_TOKEN_DEVELOPMENT"
+              ;;
+            *)
+              echo "Error: Unknown environment $ENVIRONMENT"
+              exit 1
+              ;;
+          esac
+
+          if [ -z "$RAILWAY_TOKEN" ]; then
+            echo "Error: RAILWAY_TOKEN_${ENVIRONMENT^^} secret not configured"
+            echo "Please add the Railway project token for the $ENVIRONMENT environment to GitHub secrets"
+            exit 1
+          fi
+
           railway up --service backend --environment "$ENVIRONMENT" --detach
 
       # IMPORTANT: Environment variables are pre-configured in Railway dashboard
@@ -87,10 +113,25 @@ jobs:
       - name: Health Check
         id: health-check
         env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_TOKEN_PRODUCTION: ${{ secrets.RAILWAY_TOKEN_PRODUCTION }}
+          RAILWAY_TOKEN_STAGING: ${{ secrets.RAILWAY_TOKEN_STAGING }}
+          RAILWAY_TOKEN_DEVELOPMENT: ${{ secrets.RAILWAY_TOKEN_DEVELOPMENT }}
           ENVIRONMENT: ${{ steps.env-setup.outputs.environment }}
         run: |
           cd backend
+
+          # Select the appropriate token for the environment
+          case "$ENVIRONMENT" in
+            production)
+              export RAILWAY_TOKEN="$RAILWAY_TOKEN_PRODUCTION"
+              ;;
+            staging)
+              export RAILWAY_TOKEN="$RAILWAY_TOKEN_STAGING"
+              ;;
+            development)
+              export RAILWAY_TOKEN="$RAILWAY_TOKEN_DEVELOPMENT"
+              ;;
+          esac
 
           # Get backend URL from Railway for specific environment
           BACKEND_URL=$(railway status \

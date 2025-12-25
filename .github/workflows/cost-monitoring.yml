@@ -185,7 +185,9 @@ jobs:
 
       - name: Backend Health Check - All Environments
         env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_TOKEN_PRODUCTION: ${{ secrets.RAILWAY_TOKEN_PRODUCTION }}
+          RAILWAY_TOKEN_STAGING: ${{ secrets.RAILWAY_TOKEN_STAGING }}
+          RAILWAY_TOKEN_DEVELOPMENT: ${{ secrets.RAILWAY_TOKEN_DEVELOPMENT }}
         run: |
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "## Backend Health Check" >> $GITHUB_STEP_SUMMARY
@@ -195,19 +197,20 @@ jobs:
           check_environment() {
             local ENV_NAME=$1
             local ENV_LABEL=$2
+            local TOKEN_VAR=$3
 
             echo "### $ENV_LABEL Environment" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
 
-            if [ -z "$RAILWAY_TOKEN" ]; then
-              echo "⚠️ Cannot get backend URL - RAILWAY_TOKEN not configured" >> $GITHUB_STEP_SUMMARY
+            if [ -z "$TOKEN_VAR" ]; then
+              echo "⚠️ Cannot get backend URL - RAILWAY_TOKEN_${ENV_NAME^^} not configured" >> $GITHUB_STEP_SUMMARY
               echo "" >> $GITHUB_STEP_SUMMARY
               return
             fi
 
             # Get backend URL from Railway for specific environment
             cd backend
-            BACKEND_URL=$(railway status \
+            BACKEND_URL=$(RAILWAY_TOKEN="$TOKEN_VAR" railway status \
               --service backend \
               --environment "$ENV_NAME" \
               --json 2>/dev/null | jq -r '.deployments[0].url // empty')
@@ -250,16 +253,27 @@ jobs:
           }
 
           # Check all three environments
-          check_environment "production" "🚀 Production"
-          check_environment "staging" "🎭 Staging"
-          check_environment "development" "🔧 Development"
+          check_environment "production" "🚀 Production" "$RAILWAY_TOKEN_PRODUCTION"
+          check_environment "staging" "🎭 Staging" "$RAILWAY_TOKEN_STAGING"
+          check_environment "development" "🔧 Development" "$RAILWAY_TOKEN_DEVELOPMENT"
 
-          if [ -z "$RAILWAY_TOKEN" ]; then
+          # Show tip if any tokens are missing
+          MISSING_TOKENS=0
+          [ -z "$RAILWAY_TOKEN_PRODUCTION" ] && MISSING_TOKENS=$((MISSING_TOKENS + 1))
+          [ -z "$RAILWAY_TOKEN_STAGING" ] && MISSING_TOKENS=$((MISSING_TOKENS + 1))
+          [ -z "$RAILWAY_TOKEN_DEVELOPMENT" ] && MISSING_TOKENS=$((MISSING_TOKENS + 1))
+
+          if [ "$MISSING_TOKENS" -gt 0 ]; then
             echo "---" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "💡 **Tip**: Add RAILWAY_TOKEN to GitHub secrets to enable automated environment URL lookup" >> $GITHUB_STEP_SUMMARY
+            echo "💡 **Tip**: Add Railway project tokens to GitHub secrets for automated environment URL lookup" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "Check Railway logs: https://railway.app/dashboard" >> $GITHUB_STEP_SUMMARY
+            echo "Required secrets (one token per environment):" >> $GITHUB_STEP_SUMMARY
+            [ -z "$RAILWAY_TOKEN_PRODUCTION" ] && echo "- RAILWAY_TOKEN_PRODUCTION" >> $GITHUB_STEP_SUMMARY
+            [ -z "$RAILWAY_TOKEN_STAGING" ] && echo "- RAILWAY_TOKEN_STAGING" >> $GITHUB_STEP_SUMMARY
+            [ -z "$RAILWAY_TOKEN_DEVELOPMENT" ] && echo "- RAILWAY_TOKEN_DEVELOPMENT" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Generate tokens at: https://railway.app/dashboard → Project → Settings → Tokens" >> $GITHUB_STEP_SUMMARY
           fi
 
   dependency-health:
