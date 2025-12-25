@@ -36,10 +36,18 @@ jobs:
 
       - name: Deploy to PR Preview Environment
         env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          # Use development token for PR previews (temporary testing environments)
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_DEVELOPMENT }}
           ENV_NAME: ${{ steps.env-setup.outputs.env_name }}
         working-directory: backend
         run: |
+          if [ -z "$RAILWAY_TOKEN" ]; then
+            echo "Error: RAILWAY_TOKEN_DEVELOPMENT secret not configured"
+            echo "PR preview environments require the RAILWAY_TOKEN_DEVELOPMENT secret"
+            echo "Please add it to GitHub secrets: Repository → Settings → Secrets → Actions"
+            exit 1
+          fi
+
           echo "Deploying backend to Railway PR environment: $ENV_NAME"
 
           # Deploy to PR preview environment
@@ -54,7 +62,7 @@ jobs:
       - name: Get deployment URL
         id: deploy-url
         env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_DEVELOPMENT }}
           ENV_NAME: ${{ steps.env-setup.outputs.env_name }}
         working-directory: backend
         run: |
@@ -92,7 +100,7 @@ jobs:
       - name: Health check preview environment
         id: health-check
         env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_DEVELOPMENT }}
           ENV_NAME: ${{ steps.env-setup.outputs.env_name }}
           PREVIEW_URL: ${{ steps.deploy-url.outputs.preview_url }}
         working-directory: backend
@@ -198,7 +206,7 @@ See [\`docs/PHASE2-PR-ENVIRONMENTS.md\`](../docs/PHASE2-PR-ENVIRONMENTS.md) for 
       - name: Delete PR environment
         id: delete
         env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_DEVELOPMENT }}
           PR_NUMBER: ${{ github.event.number }}
         continue-on-error: true
         run: |
