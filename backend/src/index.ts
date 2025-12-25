@@ -49,6 +49,21 @@ const APP_URL = process.env.APP_URL || 'http://localhost:5173';
 const app: Application = express();
 
 // =============================================================================
+// Health Check Endpoint (Before Security Middleware)
+// =============================================================================
+
+// Health endpoint must be defined BEFORE global CORS middleware
+// This ensures it can use permissive CORS for monitoring tools and Railway
+app.get('/health', cors({ origin: '*' }), (_req: Request, res: Response) => {
+  res.json({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    version: process.env.npm_package_version || '1.0.0',
+    environment: NODE_ENV,
+  });
+});
+
+// =============================================================================
 // Security Middleware
 // =============================================================================
 
@@ -136,19 +151,6 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use((req: Request, _res: Response, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.path} - Origin: ${req.headers.origin || 'none'}`);
   next();
-});
-
-// =============================================================================
-// Health Check Endpoint
-// =============================================================================
-
-app.get('/health', (_req: Request, res: Response) => {
-  res.json({
-    status: 'healthy',
-    timestamp: new Date().toISOString(),
-    version: process.env.npm_package_version || '1.0.0',
-    environment: NODE_ENV,
-  });
 });
 
 // =============================================================================

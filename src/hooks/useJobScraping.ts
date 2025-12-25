@@ -24,10 +24,10 @@ interface UseJobScrapingReturn {
  * Hook for scraping jobs from LinkedIn and Indeed
  */
 export function useJobScraping(): UseJobScrapingReturn {
-  const [loading, setLoading] = useState(false);
+  const { user } = useAuth();
+  const [loading, setLoading] = useState(!user);
   const [error, setError] = useState<string | null>(null);
   const [lastSearchId, setLastSearchId] = useState<string | null>(null);
-  const { user } = useAuth();
 
   const scrapeJobs = useCallback(
     async (params: JobSearchParams): Promise<JobSearchResult | null> => {
@@ -122,13 +122,17 @@ export function useJobSearchHistory(): UseJobSearchHistoryReturn {
   const { user } = useAuth();
 
   useEffect(() => {
-    if (!user) {
-      setLoading(false);
-      return;
-    }
-
     // TODO: Implement when job_searches table is added to schema
-    setLoading(false);
+    // For now, we just set loading to false after checking user
+    const timeoutId = setTimeout(() => {
+      if (!user) {
+        setLoading(false);
+      } else {
+        setLoading(false);
+      }
+    }, 0);
+
+    return () => clearTimeout(timeoutId);
   }, [user]);
 
   return { searches, loading, error };

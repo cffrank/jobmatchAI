@@ -106,7 +106,7 @@ export function useResumes() {
       user_id: userId,
       type: data.type,
       title: data.title,
-      sections: data.sections as any, // JSONB field
+      sections: data.sections as unknown, // JSONB field
       formats: data.formats,
       created_at: now,
       updated_at: now,

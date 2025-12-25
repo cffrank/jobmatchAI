@@ -22,7 +22,7 @@ export function useApplications(pageSize = 20) {
   const [hasMore, setHasMore] = useState(true)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
-  const [_totalCount, setTotalCount] = useState(0)
+  const [totalCount, setTotalCount] = useState(0)
 
   // Fetch applications with pagination
   useEffect(() => {
@@ -146,7 +146,7 @@ export function useApplications(pageSize = 20) {
       cover_letter: data.variants[0]?.coverLetter || null,
       custom_resume: JSON.stringify(data.variants[0]?.resume) || null,
       status: mapStatusToDb(data.status),
-      variants: data.variants as any, // JSONB field
+      variants: data.variants as unknown, // JSONB field
     })
 
     if (insertError) throw insertError
@@ -162,7 +162,7 @@ export function useApplications(pageSize = 20) {
 
     if (data.jobId !== undefined) updateData.job_id = data.jobId || null
     if (data.status !== undefined) updateData.status = mapStatusToDb(data.status)
-    if (data.variants !== undefined) updateData.variants = data.variants as any
+    if (data.variants !== undefined) updateData.variants = data.variants as unknown
 
     // Update cover_letter if variants changed
     if (data.variants && data.variants[0]) {
@@ -204,6 +204,7 @@ export function useApplications(pageSize = 20) {
     addApplication,
     updateApplication,
     deleteApplication,
+    totalCount,
   }
 }
 
@@ -295,7 +296,7 @@ export function useApplication(applicationId: string | undefined) {
  * Map database application to app GeneratedApplication type
  */
 function mapDbApplication(dbApp: DbApplication): GeneratedApplication {
-  const variants = (dbApp.variants as any) || []
+  const variants = (dbApp.variants as unknown) || []
 
   return {
     id: dbApp.id,

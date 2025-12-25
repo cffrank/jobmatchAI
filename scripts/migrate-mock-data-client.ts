@@ -19,7 +19,8 @@ const profileData = JSON.parse(readFileSync('./src/sections/profile-resume-manag
 const jobsData = JSON.parse(readFileSync('./src/sections/job-discovery-matching/data.json', 'utf8'));
 const applicationsData = JSON.parse(readFileSync('./src/sections/application-generator/data.json', 'utf8'));
 const trackerData = JSON.parse(readFileSync('./src/sections/application-tracker/data.json', 'utf8'));
-const accountData = JSON.parse(readFileSync('./src/sections/account-billing/data.json', 'utf8'));
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const _accountData = JSON.parse(readFileSync('./src/sections/account-billing/data.json', 'utf8'));
 
 // SECURITY: Firebase configuration must come from environment variables
 const requiredEnvVars = [

@@ -46,7 +46,7 @@ async function testEndpoint(
   method: string = 'GET',
   options: {
     requiresAuth?: boolean;
-    body?: any;
+    body?: unknown;
     description?: string;
     expectedStatus?: number;
     testCORS?: boolean;
@@ -107,7 +107,7 @@ async function testEndpoint(
       if (text) {
         responseBody = text.length > 500 ? text.substring(0, 500) + '...' : text;
       }
-    } catch (e) {
+    } catch {
       // Ignore parsing errors
     }
 

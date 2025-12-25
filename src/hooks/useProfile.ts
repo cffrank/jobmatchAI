@@ -154,7 +154,7 @@ function mapDbUserToUser(dbUser: DbUser): User {
     lastName: dbUser.last_name || '',
     phone: dbUser.phone || '',
     location: dbUser.location || '',
-    linkedInUrl: (dbUser as any).linkedin_url || '',
+    linkedInUrl: (dbUser as { linkedin_url?: string }).linkedin_url || '',
     profileImageUrl: dbUser.photo_url || null,
     headline: dbUser.current_title || '',
     summary: dbUser.professional_summary || '',
