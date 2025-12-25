@@ -9,9 +9,9 @@
 builder = "NIXPACKS"
 
 # Build command - TypeScript compilation
-# Install deps, build TypeScript, then remove devDependencies
-# Split into separate steps to avoid cache conflicts
-buildCommand = "npm ci && npx tsc && npm prune --omit=dev"
+# Install all dependencies and build TypeScript
+# Railway handles production dependency optimization automatically
+buildCommand = "npm ci && npx tsc"
 
 # Watch patterns - trigger rebuild on these file changes
 watchPatterns = ["src/**/*.ts", "package.json", "tsconfig.json"]
