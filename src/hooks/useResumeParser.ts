@@ -175,7 +175,7 @@ export function useResumeParser() {
           location: '',
           startDate: edu.startDate,
           endDate: edu.endDate || '',
-          gpa: edu.grade ? parseFloat(edu.grade) : undefined,
+          gpa: edu.grade ? (parseFloat(edu.grade) === parseFloat(edu.grade) ? parseFloat(edu.grade).toString() : undefined) : undefined,
           highlights: [],
         })
       }

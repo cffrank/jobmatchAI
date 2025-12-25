@@ -16,6 +16,7 @@ import type {
   NotificationPreferences,
   PrivacySettings,
   Subscription,
+  SubscriptionPlan,
   UsageLimits,
   BillingCycle,
   PlanTier
@@ -28,7 +29,7 @@ export default function SettingsPage() {
   const { uploadProfilePhoto, uploading: photoUploading, error: photoError } = useProfilePhoto()
   const { security, loading: securityLoading, revokeSession, enable2FA, disable2FA, generateBackupCodes } = useSecuritySettings()
   const { subscription: dbSubscription, loading: subscriptionLoading, updateSubscription } = useSubscription()
-  const { usageLimits: dbUsageLimits, loading: usageLimitsLoading } = useUsageLimits()
+  const { loading: usageLimitsLoading } = useUsageLimits()
   const { metrics: usageMetrics, loading: metricsLoading } = useUsageMetrics()
   const [profileInitialized, setProfileInitialized] = useState(false)
 
@@ -56,7 +57,6 @@ export default function SettingsPage() {
             profileImageUrl: user.user_metadata?.avatar_url || null,
             headline: '',
             summary: '',
-            createdAt: new Date().toISOString(),
           })
           setProfileInitialized(true)
           console.log('Default profile created successfully')
@@ -76,7 +76,7 @@ export default function SettingsPage() {
     phone: firestoreProfile.phone || '',
     profilePhotoUrl: firestoreProfile.profileImageUrl || '',
     emailVerified: true, // Assume verified for now
-    createdAt: firestoreProfile.createdAt || new Date().toISOString(),
+    createdAt: new Date().toISOString(),
   } : data.userProfile
 
   console.log('SettingsPage - Using profile:', profile)
@@ -142,9 +142,9 @@ export default function SettingsPage() {
     resumeVariantsCreated: usageMetrics.resumeVariantsCreated,
     jobSearchesPerformed: usageMetrics.jobSearchesPerformed,
     limits: {
-      maxApplications: subscription.plan === 'premium' ? 'unlimited' : (dbUsageLimits?.ai_generations_limit || 10),
+      maxApplications: subscription.plan === 'premium' ? 'unlimited' : 10,
       maxResumeVariants: subscription.plan === 'premium' ? 'unlimited' : 3,
-      maxJobSearches: subscription.plan === 'premium' ? 'unlimited' : (dbUsageLimits?.job_searches_limit || 50),
+      maxJobSearches: subscription.plan === 'premium' ? 'unlimited' : 50,
     },
   }
 
@@ -324,7 +324,7 @@ export default function SettingsPage() {
     }
   }
 
-  const availablePlans = data.availablePlans as SubscriptionPlan[]
+  const availablePlans = data.availablePlans as unknown as SubscriptionPlan[]
   const currentPlan = availablePlans.find(p => p.tier === subscription.plan)!
 
   // Show loading state while data is being fetched

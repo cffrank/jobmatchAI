@@ -124,7 +124,7 @@ export function useSubscription() {
 
     const { error: updateError } = await supabase
       .from('subscriptions')
-      .upsert(dbData)
+      .upsert(dbData as never)
 
     if (updateError) throw updateError
   }

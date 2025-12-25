@@ -2,7 +2,7 @@
  * Converts Firebase Auth error codes to user-friendly messages
  */
 export function getAuthErrorMessage(error: unknown): string {
-  const errorCode = error?.code || ''
+  const errorCode = (error && typeof error === 'object' && 'code' in error) ? (error as { code: string }).code : ''
 
   // OAuth-specific errors
   if (errorCode === 'auth/popup-closed-by-user') {
@@ -82,5 +82,5 @@ export function getAuthErrorMessage(error: unknown): string {
   }
 
   // Fallback to original error message or generic message
-  return error?.message || 'An error occurred during authentication. Please try again.'
+  return (error && typeof error === 'object' && 'message' in error) ? (error as { message: string }).message : 'An error occurred during authentication. Please try again.'
 }
