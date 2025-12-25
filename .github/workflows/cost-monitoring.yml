@@ -210,10 +210,15 @@ jobs:
 
             # Get backend URL from Railway for specific environment
             cd backend
-            BACKEND_URL=$(RAILWAY_TOKEN="$TOKEN_VAR" railway status \
-              --service backend \
-              --environment "$ENV_NAME" \
-              --json 2>/dev/null | jq -r '.deployments[0].url // empty')
+
+            # Try railway domain first (simpler command)
+            BACKEND_URL=$(RAILWAY_TOKEN="$TOKEN_VAR" railway domain 2>/dev/null | head -1 || echo "")
+
+            # Fallback: try status without service/environment flags
+            if [ -z "$BACKEND_URL" ]; then
+              BACKEND_URL=$(RAILWAY_TOKEN="$TOKEN_VAR" railway status --json 2>/dev/null | jq -r '.deployments[0].url // empty' || echo "")
+            fi
+
             cd ..
 
             if [ -z "$BACKEND_URL" ]; then
