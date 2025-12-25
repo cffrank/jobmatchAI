@@ -8,10 +8,10 @@
 # Builder to use for the deployment
 builder = "NIXPACKS"
 
-# Build command - TypeScript compilation
-# Install all dependencies and build TypeScript
-# Railway handles production dependency optimization automatically
-buildCommand = "npm ci && npx tsc"
+# Build command - TypeScript compilation only
+# Nixpacks handles npm ci in the install phase automatically
+# Only run the TypeScript compiler here
+buildCommand = "npx tsc"
 
 # Watch patterns - trigger rebuild on these file changes
 watchPatterns = ["src/**/*.ts", "package.json", "tsconfig.json"]
