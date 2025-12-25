@@ -56,7 +56,7 @@ test.describe('Critical User Flows', () => {
     await page.goto(`${FRONTEND_URL}/login`);
 
     // Check for login form elements
-    await expect(page.getByRole('heading', { name: /sign in/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /welcome back/i })).toBeVisible();
   });
 
   test('Jobs page requires authentication', async ({ page }) => {
