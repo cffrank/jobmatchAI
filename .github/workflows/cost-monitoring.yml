@@ -183,40 +183,83 @@ jobs:
             echo "- Consider sleep mode for development environments" >> $GITHUB_STEP_SUMMARY
           fi
 
-      - name: Backend Health Check
+      - name: Backend Health Check - All Environments
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
         run: |
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "## Backend Health Check" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          # Check if backend is responding
-          BACKEND_URL="https://intelligent-celebration-production-57e4.up.railway.app"
-          HEALTH_STATUS=$(curl -s -w "%{http_code}" -o /dev/null "$BACKEND_URL/health") || echo "000"
+          # Function to check health of a specific environment
+          check_environment() {
+            local ENV_NAME=$1
+            local ENV_LABEL=$2
 
-          if [ "$HEALTH_STATUS" = "200" ]; then
-            echo "✅ **Backend Status**: Healthy (HTTP $HEALTH_STATUS)" >> $GITHUB_STEP_SUMMARY
-
-            # Get detailed health info
-            HEALTH_INFO=$(curl -s "$BACKEND_URL/health" | jq -r '.' 2>/dev/null || echo "{}")
-            if [ -n "$HEALTH_INFO" ] && [ "$HEALTH_INFO" != "{}" ]; then
-              echo "" >> $GITHUB_STEP_SUMMARY
-              echo "\`\`\`json" >> $GITHUB_STEP_SUMMARY
-              echo "$HEALTH_INFO" >> $GITHUB_STEP_SUMMARY
-              echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-            fi
-          elif [ "$HEALTH_STATUS" = "502" ]; then
-            echo "❌ **Backend Status**: Bad Gateway (HTTP 502)" >> $GITHUB_STEP_SUMMARY
+            echo "### $ENV_LABEL Environment" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "Possible causes:" >> $GITHUB_STEP_SUMMARY
-            echo "- Railway deployment failed" >> $GITHUB_STEP_SUMMARY
-            echo "- Backend service crashed" >> $GITHUB_STEP_SUMMARY
-            echo "- Configuration error" >> $GITHUB_STEP_SUMMARY
+
+            if [ -z "$RAILWAY_TOKEN" ]; then
+              echo "⚠️ Cannot get backend URL - RAILWAY_TOKEN not configured" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              return
+            fi
+
+            # Get backend URL from Railway for specific environment
+            cd backend
+            BACKEND_URL=$(railway status \
+              --service backend \
+              --environment "$ENV_NAME" \
+              --json 2>/dev/null | jq -r '.deployments[0].url // empty')
+            cd ..
+
+            if [ -z "$BACKEND_URL" ]; then
+              echo "⚠️ **Status**: Environment not found or not deployed" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              return
+            fi
+
+            echo "**URL**: $BACKEND_URL" >> $GITHUB_STEP_SUMMARY
+
+            # Check if backend is responding
+            HEALTH_STATUS=$(curl -s -w "%{http_code}" -o /dev/null "$BACKEND_URL/health") || echo "000"
+
+            if [ "$HEALTH_STATUS" = "200" ]; then
+              echo "**Status**: ✅ Healthy (HTTP $HEALTH_STATUS)" >> $GITHUB_STEP_SUMMARY
+
+              # Get detailed health info
+              HEALTH_INFO=$(curl -s "$BACKEND_URL/health" | jq -r '.' 2>/dev/null || echo "{}")
+              if [ -n "$HEALTH_INFO" ] && [ "$HEALTH_INFO" != "{}" ]; then
+                echo "" >> $GITHUB_STEP_SUMMARY
+                echo "\`\`\`json" >> $GITHUB_STEP_SUMMARY
+                echo "$HEALTH_INFO" >> $GITHUB_STEP_SUMMARY
+                echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+              fi
+            elif [ "$HEALTH_STATUS" = "502" ]; then
+              echo "**Status**: ❌ Bad Gateway (HTTP 502)" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "Possible causes:" >> $GITHUB_STEP_SUMMARY
+              echo "- Railway deployment failed" >> $GITHUB_STEP_SUMMARY
+              echo "- Backend service crashed" >> $GITHUB_STEP_SUMMARY
+              echo "- Configuration error" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "**Status**: ❌ Unreachable (HTTP $HEALTH_STATUS)" >> $GITHUB_STEP_SUMMARY
+            fi
+
+            echo "" >> $GITHUB_STEP_SUMMARY
+          }
+
+          # Check all three environments
+          check_environment "production" "🚀 Production"
+          check_environment "staging" "🎭 Staging"
+          check_environment "development" "🔧 Development"
+
+          if [ -z "$RAILWAY_TOKEN" ]; then
+            echo "---" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "💡 **Tip**: Add RAILWAY_TOKEN to GitHub secrets to enable automated environment URL lookup" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "Check Railway logs: https://railway.app/dashboard" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "❌ **Backend Status**: Unreachable (HTTP $HEALTH_STATUS)" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "Check Railway deployment status in the dashboard" >> $GITHUB_STEP_SUMMARY
           fi
 
   dependency-health:
