@@ -1,8 +1,10 @@
 import { useState, useCallback, useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
-import type { TrackedApplication } from '@/sections/application-tracker/types'
-import type { DbTrackedApplication, RealtimePayload } from '@/types/database'
+import type { Database, Json } from '@/types/supabase'
+import type { TrackedApplication, ActivityLogEntry } from '@/sections/application-tracker/types'
+
+type DbTrackedApplication = Database['public']['Tables']['tracked_applications']['Row']
 
 /**
  * Hook to manage tracked applications in Supabase
@@ -115,21 +117,21 @@ export function useTrackedApplications(pageSize = 20) {
     const channel = supabase
       .channel(`tracked_applications:${userId}`)
       .on(
-        'postgres_changes',
+        'postgres_changes' as any,
         {
           event: '*',
           schema: 'public',
           table: 'tracked_applications',
           filter: `user_id=eq.${userId}`,
         },
-        (payload: RealtimePayload<DbTrackedApplication>) => {
+        (payload: any) => {
           if (payload.eventType === 'INSERT') {
-            setAllApplications(current => [mapDbTrackedApplication(payload.new), ...current])
+            setAllApplications(current => [mapDbTrackedApplication(payload.new as DbTrackedApplication), ...current])
             setTotalCount(c => c + 1)
           } else if (payload.eventType === 'UPDATE') {
             setAllApplications(current =>
               current.map(app =>
-                app.id === payload.new.id ? mapDbTrackedApplication(payload.new) : app
+                app.id === (payload.new as DbTrackedApplication).id ? mapDbTrackedApplication(payload.new as DbTrackedApplication) : app
               )
             )
           } else if (payload.eventType === 'DELETE') {
@@ -173,14 +175,17 @@ export function useTrackedApplications(pageSize = 20) {
       status: data.status,
       applied_date: data.appliedDate || null,
       last_updated: new Date().toISOString(),
-      status_history: data.statusHistory,
-      interviews: data.interviews,
-      recruiter: data.recruiter || null,
-      hiring_manager: data.hiringManager || null,
-      follow_up_actions: data.followUpActions,
+      status_history: data.statusHistory as unknown as Json,
+      interviews: data.interviews as unknown as Json,
+      recruiter: (data.recruiter || null) as unknown as Json,
+      hiring_manager: (data.hiringManager || null) as unknown as Json,
+      follow_up_actions: data.followUpActions as unknown as Json,
+      activity_log: (data.activityLog || []) as unknown as Json,
+      offer_details: (data.offerDetails || null) as unknown as Json,
       next_action: data.nextAction || null,
       next_action_date: data.nextActionDate || null,
       next_interview_date: data.nextInterviewDate || null,
+      notes: data.notes || null,
       archived: data.archived || false,
     })
 
@@ -190,7 +195,7 @@ export function useTrackedApplications(pageSize = 20) {
   const updateTrackedApplication = async (id: string, data: Partial<Omit<TrackedApplication, 'id'>>) => {
     if (!userId) throw new Error('User not authenticated')
 
-    const updateData: Partial<DbTrackedApplication> = {
+    const updateData: Partial<Database['public']['Tables']['tracked_applications']['Update']> = {
       last_updated: new Date().toISOString(),
     }
 
@@ -202,14 +207,17 @@ export function useTrackedApplications(pageSize = 20) {
     if (data.matchScore !== undefined) updateData.match_score = data.matchScore || null
     if (data.status !== undefined) updateData.status = data.status
     if (data.appliedDate !== undefined) updateData.applied_date = data.appliedDate || null
-    if (data.statusHistory !== undefined) updateData.status_history = data.statusHistory
-    if (data.interviews !== undefined) updateData.interviews = data.interviews
-    if (data.recruiter !== undefined) updateData.recruiter = data.recruiter || null
-    if (data.hiringManager !== undefined) updateData.hiring_manager = data.hiringManager || null
-    if (data.followUpActions !== undefined) updateData.follow_up_actions = data.followUpActions
+    if (data.statusHistory !== undefined) updateData.status_history = data.statusHistory as unknown as Json
+    if (data.interviews !== undefined) updateData.interviews = data.interviews as unknown as Json
+    if (data.recruiter !== undefined) updateData.recruiter = (data.recruiter || null) as unknown as Json
+    if (data.hiringManager !== undefined) updateData.hiring_manager = (data.hiringManager || null) as unknown as Json
+    if (data.followUpActions !== undefined) updateData.follow_up_actions = data.followUpActions as unknown as Json
+    if (data.activityLog !== undefined) updateData.activity_log = data.activityLog as unknown as Json
+    if (data.offerDetails !== undefined) updateData.offer_details = (data.offerDetails || null) as unknown as Json
     if (data.nextAction !== undefined) updateData.next_action = data.nextAction || null
     if (data.nextActionDate !== undefined) updateData.next_action_date = data.nextActionDate || null
     if (data.nextInterviewDate !== undefined) updateData.next_interview_date = data.nextInterviewDate || null
+    if (data.notes !== undefined) updateData.notes = data.notes || null
     if (data.archived !== undefined) updateData.archived = data.archived
 
     const { error: updateError } = await supabase
@@ -310,16 +318,16 @@ export function useTrackedApplication(id: string | undefined) {
     const channel = supabase
       .channel(`tracked_application:${id}`)
       .on(
-        'postgres_changes',
+        'postgres_changes' as any,
         {
           event: '*',
           schema: 'public',
           table: 'tracked_applications',
           filter: `id=eq.${id}`,
         },
-        (payload: RealtimePayload<DbTrackedApplication>) => {
+        (payload: any) => {
           if (payload.eventType === 'UPDATE') {
-            setTrackedApplication(mapDbTrackedApplication(payload.new))
+            setTrackedApplication(mapDbTrackedApplication(payload.new as DbTrackedApplication))
           } else if (payload.eventType === 'DELETE') {
             setTrackedApplication(null)
           }
@@ -442,20 +450,20 @@ function mapDbTrackedApplication(dbApp: DbTrackedApplication): TrackedApplicatio
     jobTitle: dbApp.job_title,
     location: dbApp.location || '',
     matchScore: dbApp.match_score || 0,
-    status: dbApp.status,
+    status: dbApp.status as TrackedApplication['status'],
     appliedDate: dbApp.applied_date || '',
     lastUpdated: dbApp.last_updated,
-    statusHistory: dbApp.status_history || [],
-    interviews: dbApp.interviews || [],
-    recruiter: dbApp.recruiter || undefined,
-    hiringManager: dbApp.hiring_manager || undefined,
-    followUpActions: dbApp.follow_up_actions || [],
+    statusHistory: (dbApp.status_history as unknown as TrackedApplication['statusHistory']) || [],
+    interviews: (dbApp.interviews as unknown as TrackedApplication['interviews']) || [],
+    recruiter: (dbApp.recruiter as unknown as TrackedApplication['recruiter']) || undefined,
+    hiringManager: (dbApp.hiring_manager as unknown as TrackedApplication['hiringManager']) || undefined,
+    followUpActions: (dbApp.follow_up_actions as unknown as TrackedApplication['followUpActions']) || [],
     nextAction: dbApp.next_action || undefined,
     nextActionDate: dbApp.next_action_date || undefined,
     nextInterviewDate: dbApp.next_interview_date || undefined,
-    offerDetails: dbApp.offer_details || undefined,
-    activityLog: dbApp.activity_log || [],
+    offerDetails: (dbApp.offer_details as unknown as TrackedApplication['offerDetails']) || undefined,
+    activityLog: (dbApp.activity_log as unknown as ActivityLogEntry[]) || [],
     archived: dbApp.archived || false,
-    notes: dbApp.notes || undefined,
+    notes: dbApp.notes || '',
   }
 }

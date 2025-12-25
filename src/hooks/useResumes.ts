@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
-import type { Database } from '@/types/supabase'
-import type { Resume } from '@/sections/profile-resume-management/types'
+import type { Database, Json } from '@/types/supabase'
+import type { Resume, ResumeSections } from '@/sections/profile-resume-management/types'
 
 type DbResume = Database['public']['Tables']['resumes']['Row']
 
@@ -106,7 +106,7 @@ export function useResumes() {
       user_id: userId,
       type: data.type,
       title: data.title,
-      sections: data.sections as unknown, // JSONB field
+      sections: data.sections as unknown as Json, // JSONB field
       formats: data.formats,
       created_at: now,
       updated_at: now,
@@ -127,7 +127,7 @@ export function useResumes() {
 
     if (data.type !== undefined) updateData.type = data.type
     if (data.title !== undefined) updateData.title = data.title
-    if (data.sections !== undefined) updateData.sections = data.sections as unknown
+    if (data.sections !== undefined) updateData.sections = data.sections as unknown as Json
     if (data.formats !== undefined) updateData.formats = data.formats
 
     const { error: updateError } = await supabase
@@ -191,7 +191,7 @@ function mapDbResume(dbResume: DbResume): Resume {
     title: dbResume.title,
     createdAt: dbResume.created_at,
     updatedAt: dbResume.updated_at,
-    sections: (dbResume.sections as unknown) || {
+    sections: (dbResume.sections as unknown as ResumeSections) || {
       header: { name: '', title: '', contact: { email: '', phone: '', location: '', linkedIn: '' } },
       summary: '',
       experience: [],

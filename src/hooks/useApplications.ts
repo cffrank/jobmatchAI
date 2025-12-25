@@ -1,8 +1,8 @@
 import { useState, useCallback, useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
-import type { Database } from '@/types/supabase'
-import type { GeneratedApplication } from '@/sections/application-generator/types'
+import type { Database, Json } from '@/types/supabase'
+import type { GeneratedApplication, ApplicationVariant } from '@/sections/application-generator/types'
 
 type DbApplication = Database['public']['Tables']['applications']['Row']
 
@@ -146,7 +146,7 @@ export function useApplications(pageSize = 20) {
       cover_letter: data.variants[0]?.coverLetter || null,
       custom_resume: JSON.stringify(data.variants[0]?.resume) || null,
       status: mapStatusToDb(data.status),
-      variants: data.variants as unknown, // JSONB field
+      variants: data.variants as unknown as Json, // JSONB field
     })
 
     if (insertError) throw insertError
@@ -162,7 +162,7 @@ export function useApplications(pageSize = 20) {
 
     if (data.jobId !== undefined) updateData.job_id = data.jobId || null
     if (data.status !== undefined) updateData.status = mapStatusToDb(data.status)
-    if (data.variants !== undefined) updateData.variants = data.variants as unknown
+    if (data.variants !== undefined) updateData.variants = data.variants as unknown as Json
 
     // Update cover_letter if variants changed
     if (data.variants && data.variants[0]) {
@@ -296,7 +296,7 @@ export function useApplication(applicationId: string | undefined) {
  * Map database application to app GeneratedApplication type
  */
 function mapDbApplication(dbApp: DbApplication): GeneratedApplication {
-  const variants = (dbApp.variants as unknown) || []
+  const variants = (dbApp.variants as unknown as ApplicationVariant[]) || []
 
   return {
     id: dbApp.id,

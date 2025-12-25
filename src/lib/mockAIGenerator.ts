@@ -156,8 +156,8 @@ function generateConciseVariant(
   }
 }
 
-function generateSummary(user: User, job: Job, style: 'impact' | 'keyword' | 'concise'): string {
-  const years = calculateYearsOfExperience(user)
+function generateSummary(_user: User, job: Job, style: 'impact' | 'keyword' | 'concise'): string {
+  const years = calculateYearsOfExperience()
   const jobLevel = 'Mid-level' // experienceLevel not available on Job type
   const skills = job.requiredSkills || []
 
