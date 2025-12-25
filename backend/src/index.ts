@@ -54,14 +54,22 @@ const app: Application = express();
 
 // Health endpoint must be defined BEFORE global CORS middleware
 // This ensures it can use permissive CORS for monitoring tools and Railway
-app.get('/health', cors({ origin: '*' }), (_req: Request, res: Response) => {
-  res.json({
-    status: 'healthy',
-    timestamp: new Date().toISOString(),
-    version: process.env.npm_package_version || '1.0.0',
-    environment: NODE_ENV,
-  });
-});
+app.get(
+  '/health',
+  cors({
+    origin: '*',
+    credentials: true,
+    exposedHeaders: ['X-RateLimit-Limit', 'X-RateLimit-Remaining', 'X-RateLimit-Reset', 'Retry-After'],
+  }),
+  (_req: Request, res: Response) => {
+    res.json({
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      version: process.env.npm_package_version || '1.0.0',
+      environment: NODE_ENV,
+    });
+  }
+);
 
 // =============================================================================
 // Security Middleware
