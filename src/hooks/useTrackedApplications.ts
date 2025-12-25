@@ -3,8 +3,10 @@ import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import type { Database, Json } from '@/types/supabase'
 import type { TrackedApplication, ActivityLogEntry } from '@/sections/application-tracker/types'
+import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js'
 
 type DbTrackedApplication = Database['public']['Tables']['tracked_applications']['Row']
+type TrackedApplicationPayload = RealtimePostgresChangesPayload<DbTrackedApplication>
 
 /**
  * Hook to manage tracked applications in Supabase
@@ -116,25 +118,25 @@ export function useTrackedApplications(pageSize = 20) {
 
     const channel = supabase
       .channel(`tracked_applications:${userId}`)
-      .on(
-        'postgres_changes' as any,
+      .on<DbTrackedApplication>(
+        'postgres_changes',
         {
           event: '*',
           schema: 'public',
           table: 'tracked_applications',
           filter: `user_id=eq.${userId}`,
         },
-        (payload: any) => {
-          if (payload.eventType === 'INSERT') {
-            setAllApplications(current => [mapDbTrackedApplication(payload.new as DbTrackedApplication), ...current])
+        (payload: TrackedApplicationPayload) => {
+          if (payload.eventType === 'INSERT' && payload.new) {
+            setAllApplications(current => [mapDbTrackedApplication(payload.new), ...current])
             setTotalCount(c => c + 1)
-          } else if (payload.eventType === 'UPDATE') {
+          } else if (payload.eventType === 'UPDATE' && payload.new) {
             setAllApplications(current =>
               current.map(app =>
-                app.id === (payload.new as DbTrackedApplication).id ? mapDbTrackedApplication(payload.new as DbTrackedApplication) : app
+                app.id === payload.new.id ? mapDbTrackedApplication(payload.new) : app
               )
             )
-          } else if (payload.eventType === 'DELETE') {
+          } else if (payload.eventType === 'DELETE' && payload.old) {
             setAllApplications(current => current.filter(app => app.id !== payload.old.id))
             setTotalCount(c => Math.max(0, c - 1))
           }
@@ -317,17 +319,17 @@ export function useTrackedApplication(id: string | undefined) {
     // Set up real-time subscription
     const channel = supabase
       .channel(`tracked_application:${id}`)
-      .on(
-        'postgres_changes' as any,
+      .on<DbTrackedApplication>(
+        'postgres_changes',
         {
           event: '*',
           schema: 'public',
           table: 'tracked_applications',
           filter: `id=eq.${id}`,
         },
-        (payload: any) => {
-          if (payload.eventType === 'UPDATE') {
-            setTrackedApplication(mapDbTrackedApplication(payload.new as DbTrackedApplication))
+        (payload: TrackedApplicationPayload) => {
+          if (payload.eventType === 'UPDATE' && payload.new) {
+            setTrackedApplication(mapDbTrackedApplication(payload.new))
           } else if (payload.eventType === 'DELETE') {
             setTrackedApplication(null)
           }
