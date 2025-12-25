@@ -81,10 +81,12 @@ Monitors Railway deployment status and backend health.
    - If not configured: Provides manual dashboard links
    - Cost optimization tips
 
-2. **Backend Health Check**
-   - Tests `https://intelligent-celebration-production-57e4.up.railway.app/health`
-   - Returns detailed health info if available
+2. **Backend Health Check - All Environments**
+   - Uses Railway CLI to dynamically get URLs for all environments
+   - Checks **production**, **staging**, AND **development** environments
+   - Returns detailed health info for each environment
    - Detects 502 Bad Gateway errors and suggests fixes
+   - Gracefully handles missing environments
 
 ### Job 3: Dependency Health Check
 Audits npm dependencies for security vulnerabilities.
@@ -185,7 +187,10 @@ Monitor your Railway deployments at:
 - Consider sleep mode for development environments
 
 ## Backend Health Check
-✅ **Backend Status**: Healthy (HTTP 200)
+
+### 🚀 Production Environment
+**URL**: https://backend-production-abc123.up.railway.app
+**Status**: ✅ Healthy (HTTP 200)
 
 ```json
 {
@@ -193,6 +198,32 @@ Monitor your Railway deployments at:
   "timestamp": "2025-12-24T09:00:00.000Z",
   "version": "1.0.0",
   "environment": "production"
+}
+```
+
+### 🎭 Staging Environment
+**URL**: https://backend-staging-def456.up.railway.app
+**Status**: ✅ Healthy (HTTP 200)
+
+```json
+{
+  "status": "healthy",
+  "timestamp": "2025-12-24T09:00:00.000Z",
+  "version": "1.0.0",
+  "environment": "staging"
+}
+```
+
+### 🔧 Development Environment
+**URL**: https://backend-development-ghi789.up.railway.app
+**Status**: ✅ Healthy (HTTP 200)
+
+```json
+{
+  "status": "healthy",
+  "timestamp": "2025-12-24T09:00:00.000Z",
+  "version": "1.0.0",
+  "environment": "development"
 }
 ```
 
