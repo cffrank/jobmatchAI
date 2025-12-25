@@ -9,16 +9,12 @@
 builder = "NIXPACKS"
 
 # Build command - TypeScript compilation
-# Install all deps for build, then prune devDependencies for production
-# Use --legacy-peer-deps to avoid cache conflicts
-buildCommand = "npm ci --legacy-peer-deps && npm run build && npm prune --omit=dev"
+# Install deps, build TypeScript, then remove devDependencies
+# Split into separate steps to avoid cache conflicts
+buildCommand = "npm ci && npx tsc && npm prune --omit=dev"
 
 # Watch patterns - trigger rebuild on these file changes
 watchPatterns = ["src/**/*.ts", "package.json", "tsconfig.json"]
-
-# Disable cache to avoid EBUSY errors with vite/vitest
-[build.env]
-NIXPACKS_NO_CACHE = "1"
 
 [deploy]
 # Command to start the server
