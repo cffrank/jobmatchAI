@@ -96,7 +96,19 @@ jobs:
             exit 1
           fi
 
-          railway up --service backend --environment "$ENVIRONMENT" --detach
+          # Determine service name based on environment
+          # Development uses 'backend1', staging/production use 'backend'
+          case "$ENVIRONMENT" in
+            development)
+              SERVICE_NAME="backend1"
+              ;;
+            *)
+              SERVICE_NAME="backend"
+              ;;
+          esac
+
+          echo "Deploying to service: $SERVICE_NAME"
+          railway up --service "$SERVICE_NAME" --environment "$ENVIRONMENT" --detach
 
       # IMPORTANT: Environment variables are pre-configured in Railway dashboard
       # See: docs/RAILWAY-MULTI-ENVIRONMENT-SETUP.md for complete list of variables
