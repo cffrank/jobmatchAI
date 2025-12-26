@@ -13,7 +13,7 @@
  */
 
 import { getOpenAI, MODELS, GENERATION_CONFIG, GENERATION_STRATEGIES } from '../config/openai';
-import { getSupabaseAdmin } from '../config/supabase';
+import { supabaseAdmin } from '../config/supabase';
 import type {
   Job,
   UserProfile,
@@ -497,11 +497,10 @@ export interface ParsedResume {
  */
 export async function parseResume(storagePath: string): Promise<ParsedResume> {
   try {
-    const supabase = getSupabaseAdmin();
     const openai = getOpenAI();
 
-    // Generate a signed URL valid for 1 hour
-    const { data: signedUrlData, error: urlError } = await supabase.storage
+    // Generate a signed URL valid for 1 hour using admin client
+    const { data: signedUrlData, error: urlError } = await supabaseAdmin.storage
       .from('files')
       .createSignedUrl(storagePath, 3600); // 1 hour expiry
 
