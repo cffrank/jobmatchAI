@@ -82,7 +82,16 @@ export function useResumeParser() {
 
       // Upload file to Supabase Storage
       const storagePath = `resumes/${user.id}/${Date.now()}_${file.name}`
-      await uploadFile(file, storagePath, 'files')
+      console.log('[useResumeParser] Uploading file to:', storagePath)
+
+      const uploadResult = await uploadFile(file, storagePath, 'files')
+
+      // Verify upload succeeded and use the confirmed path
+      if (!uploadResult.fullPath) {
+        throw new Error('File upload failed - no path returned')
+      }
+
+      console.log('[useResumeParser] File uploaded successfully to:', uploadResult.fullPath)
 
       setUploading(false)
       setParsing(true)
@@ -100,13 +109,17 @@ export function useResumeParser() {
         throw new Error('Backend URL not configured')
       }
 
+      // Use the confirmed path from upload result
+      const confirmedPath = uploadResult.fullPath
+      console.log('[useResumeParser] Sending parse request for path:', confirmedPath)
+
       const response = await fetch(`${backendUrl}/api/resume/parse`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ storagePath }),
+        body: JSON.stringify({ storagePath: confirmedPath }),
       })
 
       if (!response.ok) {

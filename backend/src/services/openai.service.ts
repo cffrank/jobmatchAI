@@ -499,17 +499,59 @@ export async function parseResume(storagePath: string): Promise<ParsedResume> {
   try {
     const openai = getOpenAI();
 
+    console.log(`[parseResume] Starting parse for path: ${storagePath}`);
+
+    // First, verify the file exists by attempting to list it
+    const folderPath = storagePath.substring(0, storagePath.lastIndexOf('/'));
+    const fileName = storagePath.substring(storagePath.lastIndexOf('/') + 1);
+
+    console.log(`[parseResume] Checking folder: ${folderPath}`);
+    console.log(`[parseResume] Looking for file: ${fileName}`);
+
+    const { data: fileList, error: listError } = await supabaseAdmin.storage
+      .from('files')
+      .list(folderPath);
+
+    if (listError) {
+      console.error('[parseResume] Failed to list files:', listError);
+      throw new Error('Failed to access storage bucket');
+    }
+
+    const fileExists = fileList?.some(file => file.name === fileName);
+
+    if (!fileExists) {
+      console.error(`[parseResume] File not found at path: ${storagePath}`);
+      console.error('[parseResume] Available files in folder:', fileList?.map(f => f.name).join(', ') || 'none');
+      throw new Error(
+        `Resume file not found at path: ${storagePath}. ` +
+        `Please ensure the file upload completed successfully before parsing.`
+      );
+    }
+
+    console.log(`[parseResume] File found, generating signed URL`);
+
     // Generate a signed URL valid for 1 hour using admin client
     const { data: signedUrlData, error: urlError } = await supabaseAdmin.storage
       .from('files')
       .createSignedUrl(storagePath, 3600); // 1 hour expiry
 
     if (urlError || !signedUrlData) {
-      console.error('Failed to generate signed URL:', urlError);
-      throw new Error('Failed to access resume file');
+      console.error('[parseResume] Failed to generate signed URL:', urlError);
+      console.error('[parseResume] Storage path:', storagePath);
+
+      // Provide more specific error message based on error type
+      if (urlError?.status === 400 || urlError?.statusCode === '404') {
+        throw new Error(
+          `Resume file not found at ${storagePath}. ` +
+          `The file may have been deleted or the path is incorrect.`
+        );
+      }
+
+      throw new Error('Failed to generate access URL for resume file');
     }
 
     const fileUrl = signedUrlData.signedUrl;
+    console.log(`[parseResume] Signed URL generated successfully`);
 
     const prompt = `
 You are an expert resume parser. Extract all information from this resume and return it as structured JSON.
@@ -601,13 +643,24 @@ Return the response as JSON with this EXACT structure:
 
     const content = completion.choices[0]?.message.content;
     if (!content) {
+      console.error('[parseResume] No content in OpenAI response');
       throw new Error('No content in OpenAI response');
     }
 
+    console.log('[parseResume] Parsing OpenAI response');
     const parsedData = JSON.parse(content) as ParsedResume;
+
+    console.log('[parseResume] Successfully parsed resume');
     return parsedData;
   } catch (error) {
-    console.error('Resume parsing failed:', error);
-    throw error;
+    console.error('[parseResume] Resume parsing failed:', error);
+
+    // Re-throw with more context if it's our custom error
+    if (error instanceof Error) {
+      throw error;
+    }
+
+    // Wrap unknown errors
+    throw new Error('Failed to parse resume: ' + String(error));
   }
 }
