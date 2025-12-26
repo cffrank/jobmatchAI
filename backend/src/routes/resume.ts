@@ -45,10 +45,18 @@ router.post(
   asyncHandler(async (req: Request, res: Response) => {
     const userId = getUserId(req);
 
+    // Log request details for debugging
+    console.log(`[/api/resume/parse] Request received from user ${userId}`);
+    console.log(`[/api/resume/parse] Request body:`, JSON.stringify(req.body));
+    console.log(`[/api/resume/parse] Content-Type:`, req.headers['content-type']);
+    console.log(`[/api/resume/parse] Origin:`, req.headers.origin);
+
     // Validate input
     const parseResult = parseResumeSchema.safeParse(req.body);
     if (!parseResult.success) {
-      console.error(`[/api/resume/parse] Validation failed for user ${userId}:`, parseResult.error);
+      console.error(`[/api/resume/parse] Validation failed for user ${userId}`);
+      console.error(`[/api/resume/parse] Validation errors:`, JSON.stringify(parseResult.error.errors, null, 2));
+      console.error(`[/api/resume/parse] Received body:`, JSON.stringify(req.body, null, 2));
       throw createValidationError(
         'Invalid request body',
         Object.fromEntries(
@@ -59,7 +67,7 @@ router.post(
 
     const { storagePath } = parseResult.data;
 
-    console.log(`[/api/resume/parse] Starting parse for user ${userId}, path: ${storagePath}`);
+    console.log(`[/api/resume/parse] Validation passed - starting parse for user ${userId}, path: ${storagePath}`);
 
     try {
       // Parse resume using OpenAI (will generate signed URL internally)
