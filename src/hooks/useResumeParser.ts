@@ -194,12 +194,23 @@ export function useResumeParser() {
       }
       setProgress(75)
 
-      // Add skills
+      // Add skills (skip duplicates)
       for (const skill of data.skills) {
-        await addSkill({
-          name: skill.name,
-          endorsements: skill.endorsements,
-        })
+        try {
+          await addSkill({
+            name: skill.name,
+            endorsements: skill.endorsements,
+          })
+        } catch (err) {
+          // Skip duplicate skills (unique constraint violation)
+          const error = err as Error
+          if (error.message?.includes('unique_user_skill') || error.message?.includes('duplicate key')) {
+            console.log(`Skill "${skill.name}" already exists, skipping`)
+            continue
+          }
+          // Re-throw other errors
+          throw err
+        }
       }
       setProgress(100)
     } catch (err) {
