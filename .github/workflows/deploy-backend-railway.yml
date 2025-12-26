@@ -182,6 +182,31 @@ jobs:
           echo "Check Railway dashboard: https://railway.app/project"
           exit 0  # Don't fail - deployment may still be building
 
+      - name: Run CORS Validation Tests (Development Only)
+        if: success() && steps.env-setup.outputs.environment == 'development'
+        env:
+          FRONTEND_URL: https://jobmatchai-development.up.railway.app
+          BACKEND_URL: https://backend1-development.up.railway.app
+        run: |
+          echo "=========================================="
+          echo "Running CORS Validation Tests"
+          echo "=========================================="
+          echo "Frontend: $FRONTEND_URL"
+          echo "Backend: $BACKEND_URL"
+          echo ""
+
+          # Install dependencies if needed
+          npm ci --silent
+
+          # Install Playwright if needed
+          npx playwright install chromium --with-deps
+
+          # Run only CORS validation tests against deployed development environment
+          npx playwright test tests/e2e/cors-validation.spec.ts --reporter=list
+
+          echo ""
+          echo "✅ CORS validation tests passed"
+
       - name: Deployment Summary
         if: success()
         env:
@@ -214,6 +239,7 @@ jobs:
               ;;
             development)
               echo "✓ Development environment updated"
+              echo "✓ CORS validation tests passed"
               echo "- Test integrated features"
               echo "- Verify API endpoints work correctly"
               echo "- If stable, create PR: develop → staging"
