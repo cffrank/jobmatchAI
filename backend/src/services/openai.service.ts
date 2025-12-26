@@ -13,6 +13,7 @@
  */
 
 import { getOpenAI, MODELS, GENERATION_CONFIG, GENERATION_STRATEGIES } from '../config/openai';
+import { getSupabaseAdmin } from '../config/supabase';
 import type {
   Job,
   UserProfile,
@@ -491,12 +492,25 @@ export interface ParsedResume {
 /**
  * Parse resume file and extract structured information using AI
  *
- * @param fileUrl - Public URL of the uploaded resume file
+ * @param storagePath - Storage path of the uploaded resume file (e.g., "resumes/{userId}/{filename}")
  * @returns Parsed resume data
  */
-export async function parseResume(fileUrl: string): Promise<ParsedResume> {
+export async function parseResume(storagePath: string): Promise<ParsedResume> {
   try {
+    const supabase = getSupabaseAdmin();
     const openai = getOpenAI();
+
+    // Generate a signed URL valid for 1 hour
+    const { data: signedUrlData, error: urlError } = await supabase.storage
+      .from('files')
+      .createSignedUrl(storagePath, 3600); // 1 hour expiry
+
+    if (urlError || !signedUrlData) {
+      console.error('Failed to generate signed URL:', urlError);
+      throw new Error('Failed to access resume file');
+    }
+
+    const fileUrl = signedUrlData.signedUrl;
 
     const prompt = `
 You are an expert resume parser. Extract all information from this resume and return it as structured JSON.

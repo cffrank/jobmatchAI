@@ -82,7 +82,7 @@ export function useResumeParser() {
 
       // Upload file to Supabase Storage
       const storagePath = `resumes/${user.id}/${Date.now()}_${file.name}`
-      const { downloadURL } = await uploadFile(file, storagePath, 'files')
+      await uploadFile(file, storagePath, 'files')
 
       setUploading(false)
       setParsing(true)
@@ -106,7 +106,7 @@ export function useResumeParser() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ fileUrl: downloadURL }),
+        body: JSON.stringify({ storagePath }),
       })
 
       if (!response.ok) {

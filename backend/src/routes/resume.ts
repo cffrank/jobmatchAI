@@ -25,10 +25,9 @@ const router = Router();
 // =============================================================================
 
 const parseResumeSchema = z.object({
-  fileUrl: z
+  storagePath: z
     .string()
-    .url('Invalid file URL')
-    .min(1, 'File URL is required'),
+    .min(1, 'Storage path is required'),
 });
 
 // =============================================================================
@@ -57,12 +56,12 @@ router.post(
       );
     }
 
-    const { fileUrl } = parseResult.data;
+    const { storagePath } = parseResult.data;
 
-    console.log(`Parsing resume for user ${userId}`);
+    console.log(`Parsing resume for user ${userId}, path: ${storagePath}`);
 
-    // Parse resume using OpenAI
-    const parsedData = await parseResume(fileUrl);
+    // Parse resume using OpenAI (will generate signed URL internally)
+    const parsedData = await parseResume(storagePath);
 
     console.log(`Resume parsed successfully for user ${userId}`);
 
