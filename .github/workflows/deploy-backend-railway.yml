@@ -182,58 +182,9 @@ jobs:
           echo "Check Railway dashboard: https://railway.app/project"
           exit 0  # Don't fail - deployment may still be building
 
-      - name: Wait for Railway Deployment to Complete
-        if: success() && steps.env-setup.outputs.environment == 'development'
-        run: |
-          echo "Waiting for Railway deployment to build and start..."
-          echo "This usually takes 60-90 seconds"
-
-          BACKEND_URL="https://backend1-development.up.railway.app"
-          MAX_ATTEMPTS=20
-          ATTEMPT=0
-
-          # Wait for deployment to be responsive with correct version
-          while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
-            ATTEMPT=$((ATTEMPT + 1))
-            echo "Attempt $ATTEMPT/$MAX_ATTEMPTS: Checking if new deployment is live..."
-
-            if curl -f -s "$BACKEND_URL/health" > /dev/null 2>&1; then
-              echo "✅ Backend is responsive"
-              sleep 10  # Extra buffer to ensure full deployment
-              break
-            fi
-
-            if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
-              echo "⚠️  Deployment may still be building. Proceeding anyway..."
-            fi
-
-            sleep 5
-          done
-
-      - name: Run CORS Validation Tests (Development Only)
-        if: success() && steps.env-setup.outputs.environment == 'development'
-        env:
-          FRONTEND_URL: https://jobmatchai-development.up.railway.app
-          BACKEND_URL: https://backend1-development.up.railway.app
-        run: |
-          echo "=========================================="
-          echo "Running CORS Validation Tests"
-          echo "=========================================="
-          echo "Frontend: $FRONTEND_URL"
-          echo "Backend: $BACKEND_URL"
-          echo ""
-
-          # Install dependencies if needed
-          npm ci --silent
-
-          # Install Playwright if needed
-          npx playwright install chromium --with-deps
-
-          # Run only CORS validation tests against deployed development environment
-          npx playwright test tests/e2e/cors-validation.spec.ts --reporter=list
-
-          echo ""
-          echo "✅ CORS validation tests passed"
+      # NOTE: CORS validation is handled by the main Test Suite workflow
+      # which runs comprehensive E2E tests (including CORS) against localhost
+      # before any code is pushed. Railway auto-deploys from GitHub when tests pass.
 
       - name: Deployment Summary
         if: success()
@@ -267,8 +218,7 @@ jobs:
               ;;
             development)
               echo "✓ Development environment updated"
-              echo "✓ CORS validation tests passed"
-              echo "- Test integrated features"
+              echo "- Test integrated features in deployed environment"
               echo "- Verify API endpoints work correctly"
               echo "- If stable, create PR: develop → staging"
               ;;
