@@ -23,6 +23,7 @@ import type {
   ApplicationVariant,
   ResumeContent,
 } from '../types';
+import { PDFParse } from 'pdf-parse';
 
 // =============================================================================
 // Types
@@ -490,6 +491,49 @@ export interface ParsedResume {
 }
 
 /**
+ * Detect file type from storage path
+ */
+function getFileType(storagePath: string): 'pdf' | 'image' | 'unsupported' {
+  const ext = storagePath.toLowerCase().split('.').pop();
+
+  if (ext === 'pdf') {
+    return 'pdf';
+  }
+
+  if (['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext || '')) {
+    return 'image';
+  }
+
+  return 'unsupported';
+}
+
+/**
+ * Download file from Supabase storage
+ */
+async function downloadFile(storagePath: string): Promise<Buffer> {
+  const { data, error } = await supabaseAdmin.storage
+    .from('files')
+    .download(storagePath);
+
+  if (error || !data) {
+    throw new Error(`Failed to download file: ${error?.message || 'Unknown error'}`);
+  }
+
+  // Convert Blob to Buffer
+  const arrayBuffer = await data.arrayBuffer();
+  return Buffer.from(arrayBuffer);
+}
+
+/**
+ * Extract text from PDF buffer
+ */
+async function extractTextFromPDF(buffer: Buffer): Promise<string> {
+  const parser = new PDFParse({ data: buffer });
+  const result = await parser.getText();
+  return result.text;
+}
+
+/**
  * Parse resume file and extract structured information using AI
  *
  * @param storagePath - Storage path of the uploaded resume file (e.g., "resumes/{userId}/{filename}")
@@ -500,6 +544,16 @@ export async function parseResume(storagePath: string): Promise<ParsedResume> {
     const openai = getOpenAI();
 
     console.log(`[parseResume] Starting parse for path: ${storagePath}`);
+
+    // Detect file type
+    const fileType = getFileType(storagePath);
+    console.log(`[parseResume] Detected file type: ${fileType}`);
+
+    if (fileType === 'unsupported') {
+      throw new Error(
+        'Unsupported file format. Please upload a PDF or image file (PNG, JPG, JPEG, GIF, WEBP).'
+      );
+    }
 
     // First, verify the file exists by attempting to list it
     const folderPath = storagePath.substring(0, storagePath.lastIndexOf('/'));
@@ -528,25 +582,7 @@ export async function parseResume(storagePath: string): Promise<ParsedResume> {
       );
     }
 
-    console.log(`[parseResume] File found, generating signed URL`);
-
-    // Generate a signed URL valid for 1 hour using admin client
-    const { data: signedUrlData, error: urlError } = await supabaseAdmin.storage
-      .from('files')
-      .createSignedUrl(storagePath, 3600); // 1 hour expiry
-
-    if (urlError || !signedUrlData) {
-      console.error('[parseResume] Failed to generate signed URL:', urlError);
-      console.error('[parseResume] Storage path:', storagePath);
-
-      throw new Error(
-        `Failed to access resume file at ${storagePath}. ` +
-        `The file may not exist or the path is incorrect.`
-      );
-    }
-
-    const fileUrl = signedUrlData.signedUrl;
-    console.log(`[parseResume] Signed URL generated successfully`);
+    console.log(`[parseResume] File found`);
 
     const prompt = `
 You are an expert resume parser. Extract all information from this resume and return it as structured JSON.
@@ -608,33 +644,81 @@ Return the response as JSON with this EXACT structure:
 }
 `;
 
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o',
-      messages: [
-        {
-          role: 'system',
-          content: 'You are an expert resume parser. Extract all information from resumes and return valid JSON only. Be thorough and accurate.',
-        },
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'text',
-              text: prompt,
-            },
-            {
-              type: 'image_url',
-              image_url: {
-                url: fileUrl,
+    let completion;
+
+    if (fileType === 'pdf') {
+      // For PDFs: Download, extract text, send to GPT-4o
+      console.log(`[parseResume] Downloading PDF file`);
+      const fileBuffer = await downloadFile(storagePath);
+
+      console.log(`[parseResume] Extracting text from PDF`);
+      const extractedText = await extractTextFromPDF(fileBuffer);
+      console.log(`[parseResume] Extracted ${extractedText.length} characters from PDF`);
+
+      completion = await openai.chat.completions.create({
+        model: 'gpt-4o',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are an expert resume parser. Extract all information from resumes and return valid JSON only. Be thorough and accurate.',
+          },
+          {
+            role: 'user',
+            content: `${prompt}\n\nRESUME TEXT:\n${extractedText}`,
+          },
+        ],
+        response_format: { type: 'json_object' },
+        temperature: 0.3,
+        max_tokens: 4000,
+      });
+    } else {
+      // For images: Use Vision API
+      console.log(`[parseResume] Generating signed URL for image`);
+      const { data: signedUrlData, error: urlError } = await supabaseAdmin.storage
+        .from('files')
+        .createSignedUrl(storagePath, 3600); // 1 hour expiry
+
+      if (urlError || !signedUrlData) {
+        console.error('[parseResume] Failed to generate signed URL:', urlError);
+        console.error('[parseResume] Storage path:', storagePath);
+
+        throw new Error(
+          `Failed to access resume file at ${storagePath}. ` +
+          `The file may not exist or the path is incorrect.`
+        );
+      }
+
+      const fileUrl = signedUrlData.signedUrl;
+      console.log(`[parseResume] Signed URL generated successfully`);
+
+      completion = await openai.chat.completions.create({
+        model: 'gpt-4o',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are an expert resume parser. Extract all information from resumes and return valid JSON only. Be thorough and accurate.',
+          },
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: prompt,
               },
-            },
-          ],
-        },
-      ],
-      response_format: { type: 'json_object' },
-      temperature: 0.3,
-      max_tokens: 4000,
-    });
+              {
+                type: 'image_url',
+                image_url: {
+                  url: fileUrl,
+                },
+              },
+            ],
+          },
+        ],
+        response_format: { type: 'json_object' },
+        temperature: 0.3,
+        max_tokens: 4000,
+      });
+    }
 
     const content = completion.choices[0]?.message.content;
     if (!content) {
