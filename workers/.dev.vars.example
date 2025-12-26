@@ -1,0 +1,63 @@
+# JobMatch AI - Cloudflare Workers Environment Variables
+# Copy this file to .dev.vars and fill in your values
+# This file is used by wrangler dev for local development
+
+# =============================================================================
+# Supabase Configuration (Required)
+# =============================================================================
+
+# Your Supabase project URL
+SUPABASE_URL=https://your-project.supabase.co
+
+# Supabase anonymous key (public, used for user-scoped operations)
+SUPABASE_ANON_KEY=your-anon-key
+
+# Supabase service role key (secret, bypasses RLS)
+# WARNING: Keep this secret! Never expose in client-side code
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+
+# =============================================================================
+# OpenAI Configuration (Required)
+# =============================================================================
+
+# Your OpenAI API key for GPT-4 and Vision API
+OPENAI_API_KEY=sk-your-openai-api-key
+
+# =============================================================================
+# SendGrid Configuration (Optional)
+# =============================================================================
+
+# SendGrid API key for sending emails
+SENDGRID_API_KEY=SG.your-sendgrid-api-key
+
+# Default from email address
+SENDGRID_FROM_EMAIL=noreply@yourdomain.com
+
+# =============================================================================
+# LinkedIn OAuth Configuration (Optional)
+# =============================================================================
+
+# LinkedIn app credentials
+LINKEDIN_CLIENT_ID=your-linkedin-client-id
+LINKEDIN_CLIENT_SECRET=your-linkedin-client-secret
+
+# OAuth callback URL (must match LinkedIn app settings)
+LINKEDIN_REDIRECT_URI=https://your-worker.your-subdomain.workers.dev/api/auth/linkedin/callback
+
+# =============================================================================
+# Apify Configuration (Optional - for job scraping)
+# =============================================================================
+
+# Apify API token for job scraping
+# Note: Job scraping is not yet fully implemented for Workers
+APIFY_API_TOKEN=apify_api_your-token
+
+# =============================================================================
+# Application Configuration
+# =============================================================================
+
+# Frontend application URL (for CORS and redirects)
+APP_URL=http://localhost:5173
+
+# Environment name
+ENVIRONMENT=development
