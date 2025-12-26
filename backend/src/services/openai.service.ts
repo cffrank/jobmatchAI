@@ -539,15 +539,10 @@ export async function parseResume(storagePath: string): Promise<ParsedResume> {
       console.error('[parseResume] Failed to generate signed URL:', urlError);
       console.error('[parseResume] Storage path:', storagePath);
 
-      // Provide more specific error message based on error type
-      if (urlError?.status === 400 || urlError?.statusCode === '404') {
-        throw new Error(
-          `Resume file not found at ${storagePath}. ` +
-          `The file may have been deleted or the path is incorrect.`
-        );
-      }
-
-      throw new Error('Failed to generate access URL for resume file');
+      throw new Error(
+        `Failed to access resume file at ${storagePath}. ` +
+        `The file may not exist or the path is incorrect.`
+      );
     }
 
     const fileUrl = signedUrlData.signedUrl;
