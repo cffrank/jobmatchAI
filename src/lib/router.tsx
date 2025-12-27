@@ -4,6 +4,7 @@ import { ProtectedRoute } from '@/components/ProtectedRoute'
 import LoginPage from '@/pages/LoginPage'
 import SignupPage from '@/pages/SignupPage'
 import AuthCallbackPage from '@/pages/AuthCallbackPage'
+import NotificationsPage from '@/pages/NotificationsPage'
 
 // Profile & Resume Management
 import ProfileOverviewPage from '@/sections/profile-resume-management/ProfileOverviewPage'
@@ -128,6 +129,10 @@ export const router = createBrowserRouter([
       {
         path: 'settings',
         element: <SettingsPage />,
+      },
+      {
+        path: 'notifications',
+        element: <NotificationsPage />,
       },
     ],
   },

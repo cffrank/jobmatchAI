@@ -75,9 +75,9 @@ export function useJobs(pageSize = 20) {
         id: row.id,
         title: row.title,
         company: row.company,
-        companyLogo: '', // Default empty logo
+        companyLogo: row.company_logo || '',
         location: row.location || '',
-        workArrangement: 'Unknown',
+        workArrangement: (row.work_arrangement as 'Remote' | 'Hybrid' | 'On-site' | 'Unknown') || 'Unknown',
         salaryMin: row.salary_min || 0,
         salaryMax: row.salary_max || 0,
         postedDate: row.added_at || row.created_at,
@@ -86,11 +86,11 @@ export function useJobs(pageSize = 20) {
         source: row.source as 'linkedin' | 'indeed' | 'manual' || 'manual',
         matchScore: row.match_score || undefined,
         isSaved: false, // Will be set below
-        // Initialize arrays to prevent .map() errors
-        requiredSkills: [],
-        missingSkills: [],
-        recommendations: [],
-        compatibilityBreakdown: {
+        // Read from database instead of hardcoding empty arrays
+        requiredSkills: row.required_skills || [],
+        missingSkills: row.missing_skills || [],
+        recommendations: row.recommendations || [],
+        compatibilityBreakdown: row.compatibility_breakdown || {
           skillMatch: 0,
           experienceMatch: 0,
           industryMatch: 0,
@@ -275,9 +275,9 @@ export function useJob(jobId: string | undefined) {
           id: data.id,
           title: data.title,
           company: data.company,
-          companyLogo: '', // Default empty logo
+          companyLogo: data.company_logo || '',
           location: data.location || '',
-          workArrangement: 'Unknown',
+          workArrangement: (data.work_arrangement as 'Remote' | 'Hybrid' | 'On-site' | 'Unknown') || 'Unknown',
           salaryMin: data.salary_min || 0,
           salaryMax: data.salary_max || 0,
           postedDate: data.added_at || data.created_at,
@@ -286,11 +286,11 @@ export function useJob(jobId: string | undefined) {
           source: data.source as 'linkedin' | 'indeed' | 'manual' || 'manual',
           matchScore: data.match_score || undefined,
           isSaved: false,
-          // Initialize arrays to prevent .map() errors
-          requiredSkills: [],
-          missingSkills: [],
-          recommendations: [],
-          compatibilityBreakdown: {
+          // Read from database instead of hardcoding empty arrays
+          requiredSkills: data.required_skills || [],
+          missingSkills: data.missing_skills || [],
+          recommendations: data.recommendations || [],
+          compatibilityBreakdown: data.compatibility_breakdown || {
             skillMatch: 0,
             experienceMatch: 0,
             industryMatch: 0,

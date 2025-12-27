@@ -25,6 +25,7 @@ export interface AppShellProps {
   onLogout?: () => void
   notificationCount?: number
   onNotificationsClick?: () => void
+  isNotificationsActive?: boolean
 }
 
 export function AppShell({
@@ -35,6 +36,7 @@ export function AppShell({
   onLogout,
   notificationCount = 0,
   onNotificationsClick,
+  isNotificationsActive = false,
 }: AppShellProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
@@ -86,6 +88,7 @@ export function AppShell({
           }}
           notificationCount={notificationCount}
           onNotificationsClick={onNotificationsClick}
+          isNotificationsActive={isNotificationsActive}
         />
 
         {/* User Menu */}

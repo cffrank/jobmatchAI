@@ -70,8 +70,7 @@ export default function AppLayout() {
   }
 
   const handleNotificationsClick = () => {
-    console.log('Notifications clicked')
-    // TODO: Implement notifications
+    navigate('/notifications')
   }
 
   return (
@@ -82,6 +81,7 @@ export default function AppLayout() {
       onLogout={handleLogout}
       notificationCount={3}
       onNotificationsClick={handleNotificationsClick}
+      isNotificationsActive={location.pathname === '/notifications'}
     >
       <Outlet />
     </AppShell>

@@ -123,14 +123,22 @@ const corsOptions = {
       console.warn(`Allowed ports: ${ALLOWED_DEV_PORTS.join(', ')}`);
     }
 
-    // Multi-environment CORS: Use APP_URL environment variable
+    // Multi-environment CORS: Use APP_URL and ALLOWED_ORIGINS environment variables
     // This allows each environment (dev, staging, production) to have its own frontend URL
-    if (origin === APP_URL) {
+    // ALLOWED_ORIGINS supports comma-separated list for multiple frontends (e.g., Cloudflare Pages, Vercel, local)
+    const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '')
+      .split(',')
+      .map(o => o.trim())
+      .filter(o => o.length > 0);
+
+    const allAllowedOrigins = [APP_URL, ...ALLOWED_ORIGINS];
+
+    if (allAllowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
       console.warn(`CORS blocked origin: ${origin}`);
-      console.warn(`Allowed origin: ${APP_URL}`);
-      console.warn(`Set APP_URL environment variable to allow this origin`);
+      console.warn(`Allowed origins: ${allAllowedOrigins.join(', ')}`);
+      console.warn(`Set APP_URL or ALLOWED_ORIGINS environment variable to allow this origin`);
       callback(new Error('Not allowed by CORS'));
     }
   },
