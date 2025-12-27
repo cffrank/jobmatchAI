@@ -8,7 +8,7 @@ export default function ApplicationListPage() {
   const [searchParams] = useSearchParams()
   const jobId = searchParams.get('jobId')
 
-  // Use Firestore hook to fetch applications
+  // Use Supabase hook to fetch applications
   const { applications = [], loading, error, updateApplication, deleteApplication } = useApplications()
 
   const handleViewApplication = (applicationId: string) => {

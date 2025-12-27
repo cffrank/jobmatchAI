@@ -122,7 +122,7 @@ export default function ApplicationTrackerListPage() {
     }
   }
 
-  // Apply filters - use trackedApplications from Firestore
+  // Apply filters - use trackedApplications from Supabase
   const filteredApplications = trackedApplications.filter(app => {
     if (!filters.showArchived && app.archived) return false
     if (filters.statuses && filters.statuses.length > 0 && !filters.statuses.includes(app.status)) return false

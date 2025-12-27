@@ -24,7 +24,7 @@ import type {
 export default function SettingsPage() {
   const [activeView, setActiveView] = useState<'profile' | 'security' | 'privacy' | 'subscription'>('profile')
   const { user } = useAuth()
-  const { profile: firestoreProfile, loading: profileLoading, updateProfile: updateFirestoreProfile } = useProfile()
+  const { profile: userProfile, loading: profileLoading, updateProfile } = useProfile()
   const { uploadProfilePhoto, uploading: photoUploading, error: photoError } = useProfilePhoto()
   const { security, loading: securityLoading, revokeSession, enable2FA, disable2FA, generateBackupCodes } = useSecuritySettings()
   const { subscription: dbSubscription, loading: subscriptionLoading, updateSubscription } = useSubscription()
@@ -33,20 +33,20 @@ export default function SettingsPage() {
   const [profileInitialized, setProfileInitialized] = useState(false)
 
   // Debug logging
-  console.log('SettingsPage - Firestore profile:', firestoreProfile)
+  console.log('SettingsPage - User profile:', userProfile)
   console.log('SettingsPage - Loading:', profileLoading)
 
   // Create a default profile if user doesn't have one
   useEffect(() => {
     async function initializeProfile() {
-      if (!profileLoading && !firestoreProfile && user && !profileInitialized) {
+      if (!profileLoading && !userProfile && user && !profileInitialized) {
         console.log('Creating default profile for new user:', user.email)
         try {
           // Get name from user_metadata or email
           const firstName = user.user_metadata?.first_name || user.email?.split('@')[0] || 'User'
           const lastName = user.user_metadata?.last_name || ''
 
-          await updateFirestoreProfile({
+          await updateProfile({
             firstName,
             lastName,
             email: user.email || '',
@@ -65,15 +65,15 @@ export default function SettingsPage() {
       }
     }
     initializeProfile()
-  }, [profileLoading, firestoreProfile, user, updateFirestoreProfile, profileInitialized])
+  }, [profileLoading, userProfile, user, updateProfile, profileInitialized])
 
-  // Account state - use Firestore profile or fallback to mock data
-  const profile: UserProfile = firestoreProfile ? {
-    id: firestoreProfile.id,
-    fullName: `${firestoreProfile.firstName} ${firestoreProfile.lastName}`,
-    email: firestoreProfile.email || '',
-    phone: firestoreProfile.phone || '',
-    profilePhotoUrl: firestoreProfile.profileImageUrl || '',
+  // Account state - use Supabase profile or fallback to mock data
+  const profile: UserProfile = userProfile ? {
+    id: userProfile.id,
+    fullName: `${userProfile.firstName} ${userProfile.lastName}`,
+    email: userProfile.email || '',
+    phone: userProfile.phone || '',
+    profilePhotoUrl: userProfile.profileImageUrl || '',
     emailVerified: true, // Assume verified for now
     createdAt: new Date().toISOString(),
   } : data.userProfile
@@ -158,7 +158,7 @@ export default function SettingsPage() {
   const handleUpdateProfile = async (updates: Partial<UserProfile>) => {
     console.log('handleUpdateProfile called with:', updates)
     try {
-      // Map UserProfile fields to User fields for Firestore
+      // Map UserProfile fields to database User fields
       const mappedUpdates: Record<string, unknown> = {}
 
       if (updates.fullName) {
@@ -171,9 +171,9 @@ export default function SettingsPage() {
       if (updates.phone !== undefined) mappedUpdates.phone = updates.phone
       if (updates.profilePhotoUrl !== undefined) mappedUpdates.profileImageUrl = updates.profilePhotoUrl
 
-      console.log('Mapped updates for Firestore:', mappedUpdates)
-      await updateFirestoreProfile(mappedUpdates)
-      console.log('Profile updated in Firestore successfully')
+      console.log('Mapped updates for database:', mappedUpdates)
+      await updateProfile(mappedUpdates)
+      console.log('Profile updated successfully')
       alert('Profile updated successfully!')
     } catch (error) {
       console.error('Error updating profile:', error)

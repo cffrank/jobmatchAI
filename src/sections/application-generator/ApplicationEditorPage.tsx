@@ -28,7 +28,7 @@ export default function ApplicationEditorPage() {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [_currentApplicationId, setCurrentApplicationId] = useState<string | null>(null)
 
-  // Use Firestore hook to fetch application (skip if creating new)
+  // Use Supabase hook to fetch application (skip if creating new)
   const { application, loading, error } = useApplication(isNewApplication ? undefined : id)
   const { updateApplication } = useApplications()
 
@@ -124,7 +124,7 @@ export default function ApplicationEditorPage() {
       )
     }
 
-    // If we have generated app, use that instead of fetching from Firestore
+    // If we have generated app, use that instead of fetching from database
     if (generatedApp) {
       const selectedVariant = generatedApp.variants.find(
         v => v.id === generatedApp.selectedVariantId

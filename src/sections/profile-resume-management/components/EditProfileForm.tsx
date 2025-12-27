@@ -26,7 +26,7 @@ export function EditProfileForm() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
 
-  // Update form data when profile loads from Firestore
+  // Update form data when profile loads from Supabase
   useEffect(() => {
     if (profile) {
       setFormData({

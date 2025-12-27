@@ -14,7 +14,7 @@ import data from './data.json'
 export default function ProfileOverviewPage() {
   const navigate = useNavigate()
 
-  // Fetch data from Firestore
+  // Fetch data from Supabase
   const { profile, loading: profileLoading } = useProfile()
   const { workExperience, loading: workExpLoading, deleteWorkExperience } = useWorkExperience()
   const { education, loading: educationLoading, deleteEducation } = useEducation()
@@ -22,7 +22,7 @@ export default function ProfileOverviewPage() {
   const { resumes, loading: resumesLoading } = useResumes()
   const { downloadResume, uploadResume, deleteResume } = useResumeExport()
 
-  // Resume files state (would be fetched from Firestore in real implementation)
+  // Resume files state (would be fetched from Supabase in real implementation)
   const [resumeFiles, setResumeFiles] = useState<ResumeFile[]>([])
   const [isResumeUploadDialogOpen, setIsResumeUploadDialogOpen] = useState(false)
 
@@ -126,7 +126,7 @@ export default function ProfileOverviewPage() {
       const downloadURL = await uploadResume(file, resumeId)
       console.log('Resume file uploaded:', downloadURL)
 
-      // Add to local state (would be fetched from Firestore in real implementation)
+      // Add to local state (would be fetched from Supabase in real implementation)
       const newFile: ResumeFile = {
         id: Date.now().toString(),
         name: file.name,
