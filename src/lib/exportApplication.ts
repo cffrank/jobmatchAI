@@ -24,14 +24,6 @@ interface ExportResult {
 }
 
 /**
- * Request parameters for export
- */
-interface ExportRequest {
-  applicationId: string;
-  format: ExportFormat;
-}
-
-/**
  * Error class for export failures
  */
 export class ExportError extends Error {

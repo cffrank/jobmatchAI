@@ -1,4 +1,4 @@
-import { User, Shield, Bell, Lock, Mail, Phone, Camera, Smartphone, Monitor, MapPin, AlertTriangle, Download, Trash2, LogOut, Linkedin, Chrome } from 'lucide-react'
+import { User, Shield, Bell, Lock, Mail, Camera, Smartphone, Monitor, MapPin, AlertTriangle, Download, Trash2, LogOut, Linkedin, Chrome } from 'lucide-react'
 import { useState } from 'react'
 import type {
   AccountSettingsProps,
@@ -39,7 +39,7 @@ export function AccountSettings({
   notifications,
   privacy,
   onUpdateProfile,
-  onChangePassword: _onChangePassword,
+  // onChangePassword functionality not yet implemented
   onUploadPhoto,
   photoUploading,
   photoError,
@@ -301,7 +301,8 @@ function ProfileSettings({ profile, onUpdateProfile, onUploadPhoto, photoUploadi
   )
 }
 
-function SecurityTab({ security, onEnable2FA, onDisable2FA, onGenerateBackupCodes: _onGenerateBackupCodes, onRevokeSession }: SecuritySettingsProps) {
+function SecurityTab({ security, onEnable2FA, onDisable2FA, onRevokeSession }: SecuritySettingsProps) {
+  // onGenerateBackupCodes functionality not yet implemented
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleString('en-US', {
       month: 'short',
@@ -512,7 +513,8 @@ function NotificationsTab({ preferences, onUpdatePreferences }: NotificationSett
   )
 }
 
-function PrivacyTab({ privacy, onUpdateSettings: _onUpdateSettings, onDisconnectAccount, onExportData, onDeleteAccount }: PrivacySettingsProps) {
+function PrivacyTab({ privacy, onDisconnectAccount, onExportData, onDeleteAccount }: PrivacySettingsProps) {
+  // onUpdateSettings functionality not yet implemented
   const getProviderIcon = (provider: string) => {
     switch (provider) {
       case 'linkedin': return Linkedin

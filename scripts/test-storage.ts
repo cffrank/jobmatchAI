@@ -14,7 +14,6 @@
 import { initializeApp } from 'firebase/app'
 import { getAuth, signInWithEmailAndPassword } from 'firebase/auth'
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
-import { join } from 'path'
 
 // Load Firebase config from environment
 const firebaseConfig = {

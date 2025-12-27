@@ -158,8 +158,6 @@ async function main() {
     log('3. CREATING TEST JOB', colors.bright + colors.yellow);
     separator();
 
-    let testJobId: string | null = null;
-
     try {
       log('\nNavigating to add job page...', colors.blue);
       await page.goto(`${FRONTEND_URL}/jobs/add`, { waitUntil: 'networkidle' });

@@ -9,7 +9,8 @@ interface PrivacyTabProps {
   onDeleteAccount?: () => void
 }
 
-export function PrivacyTab({ privacy, onUpdatePrivacy: _onUpdatePrivacy, onDisconnectAccount, onExportData, onDeleteAccount }: PrivacyTabProps) {
+export function PrivacyTab({ privacy, onDisconnectAccount, onExportData, onDeleteAccount }: PrivacyTabProps) {
+  // onUpdatePrivacy functionality not yet implemented
   const getProviderIcon = (provider: string) => {
     switch (provider) {
       case 'linkedin': return Linkedin

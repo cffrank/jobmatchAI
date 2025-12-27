@@ -1,7 +1,12 @@
 import { useState, useCallback, useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
-import type { TrackedApplication } from '@/sections/application-tracker/types'
+import type { Database, Json } from '@/types/supabase'
+import type { TrackedApplication, ActivityLogEntry } from '@/sections/application-tracker/types'
+import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js'
+
+type DbTrackedApplication = Database['public']['Tables']['tracked_applications']['Row']
+type TrackedApplicationPayload = RealtimePostgresChangesPayload<DbTrackedApplication>
 
 /**
  * Hook to manage tracked applications in Supabase
@@ -48,7 +53,9 @@ export function useTrackedApplications(pageSize = 20) {
   const [hasMore, setHasMore] = useState(true)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
-  const [totalCount, setTotalCount] = useState(0)
+  // Internal state to track total count - updated by realtime subscriptions
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [_totalCount, setTotalCount] = useState(0)
 
   // Fetch applications with pagination
   useEffect(() => {
@@ -111,7 +118,7 @@ export function useTrackedApplications(pageSize = 20) {
 
     const channel = supabase
       .channel(`tracked_applications:${userId}`)
-      .on(
+      .on<DbTrackedApplication>(
         'postgres_changes',
         {
           event: '*',
@@ -119,17 +126,17 @@ export function useTrackedApplications(pageSize = 20) {
           table: 'tracked_applications',
           filter: `user_id=eq.${userId}`,
         },
-        (payload) => {
-          if (payload.eventType === 'INSERT') {
-            setAllApplications(current => [mapDbTrackedApplication(payload.new as any), ...current])
+        (payload: TrackedApplicationPayload) => {
+          if (payload.eventType === 'INSERT' && payload.new) {
+            setAllApplications(current => [mapDbTrackedApplication(payload.new), ...current])
             setTotalCount(c => c + 1)
-          } else if (payload.eventType === 'UPDATE') {
+          } else if (payload.eventType === 'UPDATE' && payload.new) {
             setAllApplications(current =>
               current.map(app =>
-                app.id === payload.new.id ? mapDbTrackedApplication(payload.new as any) : app
+                app.id === payload.new.id ? mapDbTrackedApplication(payload.new) : app
               )
             )
-          } else if (payload.eventType === 'DELETE') {
+          } else if (payload.eventType === 'DELETE' && payload.old) {
             setAllApplications(current => current.filter(app => app.id !== payload.old.id))
             setTotalCount(c => Math.max(0, c - 1))
           }
@@ -170,15 +177,18 @@ export function useTrackedApplications(pageSize = 20) {
       status: data.status,
       applied_date: data.appliedDate || null,
       last_updated: new Date().toISOString(),
-      status_history: data.statusHistory as any,
-      interviews: data.interviews as any,
-      recruiter: data.recruiter as any,
-      hiring_manager: data.hiringManager as any,
-      follow_up_actions: data.followUpActions as any,
+      status_history: data.statusHistory as unknown as Json,
+      interviews: data.interviews as unknown as Json,
+      recruiter: (data.recruiter || null) as unknown as Json,
+      hiring_manager: (data.hiringManager || null) as unknown as Json,
+      follow_up_actions: data.followUpActions as unknown as Json,
+      activity_log: (data.activityLog || []) as unknown as Json,
+      offer_details: (data.offerDetails || null) as unknown as Json,
       next_action: data.nextAction || null,
       next_action_date: data.nextActionDate || null,
       next_interview_date: data.nextInterviewDate || null,
-      archived: (data as any).archived || false,
+      notes: data.notes || null,
+      archived: data.archived || false,
     })
 
     if (insertError) throw insertError
@@ -187,7 +197,7 @@ export function useTrackedApplications(pageSize = 20) {
   const updateTrackedApplication = async (id: string, data: Partial<Omit<TrackedApplication, 'id'>>) => {
     if (!userId) throw new Error('User not authenticated')
 
-    const updateData: any = {
+    const updateData: Partial<Database['public']['Tables']['tracked_applications']['Update']> = {
       last_updated: new Date().toISOString(),
     }
 
@@ -199,15 +209,18 @@ export function useTrackedApplications(pageSize = 20) {
     if (data.matchScore !== undefined) updateData.match_score = data.matchScore || null
     if (data.status !== undefined) updateData.status = data.status
     if (data.appliedDate !== undefined) updateData.applied_date = data.appliedDate || null
-    if (data.statusHistory !== undefined) updateData.status_history = data.statusHistory
-    if (data.interviews !== undefined) updateData.interviews = data.interviews
-    if (data.recruiter !== undefined) updateData.recruiter = data.recruiter
-    if (data.hiringManager !== undefined) updateData.hiring_manager = data.hiringManager
-    if (data.followUpActions !== undefined) updateData.follow_up_actions = data.followUpActions
+    if (data.statusHistory !== undefined) updateData.status_history = data.statusHistory as unknown as Json
+    if (data.interviews !== undefined) updateData.interviews = data.interviews as unknown as Json
+    if (data.recruiter !== undefined) updateData.recruiter = (data.recruiter || null) as unknown as Json
+    if (data.hiringManager !== undefined) updateData.hiring_manager = (data.hiringManager || null) as unknown as Json
+    if (data.followUpActions !== undefined) updateData.follow_up_actions = data.followUpActions as unknown as Json
+    if (data.activityLog !== undefined) updateData.activity_log = data.activityLog as unknown as Json
+    if (data.offerDetails !== undefined) updateData.offer_details = (data.offerDetails || null) as unknown as Json
     if (data.nextAction !== undefined) updateData.next_action = data.nextAction || null
     if (data.nextActionDate !== undefined) updateData.next_action_date = data.nextActionDate || null
     if (data.nextInterviewDate !== undefined) updateData.next_interview_date = data.nextInterviewDate || null
-    if ((data as any).archived !== undefined) updateData.archived = (data as any).archived
+    if (data.notes !== undefined) updateData.notes = data.notes || null
+    if (data.archived !== undefined) updateData.archived = data.archived
 
     const { error: updateError } = await supabase
       .from('tracked_applications')
@@ -231,11 +244,11 @@ export function useTrackedApplications(pageSize = 20) {
   }
 
   const archiveTrackedApplication = async (id: string) => {
-    await updateTrackedApplication(id, { archived: true } as any)
+    await updateTrackedApplication(id, { archived: true })
   }
 
   const unarchiveTrackedApplication = async (id: string) => {
-    await updateTrackedApplication(id, { archived: false } as any)
+    await updateTrackedApplication(id, { archived: false })
   }
 
   return {
@@ -306,7 +319,7 @@ export function useTrackedApplication(id: string | undefined) {
     // Set up real-time subscription
     const channel = supabase
       .channel(`tracked_application:${id}`)
-      .on(
+      .on<DbTrackedApplication>(
         'postgres_changes',
         {
           event: '*',
@@ -314,9 +327,9 @@ export function useTrackedApplication(id: string | undefined) {
           table: 'tracked_applications',
           filter: `id=eq.${id}`,
         },
-        (payload) => {
-          if (payload.eventType === 'UPDATE') {
-            setTrackedApplication(mapDbTrackedApplication(payload.new as any))
+        (payload: TrackedApplicationPayload) => {
+          if (payload.eventType === 'UPDATE' && payload.new) {
+            setTrackedApplication(mapDbTrackedApplication(payload.new))
           } else if (payload.eventType === 'DELETE') {
             setTrackedApplication(null)
           }
@@ -430,7 +443,7 @@ export function useActiveTrackedApplications(pageSize = 20) {
 /**
  * Map database tracked application to app TrackedApplication type
  */
-function mapDbTrackedApplication(dbApp: any): TrackedApplication {
+function mapDbTrackedApplication(dbApp: DbTrackedApplication): TrackedApplication {
   return {
     id: dbApp.id,
     jobId: dbApp.job_id || '',
@@ -439,20 +452,20 @@ function mapDbTrackedApplication(dbApp: any): TrackedApplication {
     jobTitle: dbApp.job_title,
     location: dbApp.location || '',
     matchScore: dbApp.match_score || 0,
-    status: dbApp.status,
+    status: dbApp.status as TrackedApplication['status'],
     appliedDate: dbApp.applied_date || '',
     lastUpdated: dbApp.last_updated,
-    statusHistory: dbApp.status_history || [],
-    interviews: dbApp.interviews || [],
-    recruiter: dbApp.recruiter || undefined,
-    hiringManager: dbApp.hiring_manager || undefined,
-    followUpActions: dbApp.follow_up_actions || [],
+    statusHistory: (dbApp.status_history as unknown as TrackedApplication['statusHistory']) || [],
+    interviews: (dbApp.interviews as unknown as TrackedApplication['interviews']) || [],
+    recruiter: (dbApp.recruiter as unknown as TrackedApplication['recruiter']) || undefined,
+    hiringManager: (dbApp.hiring_manager as unknown as TrackedApplication['hiringManager']) || undefined,
+    followUpActions: (dbApp.follow_up_actions as unknown as TrackedApplication['followUpActions']) || [],
     nextAction: dbApp.next_action || undefined,
     nextActionDate: dbApp.next_action_date || undefined,
     nextInterviewDate: dbApp.next_interview_date || undefined,
-    offerDetails: (dbApp as any).offer_details || undefined,
-    activityLog: (dbApp as any).activity_log || [],
-    archived: (dbApp as any).archived || false,
-    notes: (dbApp as any).notes || undefined,
+    offerDetails: (dbApp.offer_details as unknown as TrackedApplication['offerDetails']) || undefined,
+    activityLog: (dbApp.activity_log as unknown as ActivityLogEntry[]) || [],
+    archived: dbApp.archived || false,
+    notes: dbApp.notes || '',
   }
 }

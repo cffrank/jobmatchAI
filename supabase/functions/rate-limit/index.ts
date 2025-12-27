@@ -152,10 +152,29 @@ serve(async (req) => {
   }
 })
 
+interface SupabaseClient {
+  from: (table: string) => {
+    update: (data: Record<string, unknown>) => {
+      eq: (column: string, value: string) => Promise<{ error: Error | null }>
+    }
+  }
+}
+
+interface UsageLimits {
+  applications_tracked: number
+  resume_variants_created: number
+  job_searches_performed: number
+  limits: {
+    maxApplications: number | 'unlimited'
+    maxResumeVariants: number | 'unlimited'
+    maxJobSearches: number | 'unlimited'
+  }
+}
+
 async function checkAndIncrementLimit(
-  supabase: any,
+  supabase: SupabaseClient,
   userId: string,
-  limits: any,
+  limits: UsageLimits,
   operation: string,
   corsHeaders: Record<string, string>
 ): Promise<Response> {

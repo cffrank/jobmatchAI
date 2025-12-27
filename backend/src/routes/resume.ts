@@ -25,10 +25,9 @@ const router = Router();
 // =============================================================================
 
 const parseResumeSchema = z.object({
-  fileUrl: z
+  storagePath: z
     .string()
-    .url('Invalid file URL')
-    .min(1, 'File URL is required'),
+    .min(1, 'Storage path is required'),
 });
 
 // =============================================================================
@@ -46,9 +45,18 @@ router.post(
   asyncHandler(async (req: Request, res: Response) => {
     const userId = getUserId(req);
 
+    // Log request details for debugging
+    console.log(`[/api/resume/parse] Request received from user ${userId}`);
+    console.log(`[/api/resume/parse] Request body:`, JSON.stringify(req.body));
+    console.log(`[/api/resume/parse] Content-Type:`, req.headers['content-type']);
+    console.log(`[/api/resume/parse] Origin:`, req.headers.origin);
+
     // Validate input
     const parseResult = parseResumeSchema.safeParse(req.body);
     if (!parseResult.success) {
+      console.error(`[/api/resume/parse] Validation failed for user ${userId}`);
+      console.error(`[/api/resume/parse] Validation errors:`, JSON.stringify(parseResult.error.errors, null, 2));
+      console.error(`[/api/resume/parse] Received body:`, JSON.stringify(req.body, null, 2));
       throw createValidationError(
         'Invalid request body',
         Object.fromEntries(
@@ -57,16 +65,24 @@ router.post(
       );
     }
 
-    const { fileUrl } = parseResult.data;
+    const { storagePath } = parseResult.data;
 
-    console.log(`Parsing resume for user ${userId}`);
+    console.log(`[/api/resume/parse] Validation passed - starting parse for user ${userId}, path: ${storagePath}`);
 
-    // Parse resume using OpenAI
-    const parsedData = await parseResume(fileUrl);
+    try {
+      // Parse resume using OpenAI (will generate signed URL internally)
+      const parsedData = await parseResume(storagePath);
 
-    console.log(`Resume parsed successfully for user ${userId}`);
+      console.log(`[/api/resume/parse] Resume parsed successfully for user ${userId}`);
 
-    res.status(200).json(parsedData);
+      res.status(200).json(parsedData);
+    } catch (error) {
+      console.error(`[/api/resume/parse] Parse failed for user ${userId}:`, error);
+
+      // The error from parseResume should already be well-formatted
+      // Just re-throw it and let the error handler deal with it
+      throw error;
+    }
   })
 );
 

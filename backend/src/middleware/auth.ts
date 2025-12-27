@@ -113,10 +113,8 @@ export async function authenticateUser(
     req.user = user;
     req.userId = user.id;
 
-    // Log successful authentication (for auditing, not in production logs)
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`Authenticated user: ${user.id} for ${req.method} ${req.path}`);
-    }
+    // Log successful authentication for debugging
+    console.log(`[Auth] Authenticated user: ${user.id} for ${req.method} ${req.path}`);
 
     next();
   } catch (error) {

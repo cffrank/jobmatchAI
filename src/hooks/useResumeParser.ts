@@ -82,7 +82,16 @@ export function useResumeParser() {
 
       // Upload file to Supabase Storage
       const storagePath = `resumes/${user.id}/${Date.now()}_${file.name}`
-      const { downloadURL } = await uploadFile(file, storagePath, 'files')
+      console.log('[useResumeParser] Uploading file to:', storagePath)
+
+      const uploadResult = await uploadFile(file, storagePath, 'files')
+
+      // Verify upload succeeded and use the confirmed path
+      if (!uploadResult.fullPath) {
+        throw new Error('File upload failed - no path returned')
+      }
+
+      console.log('[useResumeParser] File uploaded successfully to:', uploadResult.fullPath)
 
       setUploading(false)
       setParsing(true)
@@ -100,13 +109,17 @@ export function useResumeParser() {
         throw new Error('Backend URL not configured')
       }
 
+      // Use the confirmed path from upload result
+      const confirmedPath = uploadResult.fullPath
+      console.log('[useResumeParser] Sending parse request for path:', confirmedPath)
+
       const response = await fetch(`${backendUrl}/api/resume/parse`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ fileUrl: downloadURL }),
+        body: JSON.stringify({ storagePath: confirmedPath }),
       })
 
       if (!response.ok) {
@@ -169,23 +182,35 @@ export function useResumeParser() {
       // Add education entries
       for (const edu of data.education) {
         await addEducation({
-          institution: edu.institution,
+          school: edu.institution,
           degree: edu.degree,
-          fieldOfStudy: edu.fieldOfStudy,
+          field: edu.fieldOfStudy,
+          location: '',
           startDate: edu.startDate,
           endDate: edu.endDate || '',
-          current: edu.current,
-          grade: edu.grade || '',
+          gpa: edu.grade ? (parseFloat(edu.grade) === parseFloat(edu.grade) ? parseFloat(edu.grade).toString() : undefined) : undefined,
+          highlights: [],
         })
       }
       setProgress(75)
 
-      // Add skills
+      // Add skills (skip duplicates)
       for (const skill of data.skills) {
-        await addSkill({
-          name: skill.name,
-          endorsements: skill.endorsements,
-        })
+        try {
+          await addSkill({
+            name: skill.name,
+            endorsements: skill.endorsements,
+          })
+        } catch (err) {
+          // Skip duplicate skills (unique constraint violation)
+          const error = err as Error
+          if (error.message?.includes('unique_user_skill') || error.message?.includes('duplicate key')) {
+            console.log(`Skill "${skill.name}" already exists, skipping`)
+            continue
+          }
+          // Re-throw other errors
+          throw err
+        }
       }
       setProgress(100)
     } catch (err) {

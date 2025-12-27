@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { User, Shield, Lock, CreditCard } from 'lucide-react'
 import { ProfileSettings } from './components/ProfileSettings'
 import { SecurityTab } from './components/SecurityTab'
@@ -13,9 +13,9 @@ import { useAuth } from '@/contexts/AuthContext'
 import data from './data.json'
 import type {
   UserProfile,
-  NotificationPreferences,
   PrivacySettings,
   Subscription,
+  SubscriptionPlan,
   UsageLimits,
   BillingCycle,
   PlanTier
@@ -28,7 +28,7 @@ export default function SettingsPage() {
   const { uploadProfilePhoto, uploading: photoUploading, error: photoError } = useProfilePhoto()
   const { security, loading: securityLoading, revokeSession, enable2FA, disable2FA, generateBackupCodes } = useSecuritySettings()
   const { subscription: dbSubscription, loading: subscriptionLoading, updateSubscription } = useSubscription()
-  const { usageLimits: dbUsageLimits, loading: usageLimitsLoading } = useUsageLimits()
+  const { loading: usageLimitsLoading } = useUsageLimits()
   const { metrics: usageMetrics, loading: metricsLoading } = useUsageMetrics()
   const [profileInitialized, setProfileInitialized] = useState(false)
 
@@ -42,17 +42,20 @@ export default function SettingsPage() {
       if (!profileLoading && !firestoreProfile && user && !profileInitialized) {
         console.log('Creating default profile for new user:', user.email)
         try {
+          // Get name from user_metadata or email
+          const firstName = user.user_metadata?.first_name || user.email?.split('@')[0] || 'User'
+          const lastName = user.user_metadata?.last_name || ''
+
           await updateFirestoreProfile({
-            firstName: user.displayName?.split(' ')[0] || 'User',
-            lastName: user.displayName?.split(' ').slice(1).join(' ') || '',
+            firstName,
+            lastName,
             email: user.email || '',
             phone: '',
             location: '',
             linkedInUrl: '',
-            profileImageUrl: user.photoURL || null,
+            profileImageUrl: user.user_metadata?.avatar_url || null,
             headline: '',
             summary: '',
-            createdAt: new Date().toISOString(),
           })
           setProfileInitialized(true)
           console.log('Default profile created successfully')
@@ -72,44 +75,70 @@ export default function SettingsPage() {
     phone: firestoreProfile.phone || '',
     profilePhotoUrl: firestoreProfile.profileImageUrl || '',
     emailVerified: true, // Assume verified for now
-    createdAt: firestoreProfile.createdAt || new Date().toISOString(),
+    createdAt: new Date().toISOString(),
   } : data.userProfile
 
   console.log('SettingsPage - Using profile:', profile)
   console.log('SettingsPage - Security data:', security)
 
-  const [notifications, setNotifications] = useState<NotificationPreferences>(data.notificationPreferences)
+  // Notification preferences are not currently used in the UI
+  // const [notifications, setNotifications] = useState<NotificationPreferences>({
+  //   ...data.notificationPreferences,
+  //   frequency: data.notificationPreferences.frequency as 'immediate' | 'daily' | 'weekly'
+  // })
 
-  const [privacy, setPrivacy] = useState<PrivacySettings>(data.privacySettings)
-
-  // Update connected accounts when user data becomes available
-  useEffect(() => {
-    if (user) {
-      const connectedAccounts = [{
-        id: user.id,
-        provider: user.app_metadata?.provider === 'linkedin_oidc' ? 'linkedin' :
-                  user.app_metadata?.provider === 'google' ? 'google' : 'email',
-        email: user.email || '',
-        connectedAt: user.created_at || new Date().toISOString()
-      }]
-      setPrivacy(prev => ({
-        ...prev,
-        connectedAccounts
+  // Build connected accounts from user data directly (no useEffect needed)
+  const connectedAccounts = useMemo(() => {
+    if (!user) {
+      return data.privacySettings.connectedAccounts.map(acc => ({
+        ...acc,
+        provider: acc.provider as 'linkedin' | 'google' | 'github'
       }))
     }
+
+    const provider = user.app_metadata?.provider
+    let accountProvider: 'linkedin' | 'google' | 'github' = 'google'
+
+    if (provider === 'linkedin_oidc' || provider === 'linkedin') {
+      accountProvider = 'linkedin'
+    } else if (provider === 'google') {
+      accountProvider = 'google'
+    } else if (provider === 'github') {
+      accountProvider = 'github'
+    }
+
+    return [{
+      id: user.id,
+      provider: accountProvider,
+      email: user.email || '',
+      connectedAt: user.created_at || new Date().toISOString()
+    }]
   }, [user])
 
-  // Build real subscription data
-  const subscription: Subscription = dbSubscription || {
-    id: '',
-    userId: user?.id || '',
-    plan: 'basic',
-    billingCycle: 'monthly',
-    status: 'active',
-    currentPeriodStart: new Date().toISOString().split('T')[0],
-    currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    cancelAtPeriodEnd: false,
-  }
+  const [privacy, setPrivacy] = useState<PrivacySettings>({
+    ...data.privacySettings,
+    connectedAccounts: connectedAccounts
+  })
+
+  // Build real subscription data - memoize to avoid Date.now() in render
+  // Default subscription for users without active subscriptions
+  const defaultSubscription: Subscription = useMemo(() => {
+    const today = new Date()
+    const thirtyDaysFromNow = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000)
+
+    return {
+      id: '',
+      userId: user?.id || '',
+      plan: 'basic',
+      billingCycle: 'monthly',
+      status: 'active',
+      currentPeriodStart: today.toISOString().split('T')[0],
+      currentPeriodEnd: thirtyDaysFromNow.toISOString().split('T')[0],
+      cancelAtPeriodEnd: false,
+    }
+  }, [user?.id])
+
+  const subscription: Subscription = dbSubscription || defaultSubscription
 
   // Build real usage data
   const usage: UsageLimits = {
@@ -119,9 +148,9 @@ export default function SettingsPage() {
     resumeVariantsCreated: usageMetrics.resumeVariantsCreated,
     jobSearchesPerformed: usageMetrics.jobSearchesPerformed,
     limits: {
-      maxApplications: subscription.plan === 'premium' ? 'unlimited' : (dbUsageLimits?.ai_generations_limit || 10),
+      maxApplications: subscription.plan === 'premium' ? 'unlimited' : 10,
       maxResumeVariants: subscription.plan === 'premium' ? 'unlimited' : 3,
-      maxJobSearches: subscription.plan === 'premium' ? 'unlimited' : (dbUsageLimits?.job_searches_limit || 50),
+      maxJobSearches: subscription.plan === 'premium' ? 'unlimited' : 50,
     },
   }
 
@@ -150,10 +179,6 @@ export default function SettingsPage() {
       console.error('Error updating profile:', error)
       alert(`Update failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
-  }
-
-  const _handleChangePassword = (currentPassword: string, newPassword: string) => {
-    console.log('Change password:', { currentPassword, newPassword })
   }
 
   const handleUploadPhoto = async (file: File) => {
@@ -213,11 +238,6 @@ export default function SettingsPage() {
     }
   }
 
-  const _handleUpdateNotifications = (updates: Partial<NotificationPreferences>) => {
-    setNotifications({ ...notifications, ...updates })
-    console.log('Update notifications:', updates)
-  }
-
   const handleUpdatePrivacy = (updates: Partial<PrivacySettings>) => {
     setPrivacy({ ...privacy, ...updates })
     console.log('Update privacy:', updates)
@@ -246,7 +266,7 @@ export default function SettingsPage() {
     try {
       await updateSubscription({
         plan: tier,
-        billing_cycle: billingCycle,
+        billingCycle: billingCycle,
         status: 'active',
       })
       alert(`Upgraded to ${tier} plan!`)
@@ -261,7 +281,7 @@ export default function SettingsPage() {
     try {
       await updateSubscription({
         plan: tier,
-        cancel_at_period_end: false,
+        cancelAtPeriodEnd: false,
       })
       alert(`Downgraded to ${tier} plan!`)
       console.log('Downgrade to:', tier)
@@ -274,7 +294,7 @@ export default function SettingsPage() {
   const handleChangeBillingCycle = async (billingCycle: BillingCycle) => {
     try {
       await updateSubscription({
-        billing_cycle: billingCycle,
+        billingCycle: billingCycle,
       })
       alert(`Billing cycle changed to ${billingCycle}!`)
       console.log('Change billing cycle to:', billingCycle)
@@ -287,7 +307,7 @@ export default function SettingsPage() {
   const handleCancelSubscription = async () => {
     try {
       await updateSubscription({
-        cancel_at_period_end: true,
+        cancelAtPeriodEnd: true,
       })
       alert('Subscription will be canceled at the end of the current period.')
       console.log('Cancel subscription at period end')
@@ -300,7 +320,7 @@ export default function SettingsPage() {
   const handleReactivateSubscription = async () => {
     try {
       await updateSubscription({
-        cancel_at_period_end: false,
+        cancelAtPeriodEnd: false,
       })
       alert('Subscription reactivated!')
       console.log('Reactivate subscription')
@@ -310,7 +330,8 @@ export default function SettingsPage() {
     }
   }
 
-  const currentPlan = data.availablePlans.find(p => p.tier === subscription.plan)!
+  const availablePlans = data.availablePlans as unknown as SubscriptionPlan[]
+  const currentPlan = availablePlans.find(p => p.tier === subscription.plan)!
 
   // Show loading state while data is being fetched
   if (profileLoading || securityLoading || subscriptionLoading || usageLimitsLoading || metricsLoading) {
@@ -413,7 +434,7 @@ export default function SettingsPage() {
         <SubscriptionOverview
           subscription={subscription}
           currentPlan={currentPlan}
-          availablePlans={data.availablePlans}
+          availablePlans={availablePlans}
           usage={subscription.plan === 'basic' ? usage : undefined}
           onUpgrade={handleUpgrade}
           onDowngrade={handleDowngrade}

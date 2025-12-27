@@ -21,7 +21,8 @@ serve(async (req) => {
   if (action === 'initiate') {
     // Step 1: Redirect to LinkedIn OAuth
     const clientId = Deno.env.get('LINKEDIN_CLIENT_ID')
-    const appUrl = Deno.env.get('APP_URL') || 'http://localhost:5173'
+    // appUrl reserved for future use (e.g., for redirect after auth)
+    // const appUrl = Deno.env.get('APP_URL') || 'http://localhost:5173'
     const supabaseUrl = Deno.env.get('SUPABASE_URL')
 
     if (!clientId) {
@@ -52,7 +53,8 @@ serve(async (req) => {
   } else if (action === 'callback') {
     // Step 2: Handle OAuth callback
     const code = url.searchParams.get('code')
-    const state = url.searchParams.get('state')
+    // state parameter reserved for CSRF validation (not currently implemented)
+    // const state = url.searchParams.get('state')
 
     if (!code) {
       return new Response('Authorization code missing', {

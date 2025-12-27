@@ -30,7 +30,9 @@ export default function ApplicationListPage() {
     // TODO: Implement export via Cloud Function
   }
 
-  const handleEmail = (_applicationId: string) => {
+  const handleEmail = (applicationId: string) => {
+    // Email functionality not yet implemented
+    console.log('Email application:', applicationId)
     toast.info('Email sending - coming soon!')
     // TODO: Implement email dialog
   }

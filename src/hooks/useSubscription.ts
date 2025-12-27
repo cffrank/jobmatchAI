@@ -45,7 +45,7 @@ export function useSubscription() {
             id: data.id,
             userId: data.user_id,
             plan: data.plan,
-            billingCycle: data.billing_cycle,
+            billingCycle: 'monthly' as const, // Default to monthly, billing_cycle column doesn't exist in DB
             status: data.status,
             currentPeriodStart: data.current_period_start,
             currentPeriodEnd: data.current_period_end,
@@ -79,18 +79,18 @@ export function useSubscription() {
           table: 'subscriptions',
           filter: `user_id=eq.${userId}`
         },
-        (payload) => {
+        (payload: { new: Record<string, unknown> }) => {
           if (mounted && payload.new) {
             const data = payload.new
             const mappedSubscription = {
-              id: data.id,
-              userId: data.user_id,
-              plan: data.plan,
-              billingCycle: data.billing_cycle,
-              status: data.status,
-              currentPeriodStart: data.current_period_start,
-              currentPeriodEnd: data.current_period_end,
-              cancelAtPeriodEnd: data.cancel_at_period_end || false,
+              id: data.id as string,
+              userId: data.user_id as string,
+              plan: data.plan as Subscription['plan'],
+              billingCycle: 'monthly' as const, // Default to monthly, billing_cycle column doesn't exist in DB
+              status: data.status as Subscription['status'],
+              currentPeriodStart: data.current_period_start as string,
+              currentPeriodEnd: data.current_period_end as string,
+              cancelAtPeriodEnd: (data.cancel_at_period_end as boolean) || false,
             } as Subscription
             setSubscription(mappedSubscription)
           }
@@ -110,12 +110,21 @@ export function useSubscription() {
   const updateSubscription = async (data: Partial<Omit<Subscription, 'id'>>) => {
     if (!userId) throw new Error('User not authenticated')
 
+    // Map camelCase to snake_case for database
+    const dbData: Record<string, unknown> = {
+      user_id: userId,
+    }
+
+    if (data.plan !== undefined) dbData.plan = data.plan
+    // Note: billing_cycle column doesn't exist in DB, so we ignore it
+    if (data.status !== undefined) dbData.status = data.status
+    if (data.currentPeriodStart !== undefined) dbData.current_period_start = data.currentPeriodStart
+    if (data.currentPeriodEnd !== undefined) dbData.current_period_end = data.currentPeriodEnd
+    if (data.cancelAtPeriodEnd !== undefined) dbData.cancel_at_period_end = data.cancelAtPeriodEnd
+
     const { error: updateError } = await supabase
       .from('subscriptions')
-      .upsert({
-        user_id: userId,
-        ...data
-      })
+      .upsert(dbData as never)
 
     if (updateError) throw updateError
   }
@@ -156,12 +165,27 @@ export function useInvoices() {
           .from('invoices')
           .select('*')
           .eq('user_id', userId)
-          .order('date', { ascending: false })
+          .order('invoice_date', { ascending: false })
 
         if (fetchError) throw fetchError
 
         if (mounted) {
-          setInvoices((data as Invoice[]) || [])
+          // Map database fields (snake_case) to app types (camelCase)
+          const mappedInvoices = (data || []).map((dbInvoice) => ({
+            id: dbInvoice.id,
+            userId: dbInvoice.user_id,
+            date: dbInvoice.invoice_date,
+            amount: dbInvoice.amount_due,
+            status: dbInvoice.status as Invoice['status'],
+            paymentMethod: {
+              brand: 'visa', // Default, can be enhanced later
+              last4: '0000', // Default, can be enhanced later
+            },
+            description: `Invoice ${dbInvoice.invoice_number || dbInvoice.id}`,
+            pdfUrl: dbInvoice.invoice_pdf_url || undefined,
+            lineItems: [], // Not stored in current schema
+          }))
+          setInvoices(mappedInvoices)
           setError(null)
         }
       } catch (err) {
@@ -243,7 +267,18 @@ export function usePaymentMethods() {
         if (fetchError) throw fetchError
 
         if (mounted) {
-          setPaymentMethods((data as PaymentMethod[]) || [])
+          // Map database fields (snake_case) to app types (camelCase)
+          const mappedPaymentMethods = (data || []).map((dbMethod) => ({
+            id: dbMethod.id,
+            type: 'card' as const,
+            brand: (dbMethod.brand || 'visa') as PaymentMethod['brand'],
+            last4: dbMethod.last4 || '0000',
+            expiryMonth: dbMethod.exp_month || 12,
+            expiryYear: dbMethod.exp_year || new Date().getFullYear(),
+            isDefault: dbMethod.is_default || false,
+            addedAt: dbMethod.added_at || new Date().toISOString(),
+          }))
+          setPaymentMethods(mappedPaymentMethods)
           setError(null)
         }
       } catch (err) {

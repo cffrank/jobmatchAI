@@ -1,7 +1,7 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
-import type { Database } from '@/lib/database.types'
+import type { Database } from '@/types/supabase'
 import type { User } from '@/sections/profile-resume-management/types'
 
 type DbUser = Database['public']['Tables']['users']['Row']
@@ -154,7 +154,7 @@ function mapDbUserToUser(dbUser: DbUser): User {
     lastName: dbUser.last_name || '',
     phone: dbUser.phone || '',
     location: dbUser.location || '',
-    linkedInUrl: (dbUser as any).linkedin_url || '',
+    linkedInUrl: (dbUser as { linkedin_url?: string }).linkedin_url || '',
     profileImageUrl: dbUser.photo_url || null,
     headline: dbUser.current_title || '',
     summary: dbUser.professional_summary || '',

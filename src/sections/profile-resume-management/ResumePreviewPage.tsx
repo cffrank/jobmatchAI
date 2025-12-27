@@ -20,7 +20,11 @@ export default function ResumePreviewPage() {
 
   return (
     <ResumePreview
-      resume={data.resume}
+      resume={{
+        ...data.resume,
+        type: data.resume.type as 'master' | 'tailored',
+        formats: data.resume.formats as ('pdf' | 'docx' | 'txt')[]
+      }}
       workExperience={data.workExperience}
       education={data.education}
       skills={data.skills}

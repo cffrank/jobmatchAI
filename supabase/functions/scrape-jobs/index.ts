@@ -159,8 +159,22 @@ serve(async (req) => {
         )
         const results = await resultsResponse.json()
 
-        // Normalize results
-        const normalizedJobs = results.map((item: any) => ({
+        // Normalize results from external API
+        interface RawJobResult {
+          title?: string
+          positionName?: string
+          company?: string
+          companyName?: string
+          location?: string
+          jobLocation?: string
+          description?: string
+          descriptionText?: string
+          url?: string
+          link?: string
+          salary?: string | null
+        }
+
+        const normalizedJobs = (results as RawJobResult[]).map((item) => ({
           title: item.title || item.positionName || 'Unknown Title',
           company: item.company || item.companyName || 'Unknown Company',
           location: item.location || item.jobLocation || 'Unknown Location',

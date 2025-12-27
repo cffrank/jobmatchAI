@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
-import type { Database } from '@/lib/database.types'
+import type { Database } from '@/types/supabase'
 import type { Education } from '@/sections/profile-resume-management/types'
 
 type DbEducation = Database['public']['Tables']['education']['Row']

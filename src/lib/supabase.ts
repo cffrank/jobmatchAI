@@ -10,7 +10,7 @@
  */
 
 import { createClient } from '@supabase/supabase-js'
-import type { Database } from './database.types'
+import type { Database } from '@/types/supabase'
 
 // Validate environment variables
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
@@ -80,7 +80,7 @@ export const supabase = createClient<Database>(
     // Heartbeat interval in ms
     heartbeatIntervalMs: 30000,
     // Reconnect after network failure
-    reconnectAfterMs: (tries) => {
+    reconnectAfterMs: (tries: number) => {
       // Exponential backoff: 1s, 2s, 4s, 8s, max 30s
       return Math.min(1000 * Math.pow(2, tries), 30000)
     },
