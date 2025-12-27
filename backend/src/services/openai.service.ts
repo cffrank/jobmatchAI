@@ -6,7 +6,7 @@
  * - Cover letters tailored to specific jobs
  * - AI rationale explaining the optimization choices
  *
- * Mirrors the Firebase Cloud Function implementation with:
+ * Migrated from legacy Firebase Cloud Functions with:
  * - Comprehensive prompts for high-quality output
  * - JSON response format for structured data
  * - Fallback generation for API failures

@@ -1,5 +1,5 @@
 /**
- * Converts Firebase Auth error codes to user-friendly messages
+ * Converts Supabase Auth error codes to user-friendly messages
  */
 export function getAuthErrorMessage(error: unknown): string {
   const errorCode = (error && typeof error === 'object' && 'code' in error) ? (error as { code: string }).code : ''

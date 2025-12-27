@@ -139,7 +139,7 @@ export async function exportApplication(
  * This approach works for signed URLs and triggers the browser's
  * native download behavior instead of navigation.
  *
- * @param url - The download URL (typically a signed Firebase Storage URL)
+ * @param url - The download URL (typically a signed Supabase Storage URL)
  * @param fileName - The suggested filename for the download
  */
 async function downloadFile(url: string, fileName: string): Promise<void> {

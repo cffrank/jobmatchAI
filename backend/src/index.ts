@@ -1,7 +1,7 @@
 /**
  * JobMatch AI Backend Server
  *
- * Express.js server that replaces Firebase Cloud Functions.
+ * Express.js server (migrated from legacy Firebase Cloud Functions).
  * Provides REST API endpoints for:
  * - Application generation (AI-powered resume/cover letter)
  * - Job scraping from LinkedIn and Indeed

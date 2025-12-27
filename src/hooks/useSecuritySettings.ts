@@ -12,7 +12,7 @@ import {
 import type { SecuritySettings } from '@/sections/account-billing/types'
 
 /**
- * Hook to manage security settings with real Firebase data
+ * Hook to manage security settings with real Supabase data
  */
 export function useSecuritySettings() {
   const { user } = useAuth()
