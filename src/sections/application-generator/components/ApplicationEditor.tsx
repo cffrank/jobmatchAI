@@ -150,7 +150,7 @@ export function ApplicationEditor({
             </div>
 
             {/* AI Rationale */}
-            {selectedVariant.aiRationale && selectedVariant.aiRationale.length > 0 && (
+            {selectedVariant.aiRationale && Array.isArray(selectedVariant.aiRationale) && selectedVariant.aiRationale.length > 0 && (
               <div className="bg-gradient-to-br from-blue-50 to-emerald-50 dark:from-blue-950/30 dark:to-emerald-950/30 rounded-xl border border-blue-200 dark:border-blue-800 p-4 shadow-sm">
                 <h3 className="text-sm font-bold text-slate-900 dark:text-slate-50 mb-3">
                   Why This Variant?

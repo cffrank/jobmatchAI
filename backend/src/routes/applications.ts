@@ -153,7 +153,7 @@ router.post(
       skills: mappedSkills,
     });
 
-    // Save application to database
+    // Save application to database with variants as JSONB
     const applicationData = {
       user_id: userId,
       job_id: jobId,
@@ -161,6 +161,9 @@ router.post(
       company: mappedJob.company,
       status: 'draft',
       selected_variant_id: variants[0]?.id || '',
+      variants: variants, // Save variants directly in JSONB field
+      cover_letter: variants[0]?.coverLetter || null,
+      custom_resume: variants[0]?.resume ? JSON.stringify(variants[0].resume) : null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -175,19 +178,6 @@ router.post(
       console.error('Failed to save application:', insertError);
       throw new Error('Failed to save application');
     }
-
-    // Save variants
-    const variantRecords = variants.map((v) => ({
-      application_id: application.id,
-      variant_id: v.id,
-      name: v.name,
-      resume: v.resume,
-      cover_letter: v.coverLetter,
-      ai_rationale: v.aiRationale,
-      created_at: new Date().toISOString(),
-    }));
-
-    await supabaseAdmin.from(TABLES.APPLICATION_VARIANTS).insert(variantRecords);
 
     console.log(`Application created: ${application.id}`);
 
@@ -269,7 +259,7 @@ router.get(
     const userId = getUserId(req);
     const { id } = req.params;
 
-    // Fetch application
+    // Fetch application (variants are stored in JSONB field)
     const { data: application, error } = await supabaseAdmin
       .from(TABLES.APPLICATIONS)
       .select('*')
@@ -281,16 +271,8 @@ router.get(
       throw createNotFoundError('Application', id);
     }
 
-    // Fetch variants
-    const { data: variants } = await supabaseAdmin
-      .from(TABLES.APPLICATION_VARIANTS)
-      .select('*')
-      .eq('application_id', id);
-
-    res.json({
-      ...application,
-      variants: variants || [],
-    });
+    // Variants are already included in the application object from JSONB field
+    res.json(application);
   })
 );
 
