@@ -2,11 +2,7 @@ import { useState, useCallback, useEffect, useMemo } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import type { Job, CompatibilityBreakdown } from '@/sections/job-discovery-matching/types'
-import { rankJobs } from '@/lib/jobMatching'
 import { analyzeJobWithAI } from '@/lib/aiJobMatching'
-import { useProfile } from './useProfile'
-import { useSkills } from './useSkills'
-import { useWorkExperience } from './useWorkExperience'
 import type { Database } from '@/types/supabase'
 
 type JobRow = Database['public']['Tables']['jobs']['Row']
@@ -31,11 +27,6 @@ type JobRow = Database['public']['Tables']['jobs']['Row']
 export function useJobs(pageSize = 20) {
   const { user } = useAuth()
   const userId = user?.id
-
-  // Fetch user profile data for matching
-  const { profile } = useProfile()
-  const { skills } = useSkills()
-  const { workExperience, loading: workExpLoading } = useWorkExperience()
 
   // Fetch saved jobs to mark them in the list
   const { savedJobIds } = useSavedJobs()
@@ -122,33 +113,17 @@ export function useJobs(pageSize = 20) {
     fetchJobs(0, false)
   }, [fetchJobs])
 
-  // Rank jobs based on user profile match
+  // Jobs are already sorted by match_score from database (AI-powered scores)
+  // Just need to mark which ones are saved
   const rankedJobs = useMemo(() => {
     if (jobs.length === 0) return []
 
-    // Wait for work experience to load before calculating compatibility
-    // This prevents showing 0% scores when workExperience is still empty
-    if (workExpLoading) {
-      // Return jobs with placeholder compatibility while loading
-      return jobs.map(job => ({
-        ...job,
-        isSaved: savedJobIds.includes(job.id),
-      }))
-    }
-
-    // Rank jobs using matching algorithm with loaded profile data
-    const ranked = rankJobs(jobs, {
-      user: profile,
-      skills,
-      workExperience,
-    })
-
-    // Mark saved jobs
-    return ranked.map(job => ({
+    // Mark saved jobs (don't recalculate scores - use AI scores from database)
+    return jobs.map(job => ({
       ...job,
       isSaved: savedJobIds.includes(job.id),
     }))
-  }, [jobs, profile, skills, workExperience, workExpLoading, savedJobIds])
+  }, [jobs, savedJobIds])
 
   // Load more callback
   const loadMore = useCallback(() => {
