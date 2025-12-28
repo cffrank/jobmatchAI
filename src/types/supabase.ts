@@ -49,33 +49,42 @@ export type Database = {
       }
       applications: {
         Row: {
+          company: string | null
           cover_letter: string | null
           created_at: string
           custom_resume: string | null
           id: string
           job_id: string | null
+          job_title: string | null
+          selected_variant_id: string | null
           status: Database["public"]["Enums"]["application_status"] | null
           updated_at: string
           user_id: string
           variants: Json | null
         }
         Insert: {
+          company?: string | null
           cover_letter?: string | null
           created_at?: string
           custom_resume?: string | null
           id?: string
           job_id?: string | null
+          job_title?: string | null
+          selected_variant_id?: string | null
           status?: Database["public"]["Enums"]["application_status"] | null
           updated_at?: string
           user_id: string
           variants?: Json | null
         }
         Update: {
+          company?: string | null
           cover_letter?: string | null
           created_at?: string
           custom_resume?: string | null
           id?: string
           job_id?: string | null
+          job_title?: string | null
+          selected_variant_id?: string | null
           status?: Database["public"]["Enums"]["application_status"] | null
           updated_at?: string
           user_id?: string
@@ -359,6 +368,8 @@ export type Database = {
           added_at: string
           archived: boolean | null
           company: string
+          company_logo: string | null
+          compatibility_breakdown: Json | null
           created_at: string
           description: string | null
           experience_level:
@@ -368,6 +379,9 @@ export type Database = {
           job_type: Database["public"]["Enums"]["job_type"] | null
           location: string | null
           match_score: number | null
+          missing_skills: string[] | null
+          recommendations: string[] | null
+          required_skills: string[] | null
           salary_max: number | null
           salary_min: number | null
           saved: boolean | null
@@ -376,11 +390,14 @@ export type Database = {
           updated_at: string
           url: string | null
           user_id: string
+          work_arrangement: string | null
         }
         Insert: {
           added_at?: string
           archived?: boolean | null
           company: string
+          company_logo?: string | null
+          compatibility_breakdown?: Json | null
           created_at?: string
           description?: string | null
           experience_level?:
@@ -390,6 +407,9 @@ export type Database = {
           job_type?: Database["public"]["Enums"]["job_type"] | null
           location?: string | null
           match_score?: number | null
+          missing_skills?: string[] | null
+          recommendations?: string[] | null
+          required_skills?: string[] | null
           salary_max?: number | null
           salary_min?: number | null
           saved?: boolean | null
@@ -398,11 +418,14 @@ export type Database = {
           updated_at?: string
           url?: string | null
           user_id: string
+          work_arrangement?: string | null
         }
         Update: {
           added_at?: string
           archived?: boolean | null
           company?: string
+          company_logo?: string | null
+          compatibility_breakdown?: Json | null
           created_at?: string
           description?: string | null
           experience_level?:
@@ -412,6 +435,9 @@ export type Database = {
           job_type?: Database["public"]["Enums"]["job_type"] | null
           location?: string | null
           match_score?: number | null
+          missing_skills?: string[] | null
+          recommendations?: string[] | null
+          required_skills?: string[] | null
           salary_max?: number | null
           salary_min?: number | null
           saved?: boolean | null
@@ -420,6 +446,7 @@ export type Database = {
           updated_at?: string
           url?: string | null
           user_id?: string
+          work_arrangement?: string | null
         }
         Relationships: [
           {
