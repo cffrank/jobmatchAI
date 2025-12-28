@@ -150,21 +150,23 @@ export function ApplicationEditor({
             </div>
 
             {/* AI Rationale */}
-            <div className="bg-gradient-to-br from-blue-50 to-emerald-50 dark:from-blue-950/30 dark:to-emerald-950/30 rounded-xl border border-blue-200 dark:border-blue-800 p-4 shadow-sm">
-              <h3 className="text-sm font-bold text-slate-900 dark:text-slate-50 mb-3">
-                Why This Variant?
-              </h3>
-              <div className="space-y-2">
-                {selectedVariant.aiRationale.map((rationale, idx) => (
-                  <div key={idx} className="flex items-start gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-blue-600 dark:bg-blue-400 mt-2 flex-shrink-0" />
-                    <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
-                      {rationale}
-                    </p>
-                  </div>
-                ))}
+            {selectedVariant.aiRationale && selectedVariant.aiRationale.length > 0 && (
+              <div className="bg-gradient-to-br from-blue-50 to-emerald-50 dark:from-blue-950/30 dark:to-emerald-950/30 rounded-xl border border-blue-200 dark:border-blue-800 p-4 shadow-sm">
+                <h3 className="text-sm font-bold text-slate-900 dark:text-slate-50 mb-3">
+                  Why This Variant?
+                </h3>
+                <div className="space-y-2">
+                  {selectedVariant.aiRationale.map((rationale, idx) => (
+                    <div key={idx} className="flex items-start gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-blue-600 dark:bg-blue-400 mt-2 flex-shrink-0" />
+                      <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
+                        {rationale}
+                      </p>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           {/* Main Editor Area */}

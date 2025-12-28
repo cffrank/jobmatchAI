@@ -31,7 +31,7 @@ export interface ApplicationVariant {
   name: string
   resume: Resume
   coverLetter: string
-  aiRationale: string[]
+  aiRationale?: string[] // Optional - may not be present in all responses
 }
 
 export interface EditHistoryEntry {
