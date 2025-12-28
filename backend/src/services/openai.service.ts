@@ -305,7 +305,7 @@ Email: ${profile.email || 'Not provided'}
 
 ${profile.summary ? `CURRENT PROFESSIONAL SUMMARY:\n${profile.summary}\n` : ''}
 
-WORK EXPERIENCE (use as basis, but improve with metrics):
+WORK EXPERIENCE (use EXACTLY as provided - DO NOT fabricate information):
 ${experienceSection}
 
 EDUCATION:
@@ -316,32 +316,54 @@ ${skillNames}
 
 ---
 
+CRITICAL RULES - MUST FOLLOW EXACTLY:
+
+1. TRUTHFULNESS: Use ONLY information directly provided above. DO NOT:
+   - Fabricate metrics, numbers, or achievements
+   - Invent team sizes, percentages, dollar amounts, or timeframes
+   - Add accomplishments not listed in the candidate's experience
+   - Exaggerate or embellish responsibilities
+
+2. WHAT YOU CAN DO:
+   - Rewrite existing accomplishments for clarity and impact
+   - Emphasize skills and experiences most relevant to the job
+   - Use strong action verbs from the accomplishments provided
+   - If an accomplishment already has a metric, keep it exactly as stated
+   - Reorganize information for better flow
+
+3. WHAT YOU CANNOT DO:
+   - Add numbers where none exist (NO "improved efficiency by 30%" unless stated)
+   - Invent specific achievements (NO "led team of 10" unless stated)
+   - Create metrics from thin air (NO "$200K budget" unless stated)
+
+---
+
 TASK:
 Create a tailored resume and cover letter that:
 
 1. KEYWORD OPTIMIZATION: Use keywords from the job description naturally throughout the resume. Match required skills: ${skillsList}
 
-2. QUANTIFY EVERYTHING: Transform the candidate's experience into achievement bullets with specific metrics. If exact numbers aren't provided, use reasonable estimates based on role scope (e.g., "team of 15+", "improved efficiency by ~30%", "managed $200K+ budget").
+2. USE ACTUAL ACCOMPLISHMENTS: Use the candidate's listed accomplishments exactly as provided. Reword for clarity and impact, but DO NOT add fabricated metrics.
 
-3. HIGHLIGHT RELEVANCE: Emphasize the 3-5 most relevant experiences for THIS specific ${job.title} position. Less relevant experiences can be condensed or omitted.
+3. HIGHLIGHT RELEVANCE: Emphasize the 3-5 most relevant experiences for THIS specific ${job.title} position.
 
-4. PROFESSIONAL SUMMARY: Write a compelling 100-300 character summary mentioning:
-   - Years of experience in the field
-   - Top 2-3 skills that match job requirements
-   - 1-2 impressive quantified achievements
+4. PROFESSIONAL SUMMARY: Write a compelling 100-300 character summary using:
+   - Actual years of experience from the work history above
+   - Top 2-3 skills that match job requirements from the candidate's skills list
+   - Reference to real accomplishments (without fabricating numbers)
 
 5. COVER LETTER: Write 500-1500 characters that:
    - Opens by mentioning the specific job title: "${job.title}"
    - References the company name "${job.company}" at least twice
-   - Highlights 2-3 specific achievements with metrics that match job needs
+   - Highlights 2-3 ACTUAL accomplishments from the candidate's experience
    - Shows enthusiasm and genuine interest
    - Ends with a call to action
 
 6. VALIDATION: Before returning, verify:
-   - At least 70% of resume bullets include numbers/metrics
-   - Every bullet starts with a strong action verb
-   - Summary is 100-300 characters
-   - Cover letter mentions company and job title
+   - NO fabricated information (numbers, achievements, or responsibilities)
+   - Every accomplishment comes from the provided work experience
+   - All metrics match what was actually stated in the experience section
+   - Strong action verbs are used
    - Keywords from job description appear naturally
 
 Generate the complete application following the exact JSON structure specified above.`;
