@@ -151,6 +151,7 @@ function calculateExperienceMatch(
   workExperience: WorkExperience[]
 ): { score: number } {
   if (workExperience.length === 0) {
+    console.warn('[JobMatching] calculateExperienceMatch: No work experience provided')
     return { score: 0 }
   }
 
@@ -159,8 +160,11 @@ function calculateExperienceMatch(
     const startDate = new Date(exp.startDate)
     const endDate = exp.current ? new Date() : new Date(exp.endDate || new Date())
     const years = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24 * 365)
+    console.log(`[JobMatching] Experience at ${exp.company} (${exp.position}): ${years.toFixed(1)} years`)
     return sum + Math.max(0, years)
   }, 0)
+
+  console.log(`[JobMatching] Total years of experience: ${totalYears.toFixed(1)}`)
 
   // Estimate required experience based on job title and description
   const requiredYears = estimateRequiredExperience(job)
@@ -225,17 +229,25 @@ function calculateIndustryMatch(
   workExperience: WorkExperience[]
 ): { score: number } {
   if (workExperience.length === 0) {
+    console.warn('[JobMatching] calculateIndustryMatch: No work experience provided')
     return { score: 0 }
   }
 
   // Extract industry keywords from job
   const jobIndustryKeywords = extractIndustryKeywords(job)
+  console.log(`[JobMatching] Job industry keywords:`, jobIndustryKeywords)
 
   // Check if user has experience in similar industries
   const hasIndustryMatch = workExperience.some(exp => {
-    const expText = `${exp.company} ${exp.position} ${exp.description}`.toLowerCase()
-    return jobIndustryKeywords.some(keyword => expText.includes(keyword))
+    const expText = `${exp.company} ${exp.position} ${exp.description || ''}`.toLowerCase()
+    const match = jobIndustryKeywords.some(keyword => expText.includes(keyword))
+    if (match) {
+      console.log(`[JobMatching] Industry match found: ${exp.company} (${exp.position})`)
+    }
+    return match
   })
+
+  console.log(`[JobMatching] Industry match result: ${hasIndustryMatch ? '100 (matched)' : '60 (neutral)'}`)
 
   // Score based on industry alignment
   return { score: hasIndustryMatch ? 100 : 60 } // 60 = neutral for different industry

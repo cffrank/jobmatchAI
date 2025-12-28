@@ -220,7 +220,7 @@ export function JobDetail({
           {/* Right Column - Sidebar */}
           <div className="space-y-6">
             {/* Compatibility Breakdown */}
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm sticky top-6">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm sticky top-6 z-20">
               <h3 className="text-lg font-bold text-slate-900 dark:text-slate-50 mb-4 flex items-center gap-2">
                 <Award className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                 Compatibility Analysis
