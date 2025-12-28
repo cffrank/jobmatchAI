@@ -139,11 +139,11 @@ export function ApplicationEditor({
               </div>
 
               {/* Edit History */}
-              {application.editHistory.length > 0 && (
+              {(application.editHistory?.length || 0) > 0 && (
                 <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-800">
                   <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
                     <Clock className="w-3.5 h-3.5" />
-                    <span>{application.editHistory.length} edit{application.editHistory.length > 1 ? 's' : ''} made</span>
+                    <span>{application.editHistory?.length || 0} edit{(application.editHistory?.length || 0) > 1 ? 's' : ''} made</span>
                   </div>
                 </div>
               )}

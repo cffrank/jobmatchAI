@@ -233,7 +233,7 @@ function ApplicationCard({
             </p>
             {(application.editHistory?.length || 0) > 0 && (
               <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">
-                {application.editHistory.length} edit{application.editHistory.length > 1 ? 's' : ''} made
+                {application.editHistory?.length || 0} edit{(application.editHistory?.length || 0) > 1 ? 's' : ''} made
               </p>
             )}
           </div>
