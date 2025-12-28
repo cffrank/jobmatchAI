@@ -432,12 +432,12 @@ function mapDatabaseWorkExperience(record: any): WorkExperience {
   return {
     id: record.id,
     userId: record.user_id,
-    position: record.position,
+    position: record.title, // Database column is 'title', not 'position'
     company: record.company,
     location: record.location,
     startDate: record.start_date,
     endDate: record.end_date,
-    current: record.current,
+    current: record.is_current, // Database column is 'is_current', not 'current'
     description: record.description,
     accomplishments: record.accomplishments || [],
     createdAt: record.created_at,
