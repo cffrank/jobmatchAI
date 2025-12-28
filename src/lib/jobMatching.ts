@@ -27,7 +27,7 @@ import type { User, Skill, WorkExperience } from '@/sections/profile-resume-mana
  * DEPRECATED: Now handled by AI in backend
  * Kept for reference only
  */
-// @ts-ignore - Kept for reference, matching now done by AI
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const ROLE_DOMAINS = {
   IT_TECHNICAL: [
     'engineer', 'developer', 'programmer', 'architect', 'administrator', 'analyst',
@@ -70,7 +70,7 @@ const ROLE_DOMAINS = {
  * DEPRECATED: Now handled by AI in backend
  * Kept for reference only
  */
-// @ts-ignore - Kept for reference, matching now done by AI
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const SKILL_DOMAINS = {
   TECHNICAL_IT: [
     'java', 'python', 'javascript', 'react', 'angular', 'vue', 'node', 'aws', 'azure', 'gcp',
