@@ -296,17 +296,21 @@ export function useApplication(applicationId: string | undefined) {
  * Map database application to app GeneratedApplication type
  */
 function mapDbApplication(dbApp: DbApplication): GeneratedApplication {
-  const variants = (dbApp.variants as unknown as ApplicationVariant[]) || []
+  // Ensure variants is always an array (fixes crash when dbApp.variants is {} or null)
+  let variants: ApplicationVariant[] = []
+  if (Array.isArray(dbApp.variants)) {
+    variants = dbApp.variants as unknown as ApplicationVariant[]
+  }
 
   return {
     id: dbApp.id,
     jobId: dbApp.job_id || '',
-    jobTitle: '', // Not in schema, needs to be fetched from jobs table
-    company: '', // Not in schema, needs to be fetched from jobs table
+    jobTitle: dbApp.job_title || '', // Now in schema after migration 015
+    company: dbApp.company || '', // Now in schema after migration 015
     status: mapStatusFromDb(dbApp.status),
     createdAt: dbApp.created_at,
     submittedAt: null, // Not in schema
-    selectedVariantId: variants[0]?.id || null,
+    selectedVariantId: dbApp.selected_variant_id || variants[0]?.id || null,
     variants: variants,
     editHistory: [], // Not in schema
     lastEmailSentAt: undefined,
