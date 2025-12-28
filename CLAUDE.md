@@ -352,6 +352,13 @@ See `docs/GITHUB_SECRETS_SETUP.md` for setup instructions.
 - `ENVIRONMENT-SETUP.md` - Local environment setup
 - `GITHUB_SECRETS_SETUP.md` - CI/CD secrets configuration
 
+### Migration to Cloudflare Workers
+- `cloudflare-migration/README.md` - Migration overview and getting started guide
+- `cloudflare-migration/MIGRATION_STRATEGY.md` - High-level migration approach (8-week timeline)
+- `cloudflare-migration/CLOUDFLARE_WORKERS_SETUP.md` - Technical setup guide (Wrangler, Hono, testing)
+- `cloudflare-migration/API_MIGRATION_CHECKLIST.md` - Endpoint-by-endpoint migration tasks (18 endpoints)
+- `cloudflare-migration/COST_ANALYSIS.md` - Financial comparison ($81/month → $5.50/month = 93% savings)
+
 ### Security
 - `CREDENTIAL_ROTATION_POLICY.md` - API key rotation schedules (90/180/365-day cycles)
 - `LOGIN_PROTECTION_GUIDE.md` - Account lockout implementation
