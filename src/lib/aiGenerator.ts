@@ -36,6 +36,11 @@ export async function generateApplicationVariants(jobId: string): Promise<Genera
       throw new Error('No data returned from AI generation service')
     }
 
+    // Ensure variants is always an array (fixes crash when backend returns {} or null)
+    if (!data.variants || !Array.isArray(data.variants)) {
+      data.variants = []
+    }
+
     return data
 
   } catch (error: unknown) {
