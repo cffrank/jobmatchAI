@@ -10,16 +10,16 @@ export function JobDetail({
 }: JobDetailProps) {
   const getMatchScoreColor = (score?: number) => {
     if (!score) return 'from-slate-500 to-slate-600'
-    if (score >= 85) return 'from-emerald-500 to-emerald-600'
-    if (score >= 70) return 'from-blue-500 to-blue-600'
-    return 'from-slate-500 to-slate-600'
+    if (score >= 70) return 'from-emerald-500 to-emerald-600'
+    if (score >= 50) return 'from-amber-500 to-amber-600'
+    return 'from-red-500 to-red-600'
   }
 
   const getMatchScoreLabel = (score?: number) => {
     if (!score) return 'Match Score Not Available'
-    if (score >= 85) return 'Excellent Match'
     if (score >= 70) return 'Good Match'
-    return 'Potential Match'
+    if (score >= 50) return 'Potential Match'
+    return 'Bad Match'
   }
 
   const formatSalary = (min?: number, max?: number) => {

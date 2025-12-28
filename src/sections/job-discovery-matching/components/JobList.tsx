@@ -35,15 +35,15 @@ export function JobList({
   }
 
   const getMatchScoreColor = (score: number) => {
-    if (score >= 85) return 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800'
-    if (score >= 70) return 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800'
-    return 'text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/30 border-slate-200 dark:border-slate-700'
+    if (score >= 70) return 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800'
+    if (score >= 50) return 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800'
+    return 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800'
   }
 
   const getMatchScoreLabel = (score: number) => {
-    if (score >= 85) return 'Excellent Match'
     if (score >= 70) return 'Good Match'
-    return 'Potential Match'
+    if (score >= 50) return 'Potential Match'
+    return 'Bad Match'
   }
 
   const formatSalary = (min: number, max: number) => {
@@ -141,9 +141,8 @@ export function JobList({
                     className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value={0}>Any match</option>
-                    <option value={85}>85%+ (Excellent)</option>
-                    <option value={70}>70%+ (Good)</option>
-                    <option value={60}>60%+ (Potential)</option>
+                    <option value={70}>70%+ (Good Match)</option>
+                    <option value={50}>50%+ (Potential)</option>
                   </select>
                 </div>
 
@@ -328,11 +327,30 @@ function JobCard({ job, onViewDetails, onSave, onApply, getMatchScoreColor, getM
 
       {/* Company Logo & Header */}
       <div className="flex items-start gap-4 mb-4 pr-8">
-        <img
-          src={job.companyLogo}
-          alt={`${job.company} logo`}
-          className="w-14 h-14 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 flex-shrink-0"
-        />
+        {job.companyLogo ? (
+          <img
+            src={job.companyLogo}
+            alt={`${job.company} logo`}
+            className="w-14 h-14 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 flex-shrink-0 object-contain"
+            onError={(e) => {
+              // Replace with fallback if image fails to load
+              e.currentTarget.style.display = 'none'
+              e.currentTarget.parentElement!.querySelector('.company-initials')!.classList.remove('hidden')
+            }}
+          />
+        ) : null}
+        <div
+          className={`company-initials w-14 h-14 rounded-xl border border-slate-200 dark:border-slate-700 bg-gradient-to-br from-blue-500 to-emerald-500 flex-shrink-0 flex items-center justify-center ${job.companyLogo ? 'hidden' : ''}`}
+        >
+          <span className="text-white font-bold text-lg">
+            {job.company
+              .split(' ')
+              .map(word => word[0])
+              .join('')
+              .toUpperCase()
+              .slice(0, 2)}
+          </span>
+        </div>
         <div className="flex-1 min-w-0">
           <h3 className="text-xl font-bold text-slate-900 dark:text-slate-50 mb-1 leading-tight group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
             {job.title}
