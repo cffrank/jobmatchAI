@@ -133,14 +133,32 @@ const corsOptions = {
 
     const allAllowedOrigins = [APP_URL, ...ALLOWED_ORIGINS];
 
+    // Check for exact match first
     if (allAllowedOrigins.includes(origin)) {
       callback(null, true);
-    } else {
-      console.warn(`CORS blocked origin: ${origin}`);
-      console.warn(`Allowed origins: ${allAllowedOrigins.join(', ')}`);
-      console.warn(`Set APP_URL or ALLOWED_ORIGINS environment variable to allow this origin`);
-      callback(new Error('Not allowed by CORS'));
+      return;
     }
+
+    // Support wildcard patterns for Cloudflare Pages preview deployments
+    // Pattern: https://*.jobmatch-ai-dev.pages.dev or https://*.jobmatch-ai.pages.dev
+    const wildcardPatterns = allAllowedOrigins.filter(o => o.includes('*'));
+    for (const pattern of wildcardPatterns) {
+      // Convert wildcard pattern to regex: https://*.example.com -> ^https://[^/]+\.example\.com$
+      const regexPattern = pattern
+        .replace(/\./g, '\\.') // Escape dots
+        .replace(/\*/g, '[^/]+'); // Replace * with non-slash characters
+      const regex = new RegExp(`^${regexPattern}$`);
+
+      if (regex.test(origin)) {
+        callback(null, true);
+        return;
+      }
+    }
+
+    console.warn(`CORS blocked origin: ${origin}`);
+    console.warn(`Allowed origins: ${allAllowedOrigins.join(', ')}`);
+    console.warn(`Set APP_URL or ALLOWED_ORIGINS environment variable to allow this origin`);
+    callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
   methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
