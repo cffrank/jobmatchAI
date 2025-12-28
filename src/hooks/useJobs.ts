@@ -322,10 +322,16 @@ export function useJob(jobId: string | undefined) {
         setJob(rawJob)
         setLoading(false)
 
-        // Trigger AI analysis if job doesn't have a match score
-        // This happens in the background after the job is displayed
-        if (!data.match_score) {
-          console.log('[useJob] No match score found, triggering AI analysis...')
+        // Trigger AI analysis if job doesn't have a match score OR if it hasn't been analyzed with AI
+        // Old keyword-based scores won't have compatibility_breakdown with all fields populated
+        const breakdown = data.compatibility_breakdown as any
+        const hasAIAnalysis = data.match_score &&
+                             breakdown &&
+                             typeof breakdown === 'object' &&
+                             (breakdown.skillMatch !== undefined)
+
+        if (!hasAIAnalysis) {
+          console.log('[useJob] No AI analysis found, triggering AI matching...')
           setAnalyzing(true)
 
           try {
