@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useMemo } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
-import type { Job } from '@/sections/job-discovery-matching/types'
+import type { Job, CompatibilityBreakdown } from '@/sections/job-discovery-matching/types'
 import { rankJobs } from '@/lib/jobMatching'
 import { useProfile } from './useProfile'
 import { useSkills } from './useSkills'
@@ -90,7 +90,7 @@ export function useJobs(pageSize = 20) {
         requiredSkills: row.required_skills || [],
         missingSkills: row.missing_skills || [],
         recommendations: row.recommendations || [],
-        compatibilityBreakdown: row.compatibility_breakdown || {
+        compatibilityBreakdown: (row.compatibility_breakdown as CompatibilityBreakdown) || {
           skillMatch: 0,
           experienceMatch: 0,
           industryMatch: 0,
@@ -290,7 +290,7 @@ export function useJob(jobId: string | undefined) {
           requiredSkills: data.required_skills || [],
           missingSkills: data.missing_skills || [],
           recommendations: data.recommendations || [],
-          compatibilityBreakdown: data.compatibility_breakdown || {
+          compatibilityBreakdown: (data.compatibility_breakdown as CompatibilityBreakdown) || {
             skillMatch: 0,
             experienceMatch: 0,
             industryMatch: 0,
