@@ -420,6 +420,12 @@ function getFallbackVariant(
  * 3. Understand domain relevance (IT vs Medical vs Business, etc.)
  * 4. Calculate accurate compatibility scores
  */
+interface MatchedResponsibility {
+  jobRequirement: string;
+  candidateExperience: string;
+  strength: 'strong' | 'moderate' | 'weak';
+}
+
 export async function analyzeJobCompatibility(
   job: Job,
   profile: UserProfile,
@@ -433,8 +439,13 @@ export async function analyzeJobCompatibility(
     industryMatch: number;
     locationMatch: number;
   };
+  matchedKeywords: string[];
+  matchedResponsibilities: MatchedResponsibility[];
   missingSkills: string[];
+  titleRelevance: 'high' | 'medium' | 'low';
+  recommendationLevel: 'strong match' | 'qualified' | 'partial match' | 'not recommended';
   recommendations: string[];
+  summary: string;
 }> {
   try {
     const openai = getOpenAI();
@@ -448,21 +459,34 @@ export async function analyzeJobCompatibility(
       accomplishments: exp.accomplishments.slice(0, 3), // Top 3
     }));
 
-    const prompt = `You are an expert ATS (Applicant Tracking System) analyzer. Perform a SEMANTIC job compatibility analysis.
+    const prompt = `You are an expert ATS (Applicant Tracking System) matching agent. Your task is to compare a job posting against a candidate profile and provide a structured compatibility analysis.
 
-**CRITICAL INSTRUCTIONS:**
-1. **SEMANTIC TITLE MATCHING**: Compare the job title with the candidate's past experience titles using semantic understanding, not keywords.
+**CRITICAL MATCHING RULES:**
+
+1. **SEMANTIC TITLE MATCHING** (not keyword-based):
    - "Physician" is NOT similar to "Infrastructure Manager" even if both work in healthcare
-   - "Software Engineer" IS similar to "Developer" or "Programmer"
+   - "Software Engineer" IS similar to "Developer", "Programmer", "SWE"
    - Medical roles (Doctor, Nurse, Physician) are ONLY compatible with medical experience
    - IT roles (Engineer, Administrator, Developer) are ONLY compatible with technical experience
+   - Normalize title inflation/deflation (Senior vs Lead vs Principal)
 
-2. **SEMANTIC REQUIREMENT MATCHING**: Compare job requirements with actual experience descriptions.
-   - "Patient care" experience is NOT relevant to "System administration" jobs
-   - "VMware" skills are NOT relevant to "Surgery" requirements
-   - Look at what the candidate actually DID, not just keywords
+2. **SEMANTIC KEYWORD MATCHING**:
+   - Exact keyword matches score highest
+   - Semantic equivalents count equally: "manage" = "oversee" = "lead", "build" = "develop" = "create"
+   - Technical terms must match domain: "VMware" is NOT relevant to "Surgery"
+   - Extract and match key skills, technologies, competencies
 
-3. **DOMAIN RELEVANCE**: Identify the primary domain of the job and candidate:
+3. **RESPONSIBILITY MAPPING**:
+   - Map specific job requirements to candidate's actual accomplishments
+   - Look at what they DID, not just keywords in job descriptions
+   - Rate each match: strong (directly relevant), moderate (transferable), weak (tangential)
+
+4. **EXPERIENCE WEIGHTING**:
+   - Recent experience (last 5 years) weighted more heavily than older roles
+   - Years of experience requirements are soft filters, not hard cutoffs
+   - 3 years of highly relevant experience > 10 years of loosely related experience
+
+5. **DOMAIN RELEVANCE**:
    - Medical/Clinical: Doctor, Nurse, Physician, Surgeon, Medical, Clinical, Healthcare Provider
    - IT/Technical: Engineer, Developer, Administrator, Infrastructure, Systems, Network, Cloud
    - Business/Management: Manager, Director, Executive, Consultant, Operations
@@ -495,31 +519,40 @@ ${i + 1}. ${exp.position} at ${exp.company}
 
 **ANALYSIS TASK:**
 
-Calculate 4 scores (0-100):
+Perform a comprehensive ATS-style matching analysis:
 
-1. **Skill Match (0-100)**:
+1. **Keyword Extraction**: Identify key skills, technologies, competencies from job posting
+
+2. **Skill Match (0-100)**:
    - What % of required skills does the candidate have?
    - Are the skills DOMAIN-COMPATIBLE? (IT skills don't match medical jobs)
-   - List missing skills
+   - Count semantic equivalents (Python = Python programming)
+   - List matched and missing keywords
 
-2. **Experience Match (0-100)**:
+3. **Experience Match (0-100)**:
    - Are the candidate's PAST JOB TITLES semantically similar to THIS job title?
+   - Map job responsibilities to candidate accomplishments (strong/moderate/weak)
    - Is the candidate's experience in a COMPATIBLE DOMAIN?
+   - Weight recent experience (last 5 years) more heavily
    - Does the candidate have RELEVANT years (not just total years)?
    - Example: 29 years in IT ≠ 8 years required for Physician
 
-3. **Industry Match (0-100)**:
+4. **Title Relevance**: Assess career progression relevance (high/medium/low)
+
+5. **Industry Match (0-100)**:
    - Has the candidate worked in THIS specific industry/domain before?
    - Example: IT professional applying to medical role = LOW score
 
-4. **Location Match (0-100)**:
+6. **Location Match (0-100)**:
    - Remote jobs = 100
    - Same city = 100
    - Different locations = lower score
 
-5. **Overall Match (0-100)**: Weighted average (Skills 40%, Experience 30%, Industry 20%, Location 10%)
+7. **Overall Match (0-100)**: Weighted average (Skills 40%, Experience 30%, Industry 20%, Location 10%)
 
-6. **Recommendations**: 2-3 specific, actionable suggestions
+8. **Recommendation Level**: strong match | qualified | partial match | not recommended
+
+9. **Actionable Recommendations**: 2-3 specific suggestions
 
 Return JSON with this EXACT structure:
 {
@@ -530,8 +563,19 @@ Return JSON with this EXACT structure:
     "industryMatch": number (0-100),
     "locationMatch": number (0-100)
   },
+  "matchedKeywords": ["keyword1", "keyword2"],
+  "matchedResponsibilities": [
+    {
+      "jobRequirement": "specific requirement from job posting",
+      "candidateExperience": "matching accomplishment from candidate",
+      "strength": "strong|moderate|weak"
+    }
+  ],
   "missingSkills": ["skill1", "skill2"],
-  "recommendations": ["recommendation1", "recommendation2", "recommendation3"]
+  "titleRelevance": "high|medium|low",
+  "recommendationLevel": "strong match|qualified|partial match|not recommended",
+  "recommendations": ["recommendation1", "recommendation2", "recommendation3"],
+  "summary": "2-3 sentence assessment"
 }
 
 **EXAMPLES OF CORRECT ANALYSIS:**
@@ -587,8 +631,13 @@ Example 2: IT professional → Cloud Engineer role
         industryMatch: 50,
         locationMatch: 50,
       },
+      matchedKeywords: [],
+      matchedResponsibilities: [],
       missingSkills: [],
+      titleRelevance: 'medium',
+      recommendationLevel: 'partial match',
       recommendations: ['Unable to generate AI analysis. Please review job requirements manually.'],
+      summary: 'AI analysis unavailable. Manual review recommended.',
     };
   }
 }
