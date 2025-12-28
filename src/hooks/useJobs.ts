@@ -90,7 +90,7 @@ export function useJobs(pageSize = 20) {
         requiredSkills: row.required_skills || [],
         missingSkills: row.missing_skills || [],
         recommendations: row.recommendations || [],
-        compatibilityBreakdown: (row.compatibility_breakdown as CompatibilityBreakdown) || {
+        compatibilityBreakdown: (row.compatibility_breakdown as unknown as CompatibilityBreakdown) || {
           skillMatch: 0,
           experienceMatch: 0,
           industryMatch: 0,
@@ -290,7 +290,7 @@ export function useJob(jobId: string | undefined) {
           requiredSkills: data.required_skills || [],
           missingSkills: data.missing_skills || [],
           recommendations: data.recommendations || [],
-          compatibilityBreakdown: (data.compatibility_breakdown as CompatibilityBreakdown) || {
+          compatibilityBreakdown: (data.compatibility_breakdown as unknown as CompatibilityBreakdown) || {
             skillMatch: 0,
             experienceMatch: 0,
             industryMatch: 0,
