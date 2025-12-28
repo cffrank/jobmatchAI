@@ -11,7 +11,7 @@
 
 import type { Job, CompatibilityBreakdown } from '@/sections/job-discovery-matching/types'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
+const API_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'
 
 interface AIAnalysisResult {
   success: boolean
