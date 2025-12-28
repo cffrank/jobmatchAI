@@ -1,6 +1,6 @@
 {
   "name": "jobmatch-ai-backend",
-  "version": "1.0.12",
+  "version": "1.0.13",
   "description": "Express.js backend for JobMatch AI - migrated from Firebase Cloud Functions",
   "main": "dist/index.js",
   "scripts": {
