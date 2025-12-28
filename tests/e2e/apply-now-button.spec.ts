@@ -318,7 +318,7 @@ test.describe('Apply Now Button - CORS Verification', () => {
 });
 
 test.describe('Apply Now Button - Database Integration', () => {
-  test.skip('Generated application has required fields after migration', async ({ page }) => {
+  test.skip('Generated application has required fields after migration', async () => {
     // This test requires authentication AND backend API access
     // Skipped for now as it needs more setup
     //

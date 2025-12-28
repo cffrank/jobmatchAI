@@ -151,10 +151,16 @@ test.describe('Cloudflare Pages Deployment Tests', () => {
 
     // Check if environment variables are loaded
     const envCheck = await page.evaluate(() => {
+      interface WindowWithEnv extends Window {
+        VITE_SUPABASE_URL?: string;
+        VITE_SUPABASE_ANON_KEY?: string;
+        VITE_BACKEND_URL?: string;
+      }
+      const w = window as WindowWithEnv;
       return {
-        hasSupabaseUrl: !!(window as any).VITE_SUPABASE_URL || !!import.meta.env.VITE_SUPABASE_URL,
-        hasSupabaseKey: !!(window as any).VITE_SUPABASE_ANON_KEY || !!import.meta.env.VITE_SUPABASE_ANON_KEY,
-        hasBackendUrl: !!(window as any).VITE_BACKEND_URL || !!import.meta.env.VITE_BACKEND_URL,
+        hasSupabaseUrl: !!w.VITE_SUPABASE_URL || !!import.meta.env.VITE_SUPABASE_URL,
+        hasSupabaseKey: !!w.VITE_SUPABASE_ANON_KEY || !!import.meta.env.VITE_SUPABASE_ANON_KEY,
+        hasBackendUrl: !!w.VITE_BACKEND_URL || !!import.meta.env.VITE_BACKEND_URL,
       };
     });
 
