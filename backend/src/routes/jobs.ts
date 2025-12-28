@@ -18,6 +18,7 @@ import { authenticateUser, requireAdmin, getUserId } from '../middleware/auth';
 import { rateLimiter } from '../middleware/rateLimiter';
 import { asyncHandler, createNotFoundError, createValidationError } from '../middleware/errorHandler';
 import { scrapeJobs, isApifyConfigured } from '../services/jobScraper.service';
+import { analyzeJobCompatibility } from '../services/openai.service';
 import type { ListJobsResponse, ScrapeJobsResponse } from '../types';
 
 // =============================================================================
@@ -161,6 +162,121 @@ router.get(
     }
 
     res.json(job);
+  })
+);
+
+/**
+ * POST /api/jobs/:id/analyze
+ * Run AI-powered semantic compatibility analysis on a job
+ *
+ * Uses GPT-4 to:
+ * - Semantically match job titles with past experience
+ * - Semantically match requirements with experience descriptions
+ * - Calculate accurate domain-aware compatibility scores
+ *
+ * Rate limited: 20 per hour (API costs)
+ */
+router.post(
+  '/:id/analyze',
+  authenticateUser,
+  rateLimiter({ maxRequests: 20, windowMs: 60 * 60 * 1000 }), // 20 per hour
+  asyncHandler(async (req: Request, res: Response) => {
+    const userId = getUserId(req);
+    const { id } = req.params;
+
+    console.log(`[AI Analysis] Starting analysis for job ${id}`);
+
+    // Fetch job
+    const { data: job, error: jobError } = await supabaseAdmin
+      .from(TABLES.JOBS)
+      .select('*')
+      .eq('id', id)
+      .eq('user_id', userId)
+      .single();
+
+    if (jobError || !job) {
+      throw createNotFoundError('Job', id);
+    }
+
+    // Fetch user profile
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from(TABLES.USERS)
+      .select('*')
+      .eq('id', userId)
+      .single();
+
+    if (profileError || !profile) {
+      console.error('[AI Analysis] Failed to fetch user profile:', profileError);
+      throw new Error('Failed to fetch user profile');
+    }
+
+    // Fetch skills
+    const { data: skills, error: skillsError } = await supabaseAdmin
+      .from(TABLES.SKILLS)
+      .select('*')
+      .eq('user_id', userId);
+
+    if (skillsError) {
+      console.error('[AI Analysis] Failed to fetch skills:', skillsError);
+      throw new Error('Failed to fetch skills');
+    }
+
+    // Fetch work experience
+    const { data: workExperience, error: workExpError } = await supabaseAdmin
+      .from(TABLES.WORK_EXPERIENCE)
+      .select('*')
+      .eq('user_id', userId)
+      .order('start_date', { ascending: false });
+
+    if (workExpError) {
+      console.error('[AI Analysis] Failed to fetch work experience:', workExpError);
+      throw new Error('Failed to fetch work experience');
+    }
+
+    console.log(`[AI Analysis] Fetched profile data: ${skills?.length || 0} skills, ${workExperience?.length || 0} work experiences`);
+
+    // Run AI analysis
+    const analysis = await analyzeJobCompatibility(
+      job,
+      profile,
+      workExperience || [],
+      skills || []
+    );
+
+    console.log(`[AI Analysis] Analysis complete: ${analysis.matchScore}% overall match`);
+
+    // Update job with analysis results
+    const { data: updatedJob, error: updateError } = await supabaseAdmin
+      .from(TABLES.JOBS)
+      .update({
+        match_score: analysis.matchScore,
+        compatibility_breakdown: analysis.compatibilityBreakdown,
+        missing_skills: analysis.missingSkills,
+        recommendations: analysis.recommendations,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .eq('user_id', userId)
+      .select()
+      .single();
+
+    if (updateError || !updatedJob) {
+      console.error('[AI Analysis] Failed to update job:', updateError);
+      throw new Error('Failed to update job with analysis results');
+    }
+
+    console.log(`[AI Analysis] Job ${id} updated with analysis results`);
+
+    res.json({
+      success: true,
+      job: updatedJob,
+      analysis: {
+        matchScore: analysis.matchScore,
+        compatibilityBreakdown: analysis.compatibilityBreakdown,
+        missingSkills: analysis.missingSkills,
+        recommendations: analysis.recommendations,
+      },
+    });
   })
 );
 

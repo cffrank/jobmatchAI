@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import type { Job, CompatibilityBreakdown } from '@/sections/job-discovery-matching/types'
 import { rankJobs } from '@/lib/jobMatching'
+import { analyzeJobWithAI } from '@/lib/aiJobMatching'
 import { useProfile } from './useProfile'
 import { useSkills } from './useSkills'
 import { useWorkExperience } from './useWorkExperience'
@@ -238,15 +239,12 @@ export function useJob(jobId: string | undefined) {
   const { user } = useAuth()
   const userId = user?.id
 
-  // Fetch user profile data for matching
-  const { profile } = useProfile()
-  const { skills } = useSkills()
-  const { workExperience, loading: workExpLoading } = useWorkExperience()
   const { savedJobIds } = useSavedJobs()
 
   // State management
   const [job, setJob] = useState<Job | null>(null)
   const [loading, setLoading] = useState(true)
+  const [analyzing, setAnalyzing] = useState(false)
   const [error, setError] = useState<Error | null>(null)
 
   // Fetch job
@@ -281,6 +279,24 @@ export function useJob(jobId: string | undefined) {
           return
         }
 
+        // Parse compatibility_breakdown from JSON if it exists
+        let compatibilityBreakdown: CompatibilityBreakdown = {
+          skillMatch: 0,
+          experienceMatch: 0,
+          industryMatch: 0,
+          locationMatch: 0,
+        }
+
+        if (data.compatibility_breakdown) {
+          try {
+            compatibilityBreakdown = typeof data.compatibility_breakdown === 'string'
+              ? JSON.parse(data.compatibility_breakdown)
+              : data.compatibility_breakdown
+          } catch (e) {
+            console.warn('[useJob] Failed to parse compatibility_breakdown:', e)
+          }
+        }
+
         // Convert to Job type
         const rawJob: Job = {
           id: data.id,
@@ -296,43 +312,47 @@ export function useJob(jobId: string | undefined) {
           url: data.url || undefined,
           source: data.source as 'linkedin' | 'indeed' | 'manual' || 'manual',
           matchScore: data.match_score || undefined,
-          isSaved: false,
-          // Read from database instead of hardcoding empty arrays
+          isSaved: savedJobIds.includes(data.id),
           requiredSkills: data.required_skills || [],
           missingSkills: data.missing_skills || [],
           recommendations: data.recommendations || [],
-          // Use placeholder - will be recalculated with real data below
-          compatibilityBreakdown: {
-            skillMatch: 0,
-            experienceMatch: 0,
-            industryMatch: 0,
-            locationMatch: 0,
-          },
+          compatibilityBreakdown,
         }
 
-        // Wait for work experience to load before calculating compatibility
-        // This prevents showing incorrect scores when workExperience is empty
-        if (workExpLoading) {
-          setJob({
-            ...rawJob,
-            isSaved: savedJobIds.includes(rawJob.id),
-          })
-          setLoading(false)
-          return
-        }
-
-        // Rank this single job with loaded profile data to get accurate match score
-        const [rankedJob] = rankJobs([rawJob], {
-          user: profile,
-          skills,
-          workExperience,
-        })
-
-        setJob({
-          ...rankedJob,
-          isSaved: savedJobIds.includes(rawJob.id),
-        })
+        setJob(rawJob)
         setLoading(false)
+
+        // Trigger AI analysis if job doesn't have a match score
+        // This happens in the background after the job is displayed
+        if (!data.match_score) {
+          console.log('[useJob] No match score found, triggering AI analysis...')
+          setAnalyzing(true)
+
+          try {
+            const { data: { session } } = await supabase.auth.getSession()
+
+            if (session?.access_token) {
+              const result = await analyzeJobWithAI(jobId, session.access_token)
+
+              // Update job with AI analysis results
+              const updatedJob: Job = {
+                ...rawJob,
+                matchScore: result.analysis.matchScore,
+                compatibilityBreakdown: result.analysis.compatibilityBreakdown,
+                missingSkills: result.analysis.missingSkills,
+                recommendations: result.analysis.recommendations,
+              }
+
+              setJob(updatedJob)
+              console.log(`[useJob] AI analysis complete: ${result.analysis.matchScore}% match`)
+            }
+          } catch (err) {
+            console.error('[useJob] AI analysis failed:', err)
+            // Don't show error to user, just log it
+          } finally {
+            setAnalyzing(false)
+          }
+        }
       } catch (err) {
         console.error('[useJob] Error fetching job:', err)
         setError(err as Error)
@@ -341,7 +361,7 @@ export function useJob(jobId: string | undefined) {
     }
 
     fetchJob()
-  }, [jobId, userId, profile, skills, workExperience, workExpLoading, savedJobIds])
+  }, [jobId, userId, savedJobIds])
 
   /**
    * Save/bookmark a job
@@ -386,6 +406,7 @@ export function useJob(jobId: string | undefined) {
   return {
     job,
     loading,
+    analyzing,
     error,
     saveJob,
     unsaveJob,

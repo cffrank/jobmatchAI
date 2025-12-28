@@ -412,7 +412,190 @@ function getFallbackVariant(
 // =============================================================================
 
 /**
+ * AI-powered semantic job compatibility analysis
+ *
+ * Uses GPT-4 to:
+ * 1. Semantically match job titles with past experience titles
+ * 2. Semantically match job requirements with experience descriptions
+ * 3. Understand domain relevance (IT vs Medical vs Business, etc.)
+ * 4. Calculate accurate compatibility scores
+ */
+export async function analyzeJobCompatibility(
+  job: Job,
+  profile: UserProfile,
+  workExperience: WorkExperience[],
+  skills: Skill[]
+): Promise<{
+  matchScore: number;
+  compatibilityBreakdown: {
+    skillMatch: number;
+    experienceMatch: number;
+    industryMatch: number;
+    locationMatch: number;
+  };
+  missingSkills: string[];
+  recommendations: string[];
+}> {
+  try {
+    const openai = getOpenAI();
+
+    // Build experience summary
+    const experienceSummary = workExperience.map((exp) => ({
+      position: exp.position,
+      company: exp.company,
+      duration: `${exp.startDate} - ${exp.current ? 'Present' : exp.endDate || ''}`,
+      description: exp.description || '',
+      accomplishments: exp.accomplishments.slice(0, 3), // Top 3
+    }));
+
+    const prompt = `You are an expert ATS (Applicant Tracking System) analyzer. Perform a SEMANTIC job compatibility analysis.
+
+**CRITICAL INSTRUCTIONS:**
+1. **SEMANTIC TITLE MATCHING**: Compare the job title with the candidate's past experience titles using semantic understanding, not keywords.
+   - "Physician" is NOT similar to "Infrastructure Manager" even if both work in healthcare
+   - "Software Engineer" IS similar to "Developer" or "Programmer"
+   - Medical roles (Doctor, Nurse, Physician) are ONLY compatible with medical experience
+   - IT roles (Engineer, Administrator, Developer) are ONLY compatible with technical experience
+
+2. **SEMANTIC REQUIREMENT MATCHING**: Compare job requirements with actual experience descriptions.
+   - "Patient care" experience is NOT relevant to "System administration" jobs
+   - "VMware" skills are NOT relevant to "Surgery" requirements
+   - Look at what the candidate actually DID, not just keywords
+
+3. **DOMAIN RELEVANCE**: Identify the primary domain of the job and candidate:
+   - Medical/Clinical: Doctor, Nurse, Physician, Surgeon, Medical, Clinical, Healthcare Provider
+   - IT/Technical: Engineer, Developer, Administrator, Infrastructure, Systems, Network, Cloud
+   - Business/Management: Manager, Director, Executive, Consultant, Operations
+   - Only give high scores if domains match!
+
+**JOB POSTING:**
+Title: ${job.title}
+Company: ${job.company}
+Location: ${job.location || 'Not specified'}
+Work Arrangement: ${job.workArrangement || 'Not specified'}
+
+Description: ${job.description?.slice(0, 1000) || 'Not provided'}
+
+Required Skills: ${job.requiredSkills?.join(', ') || 'Not specified'}
+
+**CANDIDATE PROFILE:**
+Location: ${profile.location || 'Not specified'}
+Summary: ${profile.summary || 'Not provided'}
+
+Skills: ${skills.map((s) => s.name).join(', ')}
+
+Work Experience:
+${experienceSummary.map((exp, i) => `
+${i + 1}. ${exp.position} at ${exp.company}
+   Duration: ${exp.duration}
+   Description: ${exp.description}
+   Key Accomplishments:
+   ${exp.accomplishments.map(a => `   - ${a}`).join('\n')}
+`).join('\n')}
+
+**ANALYSIS TASK:**
+
+Calculate 4 scores (0-100):
+
+1. **Skill Match (0-100)**:
+   - What % of required skills does the candidate have?
+   - Are the skills DOMAIN-COMPATIBLE? (IT skills don't match medical jobs)
+   - List missing skills
+
+2. **Experience Match (0-100)**:
+   - Are the candidate's PAST JOB TITLES semantically similar to THIS job title?
+   - Is the candidate's experience in a COMPATIBLE DOMAIN?
+   - Does the candidate have RELEVANT years (not just total years)?
+   - Example: 29 years in IT ≠ 8 years required for Physician
+
+3. **Industry Match (0-100)**:
+   - Has the candidate worked in THIS specific industry/domain before?
+   - Example: IT professional applying to medical role = LOW score
+
+4. **Location Match (0-100)**:
+   - Remote jobs = 100
+   - Same city = 100
+   - Different locations = lower score
+
+5. **Overall Match (0-100)**: Weighted average (Skills 40%, Experience 30%, Industry 20%, Location 10%)
+
+6. **Recommendations**: 2-3 specific, actionable suggestions
+
+Return JSON with this EXACT structure:
+{
+  "matchScore": number (0-100),
+  "compatibilityBreakdown": {
+    "skillMatch": number (0-100),
+    "experienceMatch": number (0-100),
+    "industryMatch": number (0-100),
+    "locationMatch": number (0-100)
+  },
+  "missingSkills": ["skill1", "skill2"],
+  "recommendations": ["recommendation1", "recommendation2", "recommendation3"]
+}
+
+**EXAMPLES OF CORRECT ANALYSIS:**
+
+Example 1: IT professional → Physician role
+- Skill Match: 0-10% (VMware, Citrix ≠ Patient Care, Surgery)
+- Experience Match: 0-5% (Infrastructure Manager ≠ Physician)
+- Industry Match: 0% (IT ≠ Medical)
+- Overall: 0-5%
+
+Example 2: IT professional → Cloud Engineer role
+- Skill Match: 70-90% (VMware, Cloud, Systems = relevant)
+- Experience Match: 80-95% (Infrastructure Manager ~ Cloud Engineer)
+- Industry Match: 90-100% (Both IT)
+- Overall: 80-90%`;
+
+    const completion = await openai.chat.completions.create({
+      model: MODELS.MATCH_ANALYSIS, // gpt-4o
+      messages: [
+        {
+          role: 'system',
+          content: 'You are an expert ATS system that performs accurate semantic job matching. You understand domain relevance and never give high scores for incompatible domains (IT vs Medical, etc.).',
+        },
+        {
+          role: 'user',
+          content: prompt,
+        },
+      ],
+      temperature: 0.3, // Lower temperature for more consistent analysis
+      max_tokens: 1000,
+      response_format: { type: 'json_object' },
+    });
+
+    const content = completion.choices[0]?.message.content;
+    if (!content) {
+      throw new Error('No content in OpenAI response');
+    }
+
+    const result = JSON.parse(content);
+
+    console.log(`[AI Match Analysis] ${job.title} at ${job.company} -> Overall: ${result.matchScore}%`);
+    console.log(`[AI Match Analysis] Breakdown: Skills ${result.compatibilityBreakdown.skillMatch}%, Experience ${result.compatibilityBreakdown.experienceMatch}%, Industry ${result.compatibilityBreakdown.industryMatch}%, Location ${result.compatibilityBreakdown.locationMatch}%`);
+
+    return result;
+  } catch (error) {
+    console.error('[AI Match Analysis] Analysis failed:', error);
+    // Return neutral scores if AI fails
+    return {
+      matchScore: 50,
+      compatibilityBreakdown: {
+        skillMatch: 50,
+        experienceMatch: 50,
+        industryMatch: 50,
+        locationMatch: 50,
+      },
+      missingSkills: [],
+      recommendations: ['Unable to generate AI analysis. Please review job requirements manually.'],
+    };
+  }
+}
+
+/**
  * Generate AI-powered insights for job match analysis
+ * (Legacy function - kept for backwards compatibility)
  */
 export async function generateMatchInsights(
   job: Job,

@@ -1,4 +1,5 @@
 import { useNavigate, useParams } from 'react-router-dom'
+import { useEffect, useRef } from 'react'
 import { JobDetail } from './components/JobDetail'
 import { useJob } from '../../hooks/useJobs'
 import { toast } from 'sonner'
@@ -6,7 +7,19 @@ import { toast } from 'sonner'
 export default function JobDetailPage() {
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
-  const { job, loading, error, saveJob, unsaveJob } = useJob(id)
+  const { job, loading, analyzing, error, saveJob, unsaveJob } = useJob(id)
+  const hasShownAnalyzingToast = useRef(false)
+
+  // Show toast when AI analysis starts
+  useEffect(() => {
+    if (analyzing && !hasShownAnalyzingToast.current) {
+      hasShownAnalyzingToast.current = true
+      toast.info('Analyzing job compatibility...', {
+        description: 'Using AI to match this role with your profile',
+        duration: 3000,
+      })
+    }
+  }, [analyzing])
 
   if (error) {
     toast.error('Failed to load job details', {

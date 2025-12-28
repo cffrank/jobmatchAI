@@ -4,13 +4,107 @@ import type { User, Skill, WorkExperience } from '@/sections/profile-resume-mana
 /**
  * Job matching service that scores jobs based on user profile compatibility
  *
- * The algorithm evaluates four key dimensions:
- * 1. Skill Match: Overlap between user skills and job requirements
- * 2. Experience Match: User's experience level vs job requirements
- * 3. Industry Match: Industry/domain experience alignment
+ * REDESIGNED ALGORITHM (v2.0) - Semantic Relevance Based
+ * ========================================================
+ * The algorithm evaluates four key dimensions with RELEVANCE checking:
+ *
+ * 1. Skill Match: Domain-aware skill overlap (IT skills don't match medical jobs)
+ * 2. Experience Match: Role-relevant years only (IT years don't count for Physician)
+ * 3. Industry Match: Role-level matching, not just company keywords
  * 4. Location Match: Geographic compatibility
  *
+ * KEY IMPROVEMENTS:
+ * - Role domain classification (IT, Medical, Business, Engineering, etc.)
+ * - Skill domain grouping (Technical, Clinical, Business, etc.)
+ * - Job title semantic similarity (Infrastructure Manager ≠ Physician)
+ * - Experience relevance checking (only count years in similar roles)
+ *
  * @architecture This is a pure function with no side effects, making it easily testable
+ */
+
+/**
+ * Role domain classifications
+ * DEPRECATED: Now handled by AI in backend
+ * Kept for reference only
+ */
+// @ts-ignore - Kept for reference, matching now done by AI
+const ROLE_DOMAINS = {
+  IT_TECHNICAL: [
+    'engineer', 'developer', 'programmer', 'architect', 'administrator', 'analyst',
+    'devops', 'sre', 'cloud', 'systems', 'infrastructure', 'network', 'security',
+    'software', 'data', 'database', 'technical', 'it ', 'technology', 'cyber'
+  ],
+  MEDICAL_CLINICAL: [
+    'physician', 'doctor', 'nurse', 'surgeon', 'medical', 'clinical', 'healthcare provider',
+    'practitioner', 'clinician', 'therapist', 'radiologist', 'cardiologist', 'md', 'do',
+    'registered nurse', 'rn', 'lpn', 'np', 'pa', 'anesthesiologist', 'psychiatrist'
+  ],
+  BUSINESS_MANAGEMENT: [
+    'manager', 'director', 'executive', 'ceo', 'cto', 'cfo', 'coo', 'vp', 'president',
+    'lead', 'head of', 'chief', 'senior manager', 'project manager', 'product manager',
+    'business', 'operations', 'strategy', 'consultant'
+  ],
+  SALES_MARKETING: [
+    'sales', 'marketing', 'account', 'business development', 'growth', 'revenue',
+    'account executive', 'sales engineer', 'marketer', 'brand', 'advertising'
+  ],
+  DESIGN_CREATIVE: [
+    'designer', 'ux', 'ui', 'creative', 'artist', 'visual', 'graphic', 'product design'
+  ],
+  FINANCE_ACCOUNTING: [
+    'accountant', 'financial', 'finance', 'accounting', 'auditor', 'controller', 'treasurer'
+  ],
+  LEGAL: [
+    'attorney', 'lawyer', 'legal', 'counsel', 'paralegal', 'compliance'
+  ],
+  EDUCATION: [
+    'teacher', 'professor', 'instructor', 'educator', 'tutor', 'trainer', 'coach'
+  ],
+  SERVICE_OPERATIONS: [
+    'service', 'support', 'operations', 'logistics', 'warehouse', 'driver', 'technician'
+  ]
+}
+
+/**
+ * Skill domain classifications
+ * DEPRECATED: Now handled by AI in backend
+ * Kept for reference only
+ */
+// @ts-ignore - Kept for reference, matching now done by AI
+const SKILL_DOMAINS = {
+  TECHNICAL_IT: [
+    'java', 'python', 'javascript', 'react', 'angular', 'vue', 'node', 'aws', 'azure', 'gcp',
+    'kubernetes', 'docker', 'ci/cd', 'git', 'linux', 'windows', 'sql', 'nosql', 'api',
+    'rest', 'graphql', 'microservices', 'devops', 'terraform', 'ansible', 'jenkins',
+    'vmware', 'hyper-v', 'virtualization', 'citrix', 'active directory', 'networking',
+    'security', 'firewall', 'vpn', 'cloud', 'saas', 'infrastructure', 'system administration',
+    'powershell', 'bash', 'scripting', 'automation', 'monitoring', 'nagios', 'prometheus'
+  ],
+  MEDICAL_CLINICAL: [
+    'patient care', 'diagnosis', 'treatment', 'surgery', 'medical procedures', 'clinical',
+    'emr', 'ehr', 'epic', 'cerner', 'healthcare', 'hipaa', 'patient safety', 'bedside manner',
+    'clinical assessment', 'medical coding', 'icd', 'cpt', 'medical terminology'
+  ],
+  BUSINESS_SOFT: [
+    'leadership', 'management', 'communication', 'teamwork', 'project management', 'agile',
+    'scrum', 'stakeholder management', 'budget', 'strategy', 'planning', 'analysis',
+    'problem solving', 'critical thinking', 'presentation', 'negotiation'
+  ],
+  DATA_ANALYTICS: [
+    'data analysis', 'sql', 'excel', 'tableau', 'power bi', 'analytics', 'reporting',
+    'statistics', 'data visualization', 'business intelligence', 'etl'
+  ]
+}
+
+/**
+ * NOTE: The semantic matching functions below are now handled by AI in the backend.
+ * These domain classifications are kept for reference but the actual matching
+ * is done via GPT-4 in backend/src/services/openai.service.ts:analyzeJobCompatibility()
+ *
+ * The AI provides much more accurate semantic matching that understands:
+ * - Job title similarity (Infrastructure Manager ≠ Physician even in same industry)
+ * - Skill domain compatibility (VMware ≠ Patient Care)
+ * - Experience relevance (IT years don't count for medical positions)
  */
 
 interface UserProfile {
