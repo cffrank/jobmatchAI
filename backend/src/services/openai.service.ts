@@ -459,38 +459,35 @@ export async function analyzeJobCompatibility(
       accomplishments: exp.accomplishments.slice(0, 3), // Top 3
     }));
 
-    const prompt = `You are an expert ATS (Applicant Tracking System) matching agent. Your task is to compare a job posting against a candidate profile and provide a structured compatibility analysis.
+    const prompt = `You are an AI resume screening agent using semantic matching principles. Your task is to evaluate candidate-job fit while minimizing demographic bias and providing explainable assessments.
 
-**CRITICAL MATCHING RULES:**
+## Matching Methodology
+Apply semantic similarity rather than exact keyword matching:
+- Treat equivalent terms as matches (e.g., "software engineer" ≈ "developer" ≈ "programmer")
+- Map skills to related competencies (e.g., "AWS" relates to "cloud infrastructure", "EC2", "DevOps")
+- Normalize title inflation/deflation across industries
+- Weight recent experience (last 3-5 years) more heavily than older roles
+- Treat years-of-experience as soft signals, not hard cutoffs
 
-1. **SEMANTIC TITLE MATCHING** (not keyword-based):
-   - "Physician" is NOT similar to "Infrastructure Manager" even if both work in healthcare
-   - "Software Engineer" IS similar to "Developer", "Programmer", "SWE"
-   - Medical roles (Doctor, Nurse, Physician) are ONLY compatible with medical experience
-   - IT roles (Engineer, Administrator, Developer) are ONLY compatible with technical experience
-   - Normalize title inflation/deflation (Senior vs Lead vs Principal)
+## Bias Mitigation (CRITICAL)
+- Ignore: names, gender indicators, age proxies, cultural identifiers, disability markers
+- Focus ONLY on: skills, experience, qualifications, accomplishments
+- Do not penalize: employment gaps, non-traditional career paths, credential variations
+- Treat equivalent credentials equally (e.g., bootcamp ≈ degree for skill validation)
 
-2. **SEMANTIC KEYWORD MATCHING**:
-   - Exact keyword matches score highest
-   - Semantic equivalents count equally: "manage" = "oversee" = "lead", "build" = "develop" = "create"
-   - Technical terms must match domain: "VMware" is NOT relevant to "Surgery"
-   - Extract and match key skills, technologies, competencies
+## Domain Compatibility (CRITICAL)
+- Medical/Clinical roles (Physician, Nurse, Surgeon) require medical credentials and clinical experience
+- IT/Technical roles (Engineer, Developer, Admin) require technical skills and IT experience
+- Business roles (Manager, Director, Consultant) require business/operations experience
+- **Cross-domain matches score LOW**: IT experience does NOT qualify for medical roles, and vice versa
+- Same-domain matches score based on skill/experience depth
 
-3. **RESPONSIBILITY MAPPING**:
-   - Map specific job requirements to candidate's actual accomplishments
-   - Look at what they DID, not just keywords in job descriptions
-   - Rate each match: strong (directly relevant), moderate (transferable), weak (tangential)
-
-4. **EXPERIENCE WEIGHTING**:
-   - Recent experience (last 5 years) weighted more heavily than older roles
-   - Years of experience requirements are soft filters, not hard cutoffs
-   - 3 years of highly relevant experience > 10 years of loosely related experience
-
-5. **DOMAIN RELEVANCE**:
-   - Medical/Clinical: Doctor, Nurse, Physician, Surgeon, Medical, Clinical, Healthcare Provider
-   - IT/Technical: Engineer, Developer, Administrator, Infrastructure, Systems, Network, Cloud
-   - Business/Management: Manager, Director, Executive, Consultant, Operations
-   - Only give high scores if domains match!
+## Analysis Process
+1. **Skill Extraction**: Identify explicit and implicit skills from both documents
+2. **Semantic Mapping**: Match candidate skills to job requirements using equivalence
+3. **Experience Alignment**: Map responsibilities to requirements
+4. **Gap Identification**: Note missing hard requirements only
+5. **Strength Assessment**: Highlight transferable and exceeding qualifications
 
 **JOB POSTING:**
 Title: ${job.title}
@@ -519,40 +516,45 @@ ${i + 1}. ${exp.position} at ${exp.company}
 
 **ANALYSIS TASK:**
 
-Perform a comprehensive ATS-style matching analysis:
+Perform evidence-based compatibility analysis:
 
-1. **Keyword Extraction**: Identify key skills, technologies, competencies from job posting
+1. **Skill Match (0-100)**:
+   - Extract required skills from job posting
+   - Match against candidate skills using semantic equivalence (exact, related, transferable)
+   - **Domain check**: IT skills don't count for medical jobs, medical skills don't count for IT jobs
+   - Count: exact matches (100% weight), semantic matches (80% weight), transferable (50% weight)
+   - List matched keywords and missing hard requirements
 
-2. **Skill Match (0-100)**:
-   - What % of required skills does the candidate have?
-   - Are the skills DOMAIN-COMPATIBLE? (IT skills don't match medical jobs)
-   - Count semantic equivalents (Python = Python programming)
-   - List matched and missing keywords
+2. **Experience Match (0-100)**:
+   - Compare job title to candidate's past titles using semantic similarity
+   - Map job responsibilities to candidate's actual accomplishments
+   - **Domain compatibility check**: Medical roles require medical experience, IT roles require IT experience
+   - Weight recent experience (last 3-5 years) more heavily
+   - Rate alignment: strong evidence (100%), moderate (60%), weak (30%), gap (0%)
 
-3. **Experience Match (0-100)**:
-   - Are the candidate's PAST JOB TITLES semantically similar to THIS job title?
-   - Map job responsibilities to candidate accomplishments (strong/moderate/weak)
-   - Is the candidate's experience in a COMPATIBLE DOMAIN?
-   - Weight recent experience (last 5 years) more heavily
-   - Does the candidate have RELEVANT years (not just total years)?
-   - Example: 29 years in IT ≠ 8 years required for Physician
+3. **Industry/Domain Match (0-100)**:
+   - Has candidate worked in this specific domain before?
+   - **Examples**:
+     - IT professional → Physician role = 0-5% (different domains)
+     - IT professional → Cloud Engineer = 90-100% (same domain)
+     - Business Analyst → Project Manager = 70-80% (related domains)
 
-4. **Title Relevance**: Assess career progression relevance (high/medium/low)
-
-5. **Industry Match (0-100)**:
-   - Has the candidate worked in THIS specific industry/domain before?
-   - Example: IT professional applying to medical role = LOW score
-
-6. **Location Match (0-100)**:
+4. **Location Match (0-100)**:
    - Remote jobs = 100
    - Same city = 100
-   - Different locations = lower score
+   - Within commutable distance = 75
+   - Different city = 40
+   - Different country = 20
 
-7. **Overall Match (0-100)**: Weighted average (Skills 40%, Experience 30%, Industry 20%, Location 10%)
+5. **Overall Match (0-100)**:
+   - Weighted average: Skills 40%, Experience 30%, Industry 20%, Location 10%
+   - **Critical rule**: If domain mismatch (IT vs Medical), cap overall score at 10%
 
-8. **Recommendation Level**: strong match | qualified | partial match | not recommended
+6. **Title Relevance**: high (direct match), medium (related), low (different domain)
 
-9. **Actionable Recommendations**: 2-3 specific suggestions
+7. **Recommendation Level**: strong match (85-100) | qualified (70-84) | partial match (50-69) | not recommended (<50)
+
+8. **Actionable Recommendations**: 2-3 evidence-based suggestions
 
 Return JSON with this EXACT structure:
 {
@@ -578,26 +580,50 @@ Return JSON with this EXACT structure:
   "summary": "2-3 sentence assessment"
 }
 
-**EXAMPLES OF CORRECT ANALYSIS:**
+## Scoring Guidelines (CRITICAL - Follow Exactly)
+- **85-100**: Exceeds requirements, strong semantic alignment, same domain
+- **70-84**: Meets core requirements with minor gaps, same/related domain
+- **50-69**: Partial match, transferable skills present, related domains
+- **Below 50**: Significant gaps in hard requirements OR domain mismatch
 
-Example 1: IT professional → Physician role
-- Skill Match: 0-10% (VMware, Citrix ≠ Patient Care, Surgery)
-- Experience Match: 0-5% (Infrastructure Manager ≠ Physician)
-- Industry Match: 0% (IT ≠ Medical)
-- Overall: 0-5%
+## Examples of CORRECT Analysis
 
-Example 2: IT professional → Cloud Engineer role
-- Skill Match: 70-90% (VMware, Cloud, Systems = relevant)
-- Experience Match: 80-95% (Infrastructure Manager ~ Cloud Engineer)
-- Industry Match: 90-100% (Both IT)
-- Overall: 80-90%`;
+**Example 1: IT Professional with 29 years experience → Physician/Family Practice role**
+- Skill Match: 0% (VMware, Citrix, Infrastructure ≠ Patient Care, Medical Diagnosis, Clinical Skills)
+- Experience Match: 0% (Infrastructure Manager, Systems Admin ≠ Medical Doctor)
+- Industry Match: 0% (**DOMAIN MISMATCH**: IT ≠ Medical/Clinical)
+- Location Match: 100% (same city)
+- **Overall: 2-5%** (capped due to complete domain mismatch)
+- Title Relevance: "low"
+- Recommendation: "not recommended"
+- Summary: "Candidate has extensive IT infrastructure experience but lacks medical credentials, clinical training, and healthcare experience required for physician roles."
+
+**Example 2: IT Professional with VMware/Cloud experience → Senior Systems Engineer role**
+- Skill Match: 85% (VMware, Cloud, Infrastructure, Systems match exactly)
+- Experience Match: 90% (Infrastructure Manager ≈ Systems Engineer, highly relevant)
+- Industry Match: 95% (IT → IT, same domain)
+- Location Match: 100%
+- **Overall: 89%**
+- Title Relevance: "high"
+- Recommendation: "strong match"
+- Summary: "Candidate's infrastructure and systems experience aligns excellently with role requirements."
+
+**Example 3: Business Analyst → Data Analyst role**
+- Skill Match: 60% (SQL, Excel match; missing Python, R)
+- Experience Match: 70% (Business Analyst ≈ Data Analyst, related roles)
+- Industry Match: 80% (Business → Data, related domains)
+- Location Match: 75%
+- **Overall: 68%**
+- Title Relevance: "medium"
+- Recommendation: "partial match"
+- Summary: "Transferable analytical skills present; would benefit from technical skill development in Python/R."`;
 
     const completion = await openai.chat.completions.create({
       model: MODELS.MATCH_ANALYSIS, // gpt-4o
       messages: [
         {
           role: 'system',
-          content: 'You are an expert ATS system that performs accurate semantic job matching. You understand domain relevance and never give high scores for incompatible domains (IT vs Medical, etc.).',
+          content: 'You are an expert ATS system that performs accurate semantic job matching using evidence-based assessment. CRITICAL: You understand domain compatibility and ALWAYS score cross-domain matches (IT→Medical, Medical→IT, etc.) below 10%. You focus on qualifications only and ignore demographic attributes. You provide explainable, bias-free assessments.',
         },
         {
           role: 'user',
