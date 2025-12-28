@@ -34,7 +34,7 @@ export function useJobs(pageSize = 20) {
   // Fetch user profile data for matching
   const { profile } = useProfile()
   const { skills } = useSkills()
-  const { workExperience } = useWorkExperience()
+  const { workExperience, loading: workExpLoading } = useWorkExperience()
 
   // Fetch saved jobs to mark them in the list
   const { savedJobIds } = useSavedJobs()
@@ -90,7 +90,8 @@ export function useJobs(pageSize = 20) {
         requiredSkills: row.required_skills || [],
         missingSkills: row.missing_skills || [],
         recommendations: row.recommendations || [],
-        compatibilityBreakdown: (row.compatibility_breakdown as unknown as CompatibilityBreakdown) || {
+        // Use placeholder - will be recalculated by rankJobs with real data
+        compatibilityBreakdown: {
           skillMatch: 0,
           experienceMatch: 0,
           industryMatch: 0,
@@ -124,7 +125,17 @@ export function useJobs(pageSize = 20) {
   const rankedJobs = useMemo(() => {
     if (jobs.length === 0) return []
 
-    // Rank jobs using matching algorithm
+    // Wait for work experience to load before calculating compatibility
+    // This prevents showing 0% scores when workExperience is still empty
+    if (workExpLoading) {
+      // Return jobs with placeholder compatibility while loading
+      return jobs.map(job => ({
+        ...job,
+        isSaved: savedJobIds.includes(job.id),
+      }))
+    }
+
+    // Rank jobs using matching algorithm with loaded profile data
     const ranked = rankJobs(jobs, {
       user: profile,
       skills,
@@ -136,7 +147,7 @@ export function useJobs(pageSize = 20) {
       ...job,
       isSaved: savedJobIds.includes(job.id),
     }))
-  }, [jobs, profile, skills, workExperience, savedJobIds])
+  }, [jobs, profile, skills, workExperience, workExpLoading, savedJobIds])
 
   // Load more callback
   const loadMore = useCallback(() => {
