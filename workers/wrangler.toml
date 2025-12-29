@@ -26,19 +26,17 @@ vars = { ENVIRONMENT = "staging" }
 name = "jobmatch-ai-prod"
 vars = { ENVIRONMENT = "production" }
 
-# Scheduled Jobs (Cron Triggers)
+# Scheduled Jobs (Cron Triggers) - DISABLED due to account limit
 # https://developers.cloudflare.com/workers/configuration/cron-triggers/
-[triggers]
-crons = [
-  # Hourly cleanup tasks (rate limits, OAuth states, failed logins)
-  "0 * * * *",
-  # Every 15 minutes - auto-unlock expired accounts
-  "*/15 * * * *",
-  # Daily at 2 AM UTC - automated job search
-  "0 2 * * *",
-  # Daily at 3 AM UTC - archive old jobs
-  "0 3 * * *"
-]
+# Note: Account already has 5+ cron triggers from other workers
+# Cleanup tasks can be triggered manually via API if needed
+# [env.production.triggers]
+# crons = [
+#   # Hourly cleanup (rate limits, OAuth states, failed logins, unlock accounts)
+#   "0 * * * *",
+#   # Daily at 3 AM UTC - archive old jobs
+#   "0 3 * * *"
+# ]
 
 # KV Namespaces (for rate limiting in production - TODO)
 # [[kv_namespaces]]

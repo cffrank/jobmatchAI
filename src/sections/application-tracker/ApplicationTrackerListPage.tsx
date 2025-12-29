@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ApplicationList } from './components/ApplicationList'
+import { StatusUpdateDialog } from './components/StatusUpdateDialog'
 import { useTrackedApplications } from '@/hooks/useTrackedApplications'
 import { X } from 'lucide-react'
 import type { TrackedApplication, ApplicationStatus, ApplicationFilters } from './types'
@@ -13,6 +14,9 @@ export default function ApplicationTrackerListPage() {
     showArchived: false
   })
   const [showNewApplicationDialog, setShowNewApplicationDialog] = useState(false)
+  const [statusUpdateDialog, setStatusUpdateDialog] = useState<{
+    application: TrackedApplication
+  } | null>(null)
   const [newApplicationForm, setNewApplicationForm] = useState({
     company: '',
     jobTitle: '',
@@ -27,12 +31,36 @@ export default function ApplicationTrackerListPage() {
     navigate(`/tracker/${id}`)
   }
 
-  const handleUpdateStatus = async (id: string, status: ApplicationStatus) => {
+  const handleUpdateStatus = async (id: string, status: ApplicationStatus, note?: string) => {
     try {
-      await updateTrackedApplication(id, { status })
-      console.log('Update status:', id, status)
+      const application = trackedApplications.find(app => app.id === id)
+      if (!application) return
+
+      // Add to status history
+      const newHistoryEntry = {
+        status,
+        date: new Date().toISOString(),
+        note
+      }
+
+      const updatedStatusHistory = [...application.statusHistory, newHistoryEntry]
+
+      await updateTrackedApplication(id, {
+        status,
+        statusHistory: updatedStatusHistory
+      })
+
+      console.log('Update status:', id, status, note)
     } catch (error) {
       console.error('Error updating status:', error)
+      throw error
+    }
+  }
+
+  const handleOpenStatusDialog = (id: string) => {
+    const application = trackedApplications.find(app => app.id === id)
+    if (application) {
+      setStatusUpdateDialog({ application })
     }
   }
 
@@ -149,7 +177,7 @@ export default function ApplicationTrackerListPage() {
         applications={filteredApplications}
         filters={filters}
         onViewApplication={handleViewApplication}
-        onUpdateStatus={handleUpdateStatus}
+        onUpdateStatus={(id) => handleOpenStatusDialog(id)}
         onArchive={handleArchive}
         onFilter={handleFilter}
         onSort={handleSort}
@@ -158,6 +186,16 @@ export default function ApplicationTrackerListPage() {
         onExport={handleExport}
         onAddNew={() => setShowNewApplicationDialog(true)}
       />
+
+      {/* Status Update Dialog */}
+      {statusUpdateDialog && (
+        <StatusUpdateDialog
+          currentStatus={statusUpdateDialog.application.status}
+          applicationTitle={`${statusUpdateDialog.application.jobTitle} at ${statusUpdateDialog.application.company}`}
+          onUpdate={(newStatus, note) => handleUpdateStatus(statusUpdateDialog.application.id, newStatus, note)}
+          onClose={() => setStatusUpdateDialog(null)}
+        />
+      )}
 
       {/* New Application Dialog */}
       {showNewApplicationDialog && (
@@ -240,13 +278,17 @@ export default function ApplicationTrackerListPage() {
                     className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="applied">Applied</option>
+                    <option value="response_received">Response Received</option>
                     <option value="screening">Screening</option>
                     <option value="interview_scheduled">Interview Scheduled</option>
                     <option value="interview_completed">Interview Completed</option>
-                    <option value="offer">Offer</option>
+                    <option value="offer">Offer Received</option>
+                    <option value="offer_accepted">Offer Accepted</option>
+                    <option value="offer_declined">Offer Declined</option>
                     <option value="accepted">Accepted</option>
                     <option value="rejected">Rejected</option>
                     <option value="withdrawn">Withdrawn</option>
+                    <option value="abandoned">Abandoned</option>
                   </select>
                 </div>
 

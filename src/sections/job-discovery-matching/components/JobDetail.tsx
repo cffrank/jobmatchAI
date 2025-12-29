@@ -1,4 +1,4 @@
-import { ArrowLeft, Bookmark, BookmarkCheck, Sparkles, MapPin, Briefcase, DollarSign, Calendar, AlertTriangle, CheckCircle2, TrendingUp, Award, Lightbulb } from 'lucide-react'
+import { ArrowLeft, Bookmark, BookmarkCheck, Sparkles, MapPin, Briefcase, DollarSign, Calendar, AlertTriangle, CheckCircle2, TrendingUp, Award, Lightbulb, Pencil, Clock } from 'lucide-react'
 import type { JobDetailProps } from '../types'
 
 export function JobDetail({
@@ -6,8 +6,24 @@ export function JobDetail({
   onBack,
   onSaveJob,
   onUnsaveJob,
-  onApply
+  onApply,
+  onEdit
 }: JobDetailProps) {
+  // Calculate time until expiration
+  const getTimeUntilExpiration = () => {
+    if (job.isSaved || !job.expiresAt) return null
+
+    const now = new Date()
+    const expiresAt = new Date(job.expiresAt)
+    const hoursUntilExpiration = (expiresAt.getTime() - now.getTime()) / (1000 * 60 * 60)
+
+    if (hoursUntilExpiration <= 0) return 'expired'
+    if (hoursUntilExpiration <= 6) return { hours: Math.floor(hoursUntilExpiration), urgent: true }
+    return { hours: Math.floor(hoursUntilExpiration), urgent: false }
+  }
+
+  const expirationInfo = getTimeUntilExpiration()
+
   const getMatchScoreColor = (score?: number) => {
     if (!score) return 'from-slate-500 to-slate-600'
     if (score >= 85) return 'from-emerald-500 to-emerald-600'
@@ -116,7 +132,13 @@ export function JobDetail({
           <div className="flex flex-wrap gap-3">
             <button
               onClick={onApply}
-              className="flex-1 sm:flex-none px-8 py-3.5 bg-white text-blue-600 rounded-xl font-bold text-lg hover:bg-blue-50 transition-all shadow-xl hover:shadow-2xl hover:scale-105"
+              disabled={!job.isSaved}
+              className={`flex-1 sm:flex-none px-8 py-3.5 rounded-xl font-bold text-lg transition-all shadow-xl ${
+                job.isSaved
+                  ? 'bg-white text-blue-600 hover:bg-blue-50 hover:shadow-2xl hover:scale-105 cursor-pointer'
+                  : 'bg-white/50 text-slate-400 cursor-not-allowed opacity-60'
+              }`}
+              title={!job.isSaved ? 'Save this job first to apply' : 'Generate application'}
             >
               Apply Now
             </button>
@@ -136,6 +158,16 @@ export function JobDetail({
                 </>
               )}
             </button>
+            {onEdit && (
+              <button
+                onClick={onEdit}
+                className="px-6 py-3.5 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-xl font-medium transition-all flex items-center gap-2"
+                title="Edit job details"
+              >
+                <Pencil className="w-5 h-5" />
+                <span className="hidden sm:inline">Edit</span>
+              </button>
+            )}
           </div>
 
           {/* Posted Date */}
@@ -148,6 +180,66 @@ export function JobDetail({
 
       {/* Main Content */}
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        {/* Expiration Warning Banner */}
+        {expirationInfo && expirationInfo !== 'expired' && (
+          <div className={`mb-6 rounded-xl border p-4 ${
+            expirationInfo.urgent
+              ? 'bg-amber-50 dark:bg-amber-950 border-amber-300 dark:border-amber-700'
+              : 'bg-blue-50 dark:bg-blue-950 border-blue-300 dark:border-blue-700'
+          }`}>
+            <div className="flex items-start gap-3">
+              <Clock className={`w-5 h-5 mt-0.5 ${
+                expirationInfo.urgent
+                  ? 'text-amber-600 dark:text-amber-400'
+                  : 'text-blue-600 dark:text-blue-400'
+              }`} />
+              <div className="flex-1">
+                <h3 className={`font-semibold mb-1 ${
+                  expirationInfo.urgent
+                    ? 'text-amber-900 dark:text-amber-100'
+                    : 'text-blue-900 dark:text-blue-100'
+                }`}>
+                  {expirationInfo.urgent ? 'Job Expiring Soon!' : 'Unsaved Job'}
+                </h3>
+                <p className={`text-sm ${
+                  expirationInfo.urgent
+                    ? 'text-amber-700 dark:text-amber-300'
+                    : 'text-blue-700 dark:text-blue-300'
+                }`}>
+                  This job will be automatically removed in {expirationInfo.hours} hour{expirationInfo.hours !== 1 ? 's' : ''}.
+                  Save it now to keep it in your list and enable applications.
+                </p>
+              </div>
+              <button
+                onClick={onSaveJob}
+                className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${
+                  expirationInfo.urgent
+                    ? 'bg-amber-600 hover:bg-amber-700 text-white'
+                    : 'bg-blue-600 hover:bg-blue-700 text-white'
+                }`}
+              >
+                Save Job
+              </button>
+            </div>
+          </div>
+        )}
+
+        {!job.isSaved && (
+          <div className="mb-6 rounded-xl border border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-950 p-4">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 mt-0.5 text-blue-600 dark:text-blue-400" />
+              <div className="flex-1">
+                <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-1">
+                  Save Required to Apply
+                </h3>
+                <p className="text-sm text-blue-700 dark:text-blue-300">
+                  You must save this job before you can generate an application. This helps you organize your job search and prevents accidental applications.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Left Column - Main Content */}
           <div className="lg:col-span-2 space-y-8">

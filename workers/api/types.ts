@@ -74,6 +74,11 @@ export interface UserProfile {
   lastName?: string;
   phone?: string;
   location?: string;
+  streetAddress?: string;
+  city?: string;
+  state?: string;
+  postalCode?: string;
+  country?: string;
   summary?: string;
   headline?: string;
   profileImageUrl?: string;
@@ -345,6 +350,11 @@ export interface ParsedProfile {
   email: string;
   phone: string;
   location: string;
+  streetAddress?: string;
+  city?: string;
+  state?: string;
+  postalCode?: string;
+  country?: string;
   headline: string;
   summary: string;
   linkedInUrl?: string;

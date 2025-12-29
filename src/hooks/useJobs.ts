@@ -85,7 +85,10 @@ export function useJobs(pageSize = 20) {
         url: row.url || undefined,
         source: row.source as 'linkedin' | 'indeed' | 'manual' || 'manual',
         matchScore: row.match_score || undefined,
-        isSaved: false, // Will be set below
+        isSaved: row.saved || false,
+        // Expiration tracking
+        savedAt: row.saved_at || undefined,
+        expiresAt: row.expires_at || undefined,
         // Initialize arrays to prevent .map() errors
         requiredSkills: [],
         missingSkills: [],
@@ -157,33 +160,89 @@ export function useJobs(pageSize = 20) {
 
   /**
    * Save/bookmark a job
+   * This will automatically set saved_at and clear expires_at via database trigger
    */
   const saveJob = async (jobId: string) => {
     if (!userId) throw new Error('User not authenticated')
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('jobs')
       .update({ saved: true })
       .eq('id', jobId)
       .eq('user_id', userId)
+      .select('saved_at, expires_at')
+      .single()
 
     if (error) throw error
 
-    // Update local state
+    // Update local state with timestamps from database
     setJobs(prev => prev.map(job =>
-      job.id === jobId ? { ...job, saved: true, isSaved: true } : job
+      job.id === jobId ? {
+        ...job,
+        saved: true,
+        isSaved: true,
+        savedAt: data.saved_at,
+        expiresAt: data.expires_at,
+      } : job
     ))
   }
 
   /**
    * Unsave/unbookmark a job
+   * This will automatically clear saved_at and set expires_at via database trigger
    */
   const unsaveJob = async (jobId: string) => {
     if (!userId) throw new Error('User not authenticated')
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('jobs')
       .update({ saved: false })
+      .eq('id', jobId)
+      .eq('user_id', userId)
+      .select('saved_at, expires_at')
+      .single()
+
+    if (error) throw error
+
+    // Update local state with timestamps from database
+    setJobs(prev => prev.map(job =>
+      job.id === jobId ? {
+        ...job,
+        saved: false,
+        isSaved: false,
+        savedAt: data.saved_at,
+        expiresAt: data.expires_at,
+      } : job
+    ))
+  }
+
+  /**
+   * Update job details (title, company, description, etc.)
+   */
+  const updateJob = async (jobId: string, updates: Partial<{
+    title: string
+    company: string
+    location: string
+    description: string
+    url: string
+    salaryMin: number
+    salaryMax: number
+  }>) => {
+    if (!userId) throw new Error('User not authenticated')
+
+    // Map to database column names
+    const dbUpdates: Record<string, any> = {}
+    if (updates.title !== undefined) dbUpdates.title = updates.title
+    if (updates.company !== undefined) dbUpdates.company = updates.company
+    if (updates.location !== undefined) dbUpdates.location = updates.location
+    if (updates.description !== undefined) dbUpdates.description = updates.description
+    if (updates.url !== undefined) dbUpdates.url = updates.url
+    if (updates.salaryMin !== undefined) dbUpdates.salary_min = updates.salaryMin
+    if (updates.salaryMax !== undefined) dbUpdates.salary_max = updates.salaryMax
+
+    const { error } = await supabase
+      .from('jobs')
+      .update(dbUpdates)
       .eq('id', jobId)
       .eq('user_id', userId)
 
@@ -191,7 +250,7 @@ export function useJobs(pageSize = 20) {
 
     // Update local state
     setJobs(prev => prev.map(job =>
-      job.id === jobId ? { ...job, saved: false, isSaved: false } : job
+      job.id === jobId ? { ...job, ...updates } : job
     ))
   }
 
@@ -204,6 +263,7 @@ export function useJobs(pageSize = 20) {
     reset,
     saveJob,
     unsaveJob,
+    updateJob,
     totalCount,
   }
 }
@@ -285,7 +345,10 @@ export function useJob(jobId: string | undefined) {
           url: data.url || undefined,
           source: data.source as 'linkedin' | 'indeed' | 'manual' || 'manual',
           matchScore: data.match_score || undefined,
-          isSaved: false,
+          isSaved: data.saved || false,
+          // Expiration tracking
+          savedAt: data.saved_at || undefined,
+          expiresAt: data.expires_at || undefined,
           // Initialize arrays to prevent .map() errors
           requiredSkills: [],
           missingSkills: [],
@@ -322,33 +385,87 @@ export function useJob(jobId: string | undefined) {
 
   /**
    * Save/bookmark a job
+   * This will automatically set saved_at and clear expires_at via database trigger
    */
   const saveJob = async (jobId: string) => {
     if (!userId) throw new Error('User not authenticated')
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('jobs')
       .update({ saved: true })
       .eq('id', jobId)
       .eq('user_id', userId)
+      .select('saved_at, expires_at')
+      .single()
 
     if (error) throw error
 
-    // Update local state
+    // Update local state with timestamps from database
     if (job && job.id === jobId) {
-      setJob({ ...job, isSaved: true })
+      setJob({
+        ...job,
+        isSaved: true,
+        savedAt: data.saved_at,
+        expiresAt: data.expires_at,
+      })
     }
   }
 
   /**
    * Unsave/unbookmark a job
+   * This will automatically clear saved_at and set expires_at via database trigger
    */
   const unsaveJob = async (jobId: string) => {
     if (!userId) throw new Error('User not authenticated')
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('jobs')
       .update({ saved: false })
+      .eq('id', jobId)
+      .eq('user_id', userId)
+      .select('saved_at, expires_at')
+      .single()
+
+    if (error) throw error
+
+    // Update local state with timestamps from database
+    if (job && job.id === jobId) {
+      setJob({
+        ...job,
+        isSaved: false,
+        savedAt: data.saved_at,
+        expiresAt: data.expires_at,
+      })
+    }
+  }
+
+  /**
+   * Update job details (title, company, description, etc.)
+   */
+  const updateJob = async (jobId: string, updates: Partial<{
+    title: string
+    company: string
+    location: string
+    description: string
+    url: string
+    salaryMin: number
+    salaryMax: number
+  }>) => {
+    if (!userId) throw new Error('User not authenticated')
+
+    // Map to database column names
+    const dbUpdates: Record<string, any> = {}
+    if (updates.title !== undefined) dbUpdates.title = updates.title
+    if (updates.company !== undefined) dbUpdates.company = updates.company
+    if (updates.location !== undefined) dbUpdates.location = updates.location
+    if (updates.description !== undefined) dbUpdates.description = updates.description
+    if (updates.url !== undefined) dbUpdates.url = updates.url
+    if (updates.salaryMin !== undefined) dbUpdates.salary_min = updates.salaryMin
+    if (updates.salaryMax !== undefined) dbUpdates.salary_max = updates.salaryMax
+
+    const { error } = await supabase
+      .from('jobs')
+      .update(dbUpdates)
       .eq('id', jobId)
       .eq('user_id', userId)
 
@@ -356,7 +473,7 @@ export function useJob(jobId: string | undefined) {
 
     // Update local state
     if (job && job.id === jobId) {
-      setJob({ ...job, isSaved: false })
+      setJob({ ...job, ...updates })
     }
   }
 
@@ -366,6 +483,7 @@ export function useJob(jobId: string | undefined) {
     error,
     saveJob,
     unsaveJob,
+    updateJob,
   }
 }
 

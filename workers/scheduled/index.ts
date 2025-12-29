@@ -29,11 +29,11 @@ const JOBS_ARCHIVE_DAYS = 90;
 /**
  * Handle scheduled events from Cloudflare Cron Triggers
  *
- * Cron patterns configured in wrangler.toml:
- * - "0 * * * *"     - Hourly (rate limits, OAuth states, failed logins)
- * - "*/15 * * * *"  - Every 15 minutes (unlock expired accounts)
- * - "0 2 * * *"     - Daily at 2 AM (automated job search - TODO)
- * - "0 3 * * *"     - Daily at 3 AM (archive old jobs)
+ * Cron patterns configured in wrangler.toml (production only):
+ * - "0 * * * *" - Hourly (rate limits, OAuth states, failed logins, unlock accounts)
+ * - "0 3 * * *" - Daily at 3 AM UTC (archive old jobs)
+ *
+ * Note: Free plan limited to 5 triggers across all workers, so we consolidated jobs
  */
 export async function handleScheduledJobs(event: ScheduledEvent, env: Env): Promise<void> {
   const cronTime = new Date(event.scheduledTime);
@@ -43,19 +43,13 @@ export async function handleScheduledJobs(event: ScheduledEvent, env: Env): Prom
   console.log(`[CRON] Scheduled job triggered at ${cronTime.toISOString()}`);
 
   try {
-    // Determine which jobs to run based on the cron pattern
-
-    // Every 15 minutes - unlock expired accounts
-    if (minute % 15 === 0) {
-      await runWithLogging('unlockExpiredAccounts', () => unlockExpiredAccounts(env));
-    }
-
-    // Hourly jobs (at :00)
+    // Hourly jobs (at :00) - run all cleanup tasks
     if (minute === 0) {
       await Promise.all([
         runWithLogging('cleanupOAuthStates', () => cleanupOAuthStates(env)),
         runWithLogging('cleanupRateLimits', () => cleanupExpiredRateLimits(env)),
         runWithLogging('cleanupFailedLogins', () => cleanupFailedLogins(env)),
+        runWithLogging('unlockExpiredAccounts', () => unlockExpiredAccounts(env)),
       ]);
     }
 
@@ -63,11 +57,6 @@ export async function handleScheduledJobs(event: ScheduledEvent, env: Env): Prom
     if (hour === 3 && minute === 0) {
       await runWithLogging('cleanupOldJobs', () => cleanupOldJobs(env));
     }
-
-    // Daily at 2 AM - automated job search (TODO)
-    // if (hour === 2 && minute === 0) {
-    //   await runWithLogging('searchJobsForAllUsers', () => searchJobsForAllUsers(env));
-    // }
 
     console.log(`[CRON] Scheduled jobs completed successfully`);
   } catch (error) {

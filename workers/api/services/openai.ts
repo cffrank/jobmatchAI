@@ -184,6 +184,25 @@ async function generateVariant(
 }
 
 // =============================================================================
+// Helper Functions
+// =============================================================================
+
+/**
+ * Format user address into a single string for resume
+ */
+function formatAddress(profile: UserProfile): string {
+  const parts: string[] = [];
+
+  if (profile.streetAddress) parts.push(profile.streetAddress);
+  if (profile.city) parts.push(profile.city);
+  if (profile.state) parts.push(profile.state);
+  if (profile.postalCode) parts.push(profile.postalCode);
+  if (profile.country) parts.push(profile.country);
+
+  return parts.length > 0 ? parts.join(', ') : 'Not specified';
+}
+
+// =============================================================================
 // Prompt Builders
 // =============================================================================
 
@@ -300,6 +319,7 @@ CANDIDATE PROFILE:
 
 Name: ${profile.firstName || ''} ${profile.lastName || ''}
 Location: ${profile.location || 'Not specified'}
+Address: ${formatAddress(profile)}
 Phone: ${profile.phone || 'Not provided'}
 Email: ${profile.email || 'Not provided'}
 

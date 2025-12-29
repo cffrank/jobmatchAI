@@ -99,6 +99,13 @@ router.post(
       throw createNotFoundError('Job', jobId);
     }
 
+    // Enforce save-before-apply rule
+    if (!job.saved) {
+      throw createValidationError('You must save this job before applying', {
+        job: 'Please save this job first, then you can generate an application for it',
+      });
+    }
+
     // Fetch user profile
     const { data: profile, error: profileError } = await supabaseAdmin
       .from(TABLES.USERS)
