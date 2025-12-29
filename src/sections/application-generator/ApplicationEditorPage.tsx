@@ -128,6 +128,28 @@ export default function ApplicationEditorPage() {
 
     // If we have generated app, use that instead of fetching from database
     if (generatedApp) {
+      // Safety check: ensure variants exist
+      if (!generatedApp.variants || generatedApp.variants.length === 0) {
+        return (
+          <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center">
+            <div className="text-center max-w-md">
+              <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2">
+                No Variants Available
+              </h1>
+              <p className="text-slate-600 dark:text-slate-400 mb-4">
+                This application doesn't have any resume/cover letter variants.
+              </p>
+              <button
+                onClick={() => navigate('/applications')}
+                className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-colors"
+              >
+                Back to Applications
+              </button>
+            </div>
+          </div>
+        )
+      }
+
       const selectedVariant = generatedApp.variants.find(
         v => v.id === generatedApp.selectedVariantId
       ) || generatedApp.variants[0]
@@ -273,6 +295,28 @@ export default function ApplicationEditorPage() {
           <button
             onClick={() => navigate('/applications')}
             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+          >
+            Back to Applications
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // Safety check: ensure variants exist
+  if (!application.variants || application.variants.length === 0) {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center">
+        <div className="text-center max-w-md">
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2">
+            No Variants Available
+          </h1>
+          <p className="text-slate-600 dark:text-slate-400 mb-4">
+            This application doesn't have any resume/cover letter variants. Please try regenerating the application.
+          </p>
+          <button
+            onClick={() => navigate('/applications')}
+            className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-colors"
           >
             Back to Applications
           </button>
