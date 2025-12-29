@@ -18,6 +18,11 @@ export function EditProfileForm() {
     email: '',
     phone: '',
     location: '',
+    streetAddress: '',
+    city: '',
+    state: '',
+    postalCode: '',
+    country: '',
     linkedInUrl: '',
     headline: '',
     summary: '',
@@ -35,6 +40,11 @@ export function EditProfileForm() {
         email: profile.email || '',
         phone: profile.phone || '',
         location: profile.location || '',
+        streetAddress: profile.streetAddress || '',
+        city: profile.city || '',
+        state: profile.state || '',
+        postalCode: profile.postalCode || '',
+        country: profile.country || '',
         linkedInUrl: profile.linkedInUrl || '',
         headline: profile.headline || '',
         summary: profile.summary || '',
@@ -348,6 +358,106 @@ export function EditProfileForm() {
                   {errors.location && (
                     <p className="mt-1 text-sm text-red-500">{errors.location}</p>
                   )}
+                </div>
+
+                {/* Street Address */}
+                <div>
+                  <label
+                    htmlFor="streetAddress"
+                    className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2"
+                  >
+                    Street Address
+                  </label>
+                  <input
+                    type="text"
+                    id="streetAddress"
+                    value={formData.streetAddress}
+                    onChange={(e) =>
+                      setFormData({ ...formData, streetAddress: e.target.value })
+                    }
+                    className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="123 Main St, Apt 4B"
+                  />
+                </div>
+
+                {/* City and State */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label
+                      htmlFor="city"
+                      className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2"
+                    >
+                      City
+                    </label>
+                    <input
+                      type="text"
+                      id="city"
+                      value={formData.city}
+                      onChange={(e) =>
+                        setFormData({ ...formData, city: e.target.value })
+                      }
+                      className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="San Francisco"
+                    />
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="state"
+                      className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2"
+                    >
+                      State / Province
+                    </label>
+                    <input
+                      type="text"
+                      id="state"
+                      value={formData.state}
+                      onChange={(e) =>
+                        setFormData({ ...formData, state: e.target.value })
+                      }
+                      className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="CA"
+                    />
+                  </div>
+                </div>
+
+                {/* Postal Code and Country */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label
+                      htmlFor="postalCode"
+                      className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2"
+                    >
+                      Postal Code
+                    </label>
+                    <input
+                      type="text"
+                      id="postalCode"
+                      value={formData.postalCode}
+                      onChange={(e) =>
+                        setFormData({ ...formData, postalCode: e.target.value })
+                      }
+                      className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="94102"
+                    />
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="country"
+                      className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2"
+                    >
+                      Country
+                    </label>
+                    <input
+                      type="text"
+                      id="country"
+                      value={formData.country}
+                      onChange={(e) =>
+                        setFormData({ ...formData, country: e.target.value })
+                      }
+                      className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="United States"
+                    />
+                  </div>
                 </div>
 
                 {/* LinkedIn URL */}

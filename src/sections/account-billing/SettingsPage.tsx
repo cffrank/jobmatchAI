@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { User, Shield, Lock, CreditCard } from 'lucide-react'
-import { ProfileSettings } from './components/ProfileSettings'
+import { Shield, Lock, CreditCard } from 'lucide-react'
 import { SecurityTab } from './components/SecurityTab'
 import { PrivacyTab } from './components/PrivacyTab'
 import { SubscriptionOverview } from './components/SubscriptionOverview'
@@ -22,7 +21,7 @@ import type {
 } from './types'
 
 export default function SettingsPage() {
-  const [activeView, setActiveView] = useState<'profile' | 'security' | 'privacy' | 'subscription'>('profile')
+  const [activeView, setActiveView] = useState<'security' | 'privacy' | 'subscription'>('security')
   const { user } = useAuth()
   const { profile: userProfile, loading: profileLoading, updateProfile } = useProfile()
   const { uploadProfilePhoto, uploading: photoUploading, error: photoError } = useProfilePhoto()
@@ -354,17 +353,6 @@ export default function SettingsPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex gap-2 overflow-x-auto">
             <button
-              onClick={() => setActiveView('profile')}
-              className={`flex items-center gap-2 px-6 py-4 font-semibold transition-colors border-b-2 whitespace-nowrap ${
-                activeView === 'profile'
-                  ? 'border-blue-600 text-blue-600 dark:text-blue-400'
-                  : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-50'
-              }`}
-            >
-              <User className="w-5 h-5" />
-              Profile
-            </button>
-            <button
               onClick={() => setActiveView('security')}
               className={`flex items-center gap-2 px-6 py-4 font-semibold transition-colors border-b-2 whitespace-nowrap ${
                 activeView === 'security'
@@ -402,16 +390,6 @@ export default function SettingsPage() {
       </div>
 
       {/* Content */}
-      {activeView === 'profile' && (
-        <ProfileSettings
-          profile={profile}
-          onUpdateProfile={handleUpdateProfile}
-          onUploadPhoto={handleUploadPhoto}
-          photoUploading={photoUploading}
-          photoError={photoError}
-          onResendVerification={handleResendVerification}
-        />
-      )}
       {activeView === 'security' && (
         <SecurityTab
           security={security}
