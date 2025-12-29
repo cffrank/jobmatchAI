@@ -20,9 +20,19 @@ interface TestStep {
   step: string;
   status: 'passed' | 'failed' | 'skipped';
   duration: number;
-  details?: any;
+  details?: Record<string, unknown>;
   error?: string;
   screenshot?: string;
+}
+
+interface CloudflareAPIResponse {
+  success: boolean;
+  errors?: Array<{ message: string }>;
+  result: {
+    html?: string;
+    content?: string;
+    screenshot?: string;
+  };
 }
 
 export default {
@@ -43,8 +53,6 @@ async function testUITracking(env: Env): Promise<Response> {
   const startTime = Date.now();
   const appUrl = env.APP_URL || 'https://jobmatch-ai-dev.pages.dev';
   const results: TestStep[] = [];
-  const testEmail = `test-${Date.now()}@example.com`;
-  const testPassword = 'TestPassword123!';
 
   try {
     // Step 1: Check homepage loads
@@ -94,7 +102,6 @@ async function testUITracking(env: Env): Promise<Response> {
     return Response.json({
       success: failed === 0,
       message: `UI tracking test completed. ${passed} passed, ${failed} failed`,
-      testCredentials: { email: testEmail },
       duration,
       results,
     });
@@ -127,12 +134,12 @@ async function testHomepage(env: Env, appUrl: string): Promise<TestStep> {
       throw new Error(`API error: ${response.status}`);
     }
 
-    const data: any = await response.json();
+    const data = await response.json() as CloudflareAPIResponse;
     if (!data.success) {
       throw new Error(`API returned error: ${JSON.stringify(data.errors)}`);
     }
 
-    const html = data.result.html || data.result.content || data.result;
+    const html = data.result.html || data.result.content || '';
     if (!html || typeof html !== 'string') {
       throw new Error(`Unexpected response structure: ${JSON.stringify(Object.keys(data.result || {}))}`);
     }
@@ -180,7 +187,7 @@ async function testSignupPage(env: Env, appUrl: string): Promise<TestStep> {
       throw new Error(`API error: ${response.status}`);
     }
 
-    const data: any = await response.json();
+    const data = await response.json() as CloudflareAPIResponse;
     if (!data.success) {
       throw new Error(`Screenshot failed: ${JSON.stringify(data.errors)}`);
     }
@@ -190,7 +197,7 @@ async function testSignupPage(env: Env, appUrl: string): Promise<TestStep> {
       status: 'passed',
       duration: Date.now() - testStart,
       details: { pageUrl: `${appUrl}/signup` },
-      screenshot: data.result.screenshot?.substring(0, 50) + '...',
+      screenshot: data.result.screenshot ? data.result.screenshot.substring(0, 50) + '...' : undefined,
     };
   } catch (error) {
     return {
@@ -222,7 +229,7 @@ async function testJobsPage(env: Env, appUrl: string): Promise<TestStep> {
       throw new Error(`API error: ${response.status}`);
     }
 
-    const data: any = await response.json();
+    const data = await response.json() as CloudflareAPIResponse;
     if (!data.success) {
       throw new Error(`Jobs page failed: ${JSON.stringify(data.errors)}`);
     }
@@ -266,7 +273,7 @@ async function testApplicationsPage(env: Env, appUrl: string): Promise<TestStep>
       throw new Error(`API error: ${response.status}`);
     }
 
-    const data: any = await response.json();
+    const data = await response.json() as CloudflareAPIResponse;
     if (!data.success) {
       throw new Error(`Applications screenshot failed`);
     }
@@ -311,7 +318,7 @@ async function testTrackerPage(env: Env, appUrl: string): Promise<TestStep> {
       throw new Error(`API error: ${response.status}`);
     }
 
-    const data: any = await response.json();
+    const data = await response.json() as CloudflareAPIResponse;
     if (!data.success) {
       throw new Error(`Tracker screenshot failed`);
     }

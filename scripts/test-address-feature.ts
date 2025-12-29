@@ -35,7 +35,7 @@ async function runTests() {
   // Test 1: Check if migration ran successfully
   console.log('\n📋 Test 1: Verifying migration columns exist...');
   try {
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('users')
       .select('street_address, city, state, postal_code, country')
       .limit(1);

@@ -379,7 +379,7 @@ router.patch(
     const updates = parseResult.data;
 
     // Map frontend fields to database column names
-    const dbUpdates: Record<string, any> = {
+    const dbUpdates: Record<string, string | boolean | number> = {
       updated_at: new Date().toISOString(),
     };
 

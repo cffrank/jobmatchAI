@@ -225,7 +225,7 @@ export function useJobs(pageSize = 20) {
     if (!userId) throw new Error('User not authenticated')
 
     // Map to database column names
-    const dbUpdates: Record<string, any> = {}
+    const dbUpdates: Record<string, string | number> = {}
     if (updates.title !== undefined) dbUpdates.title = updates.title
     if (updates.company !== undefined) dbUpdates.company = updates.company
     if (updates.location !== undefined) dbUpdates.location = updates.location
@@ -442,7 +442,7 @@ export function useJob(jobId: string | undefined) {
     if (!userId) throw new Error('User not authenticated')
 
     // Map to database column names
-    const dbUpdates: Record<string, any> = {}
+    const dbUpdates: Record<string, string | number> = {}
     if (updates.title !== undefined) dbUpdates.title = updates.title
     if (updates.company !== undefined) dbUpdates.company = updates.company
     if (updates.location !== undefined) dbUpdates.location = updates.location

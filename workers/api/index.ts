@@ -21,7 +21,7 @@ import { secureHeaders } from 'hono/secure-headers';
 
 import type { Env, Variables } from './types';
 import { errorHandler } from './middleware/errorHandler';
-import { ipRateLimiter, cleanupIpRateLimits, cleanupExpiredRateLimits } from './middleware/rateLimiter';
+import { ipRateLimiter, cleanupIpRateLimits } from './middleware/rateLimiter';
 
 // Route imports
 import applicationsRouter from './routes/applications';

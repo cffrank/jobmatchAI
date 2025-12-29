@@ -18,8 +18,19 @@ export interface Env {
 interface TestResult {
   step: string;
   status: 'passed' | 'failed';
-  details?: any;
+  details?: Record<string, unknown>;
   error?: string;
+}
+
+interface SupabaseAuthResponse {
+  user?: { id: string };
+  access_token?: string;
+  session?: { access_token: string };
+}
+
+interface SupabaseDataResponse {
+  id?: string;
+  [key: string]: unknown;
 }
 
 export default {
@@ -71,9 +82,9 @@ async function testApplicationTracking(env: Env): Promise<Response> {
       return Response.json({ results, success: false });
     }
 
-    const signupData: any = await signupResponse.json();
-    userId = signupData.user?.id;
-    accessToken = signupData.access_token || signupData.session?.access_token;
+    const signupData = await signupResponse.json() as SupabaseAuthResponse;
+    userId = signupData.user?.id ?? null;
+    accessToken = signupData.access_token || signupData.session?.access_token || null;
 
     if (!accessToken) {
       results.push({
@@ -122,8 +133,8 @@ async function testApplicationTracking(env: Env): Promise<Response> {
       return Response.json({ results, success: false });
     }
 
-    const jobData: any = await jobResponse.json();
-    jobId = jobData[0]?.id;
+    const jobData = await jobResponse.json() as SupabaseDataResponse[];
+    jobId = jobData[0]?.id as string ?? null;
 
     results.push({
       step: 'Create Test Job',
@@ -174,8 +185,8 @@ async function testApplicationTracking(env: Env): Promise<Response> {
       return Response.json({ results, success: false });
     }
 
-    const appData: any = await appResponse.json();
-    applicationId = appData[0]?.id;
+    const appData = await appResponse.json() as SupabaseDataResponse[];
+    applicationId = appData[0]?.id as string ?? null;
 
     results.push({
       step: 'Create Application',
@@ -261,7 +272,7 @@ async function testApplicationTracking(env: Env): Promise<Response> {
       return Response.json({ results, success: false });
     }
 
-    const trackedData: any = await trackedResponse.json();
+    const trackedData = await trackedResponse.json() as SupabaseDataResponse[];
 
     results.push({
       step: 'Create Tracked Application',
@@ -291,7 +302,7 @@ async function testApplicationTracking(env: Env): Promise<Response> {
       return Response.json({ results, success: false });
     }
 
-    const verifyData: any = await verifyResponse.json();
+    const verifyData = await verifyResponse.json() as SupabaseDataResponse[];
 
     if (!verifyData || verifyData.length === 0) {
       results.push({

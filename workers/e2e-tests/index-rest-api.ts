@@ -30,6 +30,15 @@ interface TestReport {
   results: TestResult[];
 }
 
+interface CloudflareAPIResponse {
+  success: boolean;
+  errors?: Array<{ message: string }>;
+  result: {
+    html?: string;
+    screenshot?: string;
+  };
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
@@ -110,7 +119,7 @@ async function testHomePageLoads(env: Env, appUrl: string): Promise<TestResult> 
       throw new Error(`API error: ${response.status} ${response.statusText}`);
     }
 
-    const data: any = await response.json();
+    const data = await response.json() as CloudflareAPIResponse;
 
     if (!data.success) {
       throw new Error(`API returned error: ${JSON.stringify(data.errors)}`);
@@ -161,7 +170,7 @@ async function testScreenshot(env: Env, appUrl: string): Promise<TestResult> {
       throw new Error(`API error: ${response.status} ${response.statusText}`);
     }
 
-    const data: any = await response.json();
+    const data = await response.json() as CloudflareAPIResponse;
 
     if (!data.success) {
       throw new Error(`API returned error: ${JSON.stringify(data.errors)}`);
@@ -209,7 +218,7 @@ async function testJobsPageAccessible(env: Env, appUrl: string): Promise<TestRes
       throw new Error(`API error: ${response.status} ${response.statusText}`);
     }
 
-    const data: any = await response.json();
+    const data = await response.json() as CloudflareAPIResponse;
 
     if (!data.success) {
       throw new Error(`API returned error: ${JSON.stringify(data.errors)}`);

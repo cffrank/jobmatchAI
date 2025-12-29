@@ -8,7 +8,7 @@
  *   curl https://e2e-tests.carl-f-frank.workers.dev/run-tests
  */
 
-import puppeteer from '@cloudflare/puppeteer';
+import puppeteer, { type Page } from '@cloudflare/puppeteer';
 
 export interface Env {
   BROWSER: Fetcher;
@@ -147,7 +147,7 @@ async function runE2ETests(env: Env): Promise<Response> {
   });
 }
 
-async function testHomePageLoads(page: any, appUrl: string): Promise<TestResult> {
+async function testHomePageLoads(page: Page, appUrl: string): Promise<TestResult> {
   const testStart = Date.now();
   try {
     await page.goto(appUrl, { waitUntil: 'networkidle0', timeout: 30000 });
@@ -174,7 +174,7 @@ async function testHomePageLoads(page: any, appUrl: string): Promise<TestResult>
 }
 
 async function testLoginFlow(
-  page: any,
+  page: Page,
   appUrl: string,
   email: string,
   password: string
@@ -215,7 +215,7 @@ async function testLoginFlow(
   }
 }
 
-async function testJobsPageLoads(page: any, appUrl: string): Promise<TestResult> {
+async function testJobsPageLoads(page: Page, appUrl: string): Promise<TestResult> {
   const testStart = Date.now();
   try {
     await page.goto(`${appUrl}/jobs`, { waitUntil: 'networkidle0', timeout: 30000 });
@@ -240,7 +240,7 @@ async function testJobsPageLoads(page: any, appUrl: string): Promise<TestResult>
   }
 }
 
-async function testApplicationTracking(page: any, appUrl: string): Promise<TestResult> {
+async function testApplicationTracking(page: Page, appUrl: string): Promise<TestResult> {
   const testStart = Date.now();
   try {
     // Navigate to applications page
@@ -282,7 +282,7 @@ async function testApplicationTracking(page: any, appUrl: string): Promise<TestR
   }
 }
 
-async function testTrackerPageShows(page: any, appUrl: string): Promise<TestResult> {
+async function testTrackerPageShows(page: Page, appUrl: string): Promise<TestResult> {
   const testStart = Date.now();
   try {
     // Navigate to tracker page
