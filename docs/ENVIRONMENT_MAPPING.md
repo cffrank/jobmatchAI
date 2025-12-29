@@ -175,6 +175,40 @@ Name: CLOUDFLARE_ACCOUNT_ID
 Value: 280c58ea17d9fe3235c33bd0a52a256b
 ```
 
+### AI Gateway Secrets (Optional - Enables OpenAI Caching)
+
+AI Gateway provides automatic caching of OpenAI requests for 60-80% cost reduction.
+
+**Add to ALL GitHub Environments (development, staging, production):**
+
+```bash
+Name: CLOUDFLARE_ACCOUNT_ID
+Value: 280c58ea17d9fe3235c33bd0a52a256b
+# This is the same value as the repository-level secret
+```
+
+**Add environment-specific AI Gateway slugs:**
+
+Development:
+```bash
+Name: AI_GATEWAY_SLUG
+Value: jobmatch-ai-gateway-dev
+```
+
+Staging:
+```bash
+Name: AI_GATEWAY_SLUG
+Value: jobmatch-ai-gateway-staging
+```
+
+Production:
+```bash
+Name: AI_GATEWAY_SLUG
+Value: jobmatch-ai-gateway
+```
+
+See [AI Gateway Rollout Plan](./AI_GATEWAY_ROLLOUT_PLAN.md) for deployment instructions.
+
 ---
 
 ## Cloudflare Workers Secrets
@@ -202,6 +236,13 @@ npx wrangler secret put OPENAI_API_KEY --env development
 
 npx wrangler secret put APIFY_API_TOKEN --env development
 # Paste: (Your Apify API token)
+
+# AI Gateway (Optional - enables caching)
+npx wrangler secret put CLOUDFLARE_ACCOUNT_ID --env development
+# Paste: 280c58ea17d9fe3235c33bd0a52a256b
+
+npx wrangler secret put AI_GATEWAY_SLUG --env development
+# Paste: jobmatch-ai-gateway-dev
 ```
 
 ### Staging Workers Secrets
@@ -225,6 +266,13 @@ npx wrangler secret put OPENAI_API_KEY --env staging
 
 npx wrangler secret put APIFY_API_TOKEN --env staging
 # Paste: (Your Apify API token)
+
+# AI Gateway (Optional - enables caching)
+npx wrangler secret put CLOUDFLARE_ACCOUNT_ID --env staging
+# Paste: 280c58ea17d9fe3235c33bd0a52a256b
+
+npx wrangler secret put AI_GATEWAY_SLUG --env staging
+# Paste: jobmatch-ai-gateway-staging
 ```
 
 ### Production Workers Secrets
@@ -248,6 +296,13 @@ npx wrangler secret put OPENAI_API_KEY --env production
 
 npx wrangler secret put APIFY_API_TOKEN --env production
 # Paste: (Your Apify API token)
+
+# AI Gateway (Optional - enables caching)
+npx wrangler secret put CLOUDFLARE_ACCOUNT_ID --env production
+# Paste: 280c58ea17d9fe3235c33bd0a52a256b
+
+npx wrangler secret put AI_GATEWAY_SLUG --env production
+# Paste: jobmatch-ai-gateway
 ```
 
 ---

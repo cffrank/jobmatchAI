@@ -71,6 +71,19 @@ vars = { ENVIRONMENT = "production" }
 # - LINKEDIN_REDIRECT_URI
 # - APIFY_API_TOKEN
 # - APP_URL
+#
+# AI Gateway secrets (optional, enables caching and cost reduction):
+# - CLOUDFLARE_ACCOUNT_ID (your Cloudflare account ID)
+# - AI_GATEWAY_SLUG (AI Gateway name, e.g., "jobmatch-ai-gateway")
+#
+# When AI Gateway is configured, all OpenAI requests are automatically
+# routed through Cloudflare AI Gateway for:
+# - Automatic response caching (60-80% cost reduction)
+# - Request analytics and monitoring
+# - Rate limiting and cost controls
+# - No code changes required - transparent proxy
+#
+# See docs/AI_GATEWAY_ROLLOUT_PLAN.md for deployment instructions
 
 # Worker Limits
 # - 10ms CPU time (paid plans: 50ms)
