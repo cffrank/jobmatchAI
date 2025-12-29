@@ -1,0 +1,92 @@
+name: E2E Tests
+
+on:
+  # Run after successful deployment
+  workflow_run:
+    workflows: ["Deploy"]
+    types:
+      - completed
+
+  # Allow manual trigger
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to test'
+        required: true
+        default: 'development'
+        type: choice
+        options:
+          - development
+          - production
+
+jobs:
+  e2e-tests:
+    name: Run E2E Tests
+    runs-on: ubuntu-latest
+    # Only run if deployment succeeded
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+
+    steps:
+      - name: Wait for deployment to propagate
+        run: sleep 30
+
+      - name: Run E2E Tests (Development)
+        if: github.event.inputs.environment == 'development' || github.event_name == 'workflow_run'
+        id: test_dev
+        run: |
+          echo "Running E2E tests against development environment..."
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+            https://jobmatch-ai-e2e-tests.carl-f-frank.workers.dev/run-tests)
+
+          # Extract HTTP status code (last line)
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          # Extract JSON body (everything except last line)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+
+          # Pretty print results
+          echo "Test Results:"
+          echo "$BODY" | jq '.'
+
+          # Save to file for artifact
+          echo "$BODY" > test-results-dev.json
+
+          # Check if tests passed
+          FAILED=$(echo "$BODY" | jq -r '.failed')
+          if [ "$FAILED" != "0" ] || [ "$HTTP_CODE" != "200" ]; then
+            echo "::error::E2E tests failed! $FAILED test(s) failed."
+            exit 1
+          fi
+
+          echo "::notice::All E2E tests passed! ✅"
+
+      - name: Run E2E Tests (Production)
+        if: github.event.inputs.environment == 'production'
+        id: test_prod
+        run: |
+          echo "Running E2E tests against production environment..."
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+            https://jobmatch-ai-e2e-tests-production.carl-f-frank.workers.dev/run-tests)
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+
+          echo "Test Results:"
+          echo "$BODY" | jq '.'
+
+          echo "$BODY" > test-results-prod.json
+
+          FAILED=$(echo "$BODY" | jq -r '.failed')
+          if [ "$FAILED" != "0" ] || [ "$HTTP_CODE" != "200" ]; then
+            echo "::error::E2E tests failed! $FAILED test(s) failed."
+            exit 1
+          fi
+
+          echo "::notice::All E2E tests passed! ✅"
+
+      - name: Upload Test Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-test-results
+          path: test-results-*.json
+          retention-days: 30
