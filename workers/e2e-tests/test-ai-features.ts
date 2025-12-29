@@ -122,7 +122,7 @@ export async function testApplicationGeneration(page: Page, appUrl: string): Pro
         '[data-testid="variant-impact"], [data-testid="variant-keyword"], [data-testid="variant-concise"]',
         { timeout: 60000 } // AI generation can take time
       );
-    } catch (e) {
+    } catch {
       // Check if we're on a results page instead
       const hasResumePreview = await page.$('[data-testid="resume-preview"]');
       if (!hasResumePreview) {

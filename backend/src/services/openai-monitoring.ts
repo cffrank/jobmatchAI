@@ -29,13 +29,6 @@ import type {
   AIGatewayRequestMetadata,
 } from '../types/ai-monitoring';
 
-/**
- * Extended OpenAI client response with headers
- */
-interface CompletionWithHeaders {
-  completion: OpenAI.Chat.Completions.ChatCompletion;
-  headers?: Headers | Record<string, string>;
-}
 
 /**
  * Monitored chat completion request

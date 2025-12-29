@@ -24,7 +24,7 @@ import type { Env, Job, UserProfile, WorkExperience, Education, Skill } from '..
 
 // Mock OpenAI
 vi.mock('openai', () => {
-  const MockOpenAI = vi.fn().mockImplementation((config: any) => {
+  const MockOpenAI = vi.fn().mockImplementation((config: unknown) => {
     return {
       chat: {
         completions: {
@@ -51,7 +51,7 @@ vi.mock('../supabase', () => ({
 
 describe('OpenAI Service - AI Gateway Integration', () => {
   let mockEnv: Env;
-  let consoleLogSpy: any;
+  let consoleLogSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
     // Reset mocks
@@ -81,11 +81,11 @@ describe('OpenAI Service - AI Gateway Integration', () => {
 
       // Verify the client was created with gateway URL
       expect(client).toBeDefined();
-      // @ts-ignore - Accessing private config for testing
+      // @ts-expect-error - Accessing private config for testing
       expect(client._config.baseURL).toBe(
         'https://gateway.ai.cloudflare.com/v1/test-account-id/jobmatch-ai-gateway/openai'
       );
-      // @ts-ignore
+      // @ts-expect-error - Accessing private config for testing
       expect(client._config.apiKey).toBe('test-api-key');
 
       // Verify logging
@@ -99,9 +99,9 @@ describe('OpenAI Service - AI Gateway Integration', () => {
       const client = createOpenAI(mockEnv);
 
       expect(client).toBeDefined();
-      // @ts-ignore
+      // @ts-expect-error - Accessing private config for testing
       expect(client._config.baseURL).toBeUndefined(); // Direct API uses default baseURL
-      // @ts-ignore
+      // @ts-expect-error - Accessing private config for testing
       expect(client._config.apiKey).toBe('test-api-key');
 
       // Verify logging
@@ -116,7 +116,7 @@ describe('OpenAI Service - AI Gateway Integration', () => {
 
       const client = createOpenAI(mockEnv);
 
-      // @ts-ignore
+      // @ts-expect-error - Accessing private config for testing
       expect(client._config.baseURL).toBeUndefined();
       expect(consoleLogSpy).toHaveBeenCalledWith(
         '[OpenAI] Using direct OpenAI API (AI Gateway not configured)'
@@ -129,7 +129,7 @@ describe('OpenAI Service - AI Gateway Integration', () => {
 
       const client = createOpenAI(mockEnv);
 
-      // @ts-ignore
+      // @ts-expect-error - Accessing private config for testing
       expect(client._config.baseURL).toBeUndefined();
       expect(consoleLogSpy).toHaveBeenCalledWith(
         '[OpenAI] Using direct OpenAI API (AI Gateway not configured)'
@@ -137,7 +137,7 @@ describe('OpenAI Service - AI Gateway Integration', () => {
     });
 
     it('should throw error when OPENAI_API_KEY is missing', () => {
-      mockEnv.OPENAI_API_KEY = undefined as any;
+      mockEnv.OPENAI_API_KEY = undefined as unknown as string;
 
       expect(() => createOpenAI(mockEnv)).toThrow('OPENAI_API_KEY is not configured');
     });
@@ -149,7 +149,7 @@ describe('OpenAI Service - AI Gateway Integration', () => {
     });
 
     it('isOpenAIConfigured should return false when API key is missing', () => {
-      mockEnv.OPENAI_API_KEY = undefined as any;
+      mockEnv.OPENAI_API_KEY = undefined as unknown as string;
       expect(isOpenAIConfigured(mockEnv)).toBe(false);
     });
 
@@ -280,7 +280,7 @@ describe('OpenAI Service - AI Gateway Integration', () => {
         ],
       });
 
-      // @ts-ignore
+      // @ts-expect-error - Mocking OpenAI client for testing
       OpenAI.mockImplementation((config) => ({
         chat: { completions: { create: mockCreate } },
         _config: config,
@@ -321,7 +321,7 @@ describe('OpenAI Service - AI Gateway Integration', () => {
       const OpenAI = (await import('openai')).default;
       const mockCreate = vi.fn().mockRejectedValue(new Error('OpenAI API error'));
 
-      // @ts-ignore
+      // @ts-expect-error - Mocking OpenAI client for testing
       OpenAI.mockImplementation((config) => ({
         chat: { completions: { create: mockCreate } },
         _config: config,
@@ -376,7 +376,7 @@ describe('OpenAI Service - AI Gateway Integration', () => {
         });
       });
 
-      // @ts-ignore
+      // @ts-expect-error - Mocking OpenAI client for testing
       OpenAI.mockImplementation((config) => ({
         chat: { completions: { create: mockCreate } },
         _config: config,
@@ -434,7 +434,7 @@ describe('OpenAI Service - AI Gateway Integration', () => {
         error: null,
       });
 
-      // @ts-ignore
+      // @ts-expect-error - Mocking Supabase client for testing
       createSupabaseAdmin.mockReturnValue({
         storage: {
           from: vi.fn(() => ({
@@ -455,7 +455,7 @@ describe('OpenAI Service - AI Gateway Integration', () => {
         ],
       });
 
-      // @ts-ignore
+      // @ts-expect-error - Mocking OpenAI client for testing
       OpenAI.mockImplementation((config) => ({
         chat: { completions: { create: mockCreate } },
         _config: config,
@@ -508,7 +508,7 @@ describe('OpenAI Service - AI Gateway Integration', () => {
         error: { message: 'File not found' },
       });
 
-      // @ts-ignore
+      // @ts-expect-error - Mocking Supabase client for testing
       createSupabaseAdmin.mockReturnValue({
         storage: {
           from: vi.fn(() => ({

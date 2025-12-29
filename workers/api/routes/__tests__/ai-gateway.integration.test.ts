@@ -46,7 +46,7 @@ vi.mock('../../services/supabase', () => ({
 }));
 
 vi.mock('openai', () => {
-  const MockOpenAI = vi.fn().mockImplementation((config: any) => {
+  const MockOpenAI = vi.fn().mockImplementation((config: unknown) => {
     return {
       chat: {
         completions: {
@@ -62,8 +62,8 @@ vi.mock('openai', () => {
 
 describe('AI Gateway Integration Tests', () => {
   let mockEnv: Env;
-  let consoleLogSpy: any;
-  let consoleErrorSpy: any;
+  let consoleLogSpy: ReturnType<typeof vi.spyOn>;
+  let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -94,7 +94,7 @@ describe('AI Gateway Integration Tests', () => {
       const mockSupabase = createSupabaseAdmin(mockEnv);
       const mockSelect = vi.fn();
 
-      // @ts-ignore
+      // @ts-expect-error - Mocking Supabase client for testing
       mockSupabase.from.mockReturnValue({
         select: mockSelect.mockReturnValue({
           eq: vi.fn().mockReturnValue({
@@ -155,7 +155,7 @@ describe('AI Gateway Integration Tests', () => {
         ],
       });
 
-      // @ts-ignore
+      // @ts-expect-error - Mocking OpenAI client for testing
       OpenAI.mockImplementation((config) => ({
         chat: { completions: { create: mockCreate } },
         _config: config,
@@ -286,7 +286,7 @@ describe('AI Gateway Integration Tests', () => {
         ],
       });
 
-      // @ts-ignore
+      // @ts-expect-error - Mocking OpenAI client for testing
       OpenAI.mockImplementation((config) => ({
         chat: { completions: { create: mockCreate } },
         _config: config,
@@ -344,7 +344,7 @@ describe('AI Gateway Integration Tests', () => {
         },
       });
 
-      // @ts-ignore
+      // @ts-expect-error - Mocking OpenAI client for testing
       OpenAI.mockImplementation((config) => ({
         chat: { completions: { create: mockCreate } },
         _config: config,
@@ -403,7 +403,7 @@ describe('AI Gateway Integration Tests', () => {
         .fn()
         .mockRejectedValue(new Error('Request timeout after 30000ms'));
 
-      // @ts-ignore
+      // @ts-expect-error - Mocking OpenAI client for testing
       OpenAI.mockImplementation((config) => ({
         chat: { completions: { create: mockCreate } },
         _config: config,
@@ -460,7 +460,7 @@ describe('AI Gateway Integration Tests', () => {
         ],
       });
 
-      // @ts-ignore
+      // @ts-expect-error - Mocking OpenAI client for testing
       OpenAI.mockImplementation((config) => ({
         chat: { completions: { create: mockCreate } },
         _config: config,
@@ -546,7 +546,7 @@ describe('AI Gateway Integration Tests', () => {
         choices: [{ message: { content: JSON.stringify(mockResponse) } }],
       });
 
-      // @ts-ignore
+      // @ts-expect-error - Mocking OpenAI client for testing
       OpenAI.mockImplementation((config) => ({
         chat: { completions: { create: mockCreateMiss } },
         _config: config,
@@ -611,7 +611,7 @@ describe('AI Gateway Integration Tests', () => {
         ],
       });
 
-      // @ts-ignore
+      // @ts-expect-error - Mocking OpenAI client for testing
       OpenAI.mockImplementation((config) => ({
         chat: { completions: { create: mockCreate } },
         _config: config,

@@ -15,7 +15,6 @@ import type {
   AIGatewayError,
   AIOperationType,
   AIGatewayCacheStatus,
-  AILogLevel,
 } from '../types/ai-monitoring';
 import {
   calculateCost,
@@ -266,20 +265,10 @@ class AIMonitoringService {
 
     // For now, just log a summary for manual analysis
     if (entry.response && this.enabled) {
-      const summary = {
-        timestamp: entry.request.timestamp,
-        operation: entry.request.operationType,
-        model: entry.request.model,
-        cacheStatus: entry.response.cacheStatus,
-        responseTime: entry.response.responseTimeMs,
-        tokens: entry.response.totalTokens,
-        cost: entry.response.estimatedCostUsd,
-        success: entry.response.success,
-      };
-
       // In production, this could be sent to a metrics aggregation service
       if (process.env.NODE_ENV === 'production') {
         // Example: await metricsService.record(summary);
+        // Summary would include: timestamp, operation, model, cacheStatus, responseTime, tokens, cost, success
       }
     }
   }

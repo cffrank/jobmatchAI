@@ -239,13 +239,14 @@ async function generateVariant(
  * @param details - Additional details for logging (e.g., variant name)
  */
 function logAIGatewayCacheStatus(
-  completion: any,
+  completion: unknown,
   operation: string,
   details?: string
 ): void {
   try {
     // Access response headers if available
-    const headers = completion?.response?.headers;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const headers = (completion as any)?.response?.headers;
     const cacheStatus = headers?.get?.('cf-aig-cache-status');
 
     if (cacheStatus) {
@@ -258,7 +259,7 @@ function logAIGatewayCacheStatus(
         console.log(`[AI Gateway] Cache status for ${operation}${detailsStr}: ${cacheStatus}`);
       }
     }
-  } catch (error) {
+  } catch {
     // Silently ignore if headers are not accessible (direct OpenAI API)
     // This is expected when AI Gateway is not configured
   }
