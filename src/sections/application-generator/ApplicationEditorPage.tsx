@@ -409,12 +409,12 @@ export default function ApplicationEditorPage() {
 
       // Create tracked application for status tracking
       await addTrackedApplication({
-        jobId: application.jobId || undefined,
+        jobId: application.jobId || '',
         applicationId: application.id,
         company: application.company,
         jobTitle: application.jobTitle,
-        location: application.location || '',
-        matchScore: application.matchScore || 0,
+        location: job?.location || '',
+        matchScore: job?.matchScore || 0,
         status: 'applied',
         appliedDate: new Date().toISOString(),
         statusHistory: [{
@@ -423,11 +423,16 @@ export default function ApplicationEditorPage() {
           note: 'Application submitted'
         }],
         activityLog: [{
+          id: crypto.randomUUID(),
           date: new Date().toISOString(),
-          action: 'Application submitted',
+          type: 'status_change',
+          description: 'Application submitted',
           details: `Submitted application for ${application.jobTitle} at ${application.company}`
         }],
-        notes: ''
+        notes: '',
+        archived: false,
+        interviews: [],
+        followUpActions: []
       })
 
       toast.success('Application submitted and added to tracker!')

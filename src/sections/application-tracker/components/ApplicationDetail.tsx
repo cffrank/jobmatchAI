@@ -1,6 +1,6 @@
 import { ArrowLeft, Calendar, Mail, Phone, Building2, MapPin, DollarSign, TrendingUp, Users, Clock, CheckCircle2, Circle, Trash2, Plus, ExternalLink, Sparkles, Edit2 } from 'lucide-react'
 import { useState } from 'react'
-import type { ApplicationDetailProps, ApplicationStatus, InterviewEntry, FollowUpAction } from '../types'
+import type { ApplicationDetailProps, InterviewEntry, FollowUpAction } from '../types'
 import { getStatusColor, getStatusLabel, formatDate } from '../utils/statusHelpers'
 import { StatusUpdateDialog } from './StatusUpdateDialog'
 

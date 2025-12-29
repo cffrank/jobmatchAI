@@ -4,7 +4,6 @@ import { SecurityTab } from './components/SecurityTab'
 import { PrivacyTab } from './components/PrivacyTab'
 import { SubscriptionOverview } from './components/SubscriptionOverview'
 import { useProfile } from '@/hooks/useProfile'
-import { useProfilePhoto } from '@/hooks/useProfilePhoto'
 import { useSecuritySettings } from '@/hooks/useSecuritySettings'
 import { useSubscription, useUsageLimits } from '@/hooks/useSubscription'
 import { useUsageMetrics } from '@/hooks/useUsageMetrics'
@@ -24,7 +23,6 @@ export default function SettingsPage() {
   const [activeView, setActiveView] = useState<'security' | 'privacy' | 'subscription'>('security')
   const { user } = useAuth()
   const { profile: userProfile, loading: profileLoading, updateProfile } = useProfile()
-  const { uploadProfilePhoto, uploading: photoUploading, error: photoError } = useProfilePhoto()
   const { security, loading: securityLoading, revokeSession, enable2FA, disable2FA, generateBackupCodes } = useSecuritySettings()
   const { subscription: dbSubscription, loading: subscriptionLoading, updateSubscription } = useSubscription()
   const { loading: usageLimitsLoading } = useUsageLimits()
@@ -154,49 +152,6 @@ export default function SettingsPage() {
   }
 
   // Account handlers
-  const handleUpdateProfile = async (updates: Partial<UserProfile>) => {
-    console.log('handleUpdateProfile called with:', updates)
-    try {
-      // Map UserProfile fields to database User fields
-      const mappedUpdates: Record<string, unknown> = {}
-
-      if (updates.fullName) {
-        const [firstName, ...lastNameParts] = updates.fullName.split(' ')
-        mappedUpdates.firstName = firstName
-        mappedUpdates.lastName = lastNameParts.join(' ')
-      }
-
-      if (updates.email) mappedUpdates.email = updates.email
-      if (updates.phone !== undefined) mappedUpdates.phone = updates.phone
-      if (updates.profilePhotoUrl !== undefined) mappedUpdates.profileImageUrl = updates.profilePhotoUrl
-
-      console.log('Mapped updates for database:', mappedUpdates)
-      await updateProfile(mappedUpdates)
-      console.log('Profile updated successfully')
-      alert('Profile updated successfully!')
-    } catch (error) {
-      console.error('Error updating profile:', error)
-      alert(`Update failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
-    }
-  }
-
-  const handleUploadPhoto = async (file: File) => {
-    console.log('handleUploadPhoto called with file:', file.name, file.size, file.type)
-    try {
-      console.log('Starting upload...')
-      const downloadURL = await uploadProfilePhoto(file)
-      console.log('Profile photo uploaded successfully! Download URL:', downloadURL)
-      alert(`Photo uploaded! URL: ${downloadURL}`)
-    } catch (error) {
-      console.error('Error uploading profile photo:', error)
-      alert(`Upload failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
-    }
-  }
-
-  const handleResendVerification = () => {
-    console.log('Resend verification email')
-  }
-
   const handleEnable2FA = async () => {
     try {
       await enable2FA()

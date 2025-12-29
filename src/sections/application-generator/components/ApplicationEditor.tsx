@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { ArrowLeft, Save, Download, Mail, Send, Sparkles, FileText, Eye, Edit3, Clock, Check } from 'lucide-react'
-import type { ApplicationEditorProps } from '../types'
+import type { ApplicationEditorProps, Resume, ResumeExperience, ResumeEducation } from '../types'
 
 export function ApplicationEditor({
   application,
@@ -261,7 +261,7 @@ export function ApplicationEditor({
 }
 
 interface ResumeEditorProps {
-  resume: ApplicationEditorProps['selectedVariant']['resume']
+  resume: Resume
   previewMode: boolean
   onEdit?: (field: string, value: string) => void
 }
@@ -278,7 +278,7 @@ function ResumeEditor({ resume, previewMode, onEdit }: ResumeEditorProps) {
         <div className="mb-6">
           <h2 className="text-lg font-bold text-slate-900 dark:text-slate-50 mb-3">Experience</h2>
           <div className="space-y-4">
-            {resume.experience.map((exp, idx) => (
+            {resume.experience.map((exp: ResumeExperience, idx: number) => (
               <div key={idx}>
                 <div className="mb-2">
                   <h3 className="font-bold text-slate-900 dark:text-slate-50">{exp.title}</h3>
@@ -286,7 +286,7 @@ function ResumeEditor({ resume, previewMode, onEdit }: ResumeEditorProps) {
                   <p className="text-sm text-slate-600 dark:text-slate-400">{exp.startDate} - {exp.endDate}</p>
                 </div>
                 <ul className="list-disc list-inside space-y-1 text-slate-700 dark:text-slate-300">
-                  {exp.bullets.map((bullet, bidx) => (
+                  {exp.bullets.map((bullet: string, bidx: number) => (
                     <li key={bidx}>{bullet}</li>
                   ))}
                 </ul>
@@ -298,7 +298,7 @@ function ResumeEditor({ resume, previewMode, onEdit }: ResumeEditorProps) {
         <div className="mb-6">
           <h2 className="text-lg font-bold text-slate-900 dark:text-slate-50 mb-3">Skills</h2>
           <div className="flex flex-wrap gap-2">
-            {resume.skills.map((skill, idx) => (
+            {resume.skills.map((skill: string, idx: number) => (
               <span
                 key={idx}
                 className="px-3 py-1 bg-blue-100 dark:bg-blue-950/30 text-blue-700 dark:text-blue-400 rounded-lg text-sm font-medium"
@@ -311,7 +311,7 @@ function ResumeEditor({ resume, previewMode, onEdit }: ResumeEditorProps) {
 
         <div>
           <h2 className="text-lg font-bold text-slate-900 dark:text-slate-50 mb-3">Education</h2>
-          {resume.education.map((edu, idx) => (
+          {resume.education.map((edu: ResumeEducation, idx: number) => (
             <div key={idx}>
               <h3 className="font-bold text-slate-900 dark:text-slate-50">{edu.degree}</h3>
               <p className="text-slate-700 dark:text-slate-300">{edu.school} • {edu.location}</p>
@@ -343,7 +343,7 @@ function ResumeEditor({ resume, previewMode, onEdit }: ResumeEditorProps) {
       <div>
         <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">Work Experience</h3>
         <div className="space-y-4">
-          {resume.experience.map((exp, idx) => (
+          {resume.experience.map((exp: ResumeExperience, idx: number) => (
             <div key={idx} className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700">
               <div className="grid grid-cols-2 gap-3 mb-3">
                 <input
@@ -362,7 +362,7 @@ function ResumeEditor({ resume, previewMode, onEdit }: ResumeEditorProps) {
                 />
               </div>
               <div className="space-y-2">
-                {exp.bullets.map((bullet, bidx) => (
+                {exp.bullets.map((bullet: string, bidx: number) => (
                   <input
                     key={bidx}
                     type="text"

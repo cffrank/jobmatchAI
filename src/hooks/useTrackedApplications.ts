@@ -174,7 +174,7 @@ export function useTrackedApplications(pageSize = 20) {
       job_title: data.jobTitle,
       location: data.location || null,
       match_score: data.matchScore || null,
-      status: data.status,
+      status: data.status as Database['public']['Enums']['tracked_application_status'],
       applied_date: data.appliedDate || null,
       last_updated: new Date().toISOString(),
       status_history: data.statusHistory as unknown as Json,
@@ -207,7 +207,7 @@ export function useTrackedApplications(pageSize = 20) {
     if (data.jobTitle !== undefined) updateData.job_title = data.jobTitle
     if (data.location !== undefined) updateData.location = data.location || null
     if (data.matchScore !== undefined) updateData.match_score = data.matchScore || null
-    if (data.status !== undefined) updateData.status = data.status
+    if (data.status !== undefined) updateData.status = data.status as Database['public']['Enums']['tracked_application_status']
     if (data.appliedDate !== undefined) updateData.applied_date = data.appliedDate || null
     if (data.statusHistory !== undefined) updateData.status_history = data.statusHistory as unknown as Json
     if (data.interviews !== undefined) updateData.interviews = data.interviews as unknown as Json
@@ -455,7 +455,7 @@ function mapDbTrackedApplication(dbApp: DbTrackedApplication): TrackedApplicatio
     status: dbApp.status as TrackedApplication['status'],
     appliedDate: dbApp.applied_date || '',
     lastUpdated: dbApp.last_updated,
-    statusChangedAt: dbApp.status_changed_at || undefined,
+    statusChangedAt: undefined, // Not stored in database, could be computed from statusHistory
     statusHistory: (dbApp.status_history as unknown as TrackedApplication['statusHistory']) || [],
     interviews: (dbApp.interviews as unknown as TrackedApplication['interviews']) || [],
     recruiter: (dbApp.recruiter as unknown as TrackedApplication['recruiter']) || undefined,

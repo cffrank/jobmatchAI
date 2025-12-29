@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { X, CheckCircle2, AlertCircle } from 'lucide-react'
 import type { ApplicationStatus } from '../types'
-import { getStatusInfo, getAllowedTransitions, getStatusLabel } from '../utils/statusHelpers'
+import { getStatusInfo, getAllowedTransitions } from '../utils/statusHelpers'
 
 interface StatusUpdateDialogProps {
   currentStatus: ApplicationStatus

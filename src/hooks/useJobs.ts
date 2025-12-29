@@ -86,9 +86,9 @@ export function useJobs(pageSize = 20) {
         source: row.source as 'linkedin' | 'indeed' | 'manual' || 'manual',
         matchScore: row.match_score || undefined,
         isSaved: row.saved || false,
-        // Expiration tracking
-        savedAt: row.saved_at || undefined,
-        expiresAt: row.expires_at || undefined,
+        // Expiration tracking - not stored in database
+        savedAt: undefined,
+        expiresAt: undefined,
         // Initialize arrays to prevent .map() errors
         requiredSkills: [],
         missingSkills: [],
@@ -160,58 +160,52 @@ export function useJobs(pageSize = 20) {
 
   /**
    * Save/bookmark a job
-   * This will automatically set saved_at and clear expires_at via database trigger
    */
   const saveJob = async (jobId: string) => {
     if (!userId) throw new Error('User not authenticated')
 
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('jobs')
       .update({ saved: true })
       .eq('id', jobId)
       .eq('user_id', userId)
-      .select('saved_at, expires_at')
-      .single()
 
     if (error) throw error
 
-    // Update local state with timestamps from database
+    // Update local state
     setJobs(prev => prev.map(job =>
       job.id === jobId ? {
         ...job,
         saved: true,
         isSaved: true,
-        savedAt: data.saved_at,
-        expiresAt: data.expires_at,
+        savedAt: undefined,
+        expiresAt: undefined,
       } : job
     ))
   }
 
   /**
    * Unsave/unbookmark a job
-   * This will automatically clear saved_at and set expires_at via database trigger
    */
   const unsaveJob = async (jobId: string) => {
     if (!userId) throw new Error('User not authenticated')
 
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('jobs')
       .update({ saved: false })
       .eq('id', jobId)
       .eq('user_id', userId)
-      .select('saved_at, expires_at')
-      .single()
 
     if (error) throw error
 
-    // Update local state with timestamps from database
+    // Update local state
     setJobs(prev => prev.map(job =>
       job.id === jobId ? {
         ...job,
         saved: false,
         isSaved: false,
-        savedAt: data.saved_at,
-        expiresAt: data.expires_at,
+        savedAt: undefined,
+        expiresAt: undefined,
       } : job
     ))
   }
@@ -346,9 +340,9 @@ export function useJob(jobId: string | undefined) {
           source: data.source as 'linkedin' | 'indeed' | 'manual' || 'manual',
           matchScore: data.match_score || undefined,
           isSaved: data.saved || false,
-          // Expiration tracking
-          savedAt: data.saved_at || undefined,
-          expiresAt: data.expires_at || undefined,
+          // Expiration tracking - not stored in database
+          savedAt: undefined,
+          expiresAt: undefined,
           // Initialize arrays to prevent .map() errors
           requiredSkills: [],
           missingSkills: [],
@@ -385,56 +379,50 @@ export function useJob(jobId: string | undefined) {
 
   /**
    * Save/bookmark a job
-   * This will automatically set saved_at and clear expires_at via database trigger
    */
   const saveJob = async (jobId: string) => {
     if (!userId) throw new Error('User not authenticated')
 
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('jobs')
       .update({ saved: true })
       .eq('id', jobId)
       .eq('user_id', userId)
-      .select('saved_at, expires_at')
-      .single()
 
     if (error) throw error
 
-    // Update local state with timestamps from database
+    // Update local state
     if (job && job.id === jobId) {
       setJob({
         ...job,
         isSaved: true,
-        savedAt: data.saved_at,
-        expiresAt: data.expires_at,
+        savedAt: undefined,
+        expiresAt: undefined,
       })
     }
   }
 
   /**
    * Unsave/unbookmark a job
-   * This will automatically clear saved_at and set expires_at via database trigger
    */
   const unsaveJob = async (jobId: string) => {
     if (!userId) throw new Error('User not authenticated')
 
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('jobs')
       .update({ saved: false })
       .eq('id', jobId)
       .eq('user_id', userId)
-      .select('saved_at, expires_at')
-      .single()
 
     if (error) throw error
 
-    // Update local state with timestamps from database
+    // Update local state
     if (job && job.id === jobId) {
       setJob({
         ...job,
         isSaved: false,
-        savedAt: data.saved_at,
-        expiresAt: data.expires_at,
+        savedAt: undefined,
+        expiresAt: undefined,
       })
     }
   }

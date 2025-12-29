@@ -7,7 +7,7 @@ export function ApplicationList({
   applications,
   // filters: placeholder for future implementation
   onViewApplication,
-  onUpdateStatus,
+  // onUpdateStatus: placeholder for future implementation
   // onArchive: placeholder for future implementation
   // onFilter: placeholder for future implementation
   onSort,
@@ -345,14 +345,13 @@ export function ApplicationList({
                           Match: {app.matchScore}%
                         </div>
                       </td>
-                      <td className="px-4 py-4" onClick={(e) => e.stopPropagation()}>
-                        <button
-                          onClick={() => onUpdateStatus?.(app.id)}
-                          className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg border text-sm font-medium transition-all hover:shadow-md ${getStatusColor(app.status)}`}
+                      <td className="px-4 py-4">
+                        <div
+                          className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg border text-sm font-medium ${getStatusColor(app.status)}`}
                         >
                           {getStatusIcon(app.status)}
                           <span>{getStatusLabel(app.status)}</span>
-                        </button>
+                        </div>
                       </td>
                       <td className="px-4 py-4">
                         <div className="text-sm text-slate-900 dark:text-slate-50">
