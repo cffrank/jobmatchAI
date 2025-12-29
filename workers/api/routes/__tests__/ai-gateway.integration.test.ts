@@ -9,7 +9,6 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import type { Mock } from 'vitest';
 import type { Env } from '../../types';
 
 // Mock modules
@@ -63,8 +62,8 @@ vi.mock('openai', () => {
 
 describe('AI Gateway Integration Tests', () => {
   let mockEnv: Env;
-  let consoleLogSpy: Mock;
-  let consoleErrorSpy: Mock;
+  let consoleLogSpy: any;
+  let consoleErrorSpy: any;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -169,19 +168,22 @@ describe('AI Gateway Integration Tests', () => {
           company: 'Tech Corp',
           description: 'Build amazing software',
           location: 'San Francisco, CA',
+          workArrangement: 'Remote' as const,
+          url: 'https://example.com/job/1',
           requiredSkills: ['TypeScript', 'React', 'Node.js'],
           userId: 'user-1',
           createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
           source: 'manual' as const,
-          status: 'active' as const,
           postedDate: new Date().toISOString(),
+          isSaved: false,
+          isArchived: false,
         },
         profile: {
           id: 'user-1',
           firstName: 'John',
           lastName: 'Doe',
           email: 'john@example.com',
-          userId: 'user-1',
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         },
@@ -203,9 +205,9 @@ describe('AI Gateway Integration Tests', () => {
           {
             id: 'edu-1',
             userId: 'user-1',
-            institution: 'University of Tech',
+            school: 'University of Tech',
             degree: 'Bachelor of Science',
-            fieldOfStudy: 'Computer Science',
+            field: 'Computer Science',
             startDate: '2016-09-01',
             endDate: '2020-05-01',
             current: false,
@@ -214,8 +216,22 @@ describe('AI Gateway Integration Tests', () => {
           },
         ],
         skills: [
-          { id: 'skill-1', userId: 'user-1', name: 'TypeScript', endorsements: 10 },
-          { id: 'skill-2', userId: 'user-1', name: 'React', endorsements: 8 },
+          {
+            id: 'skill-1',
+            userId: 'user-1',
+            name: 'TypeScript',
+            endorsements: 10,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+          {
+            id: 'skill-2',
+            userId: 'user-1',
+            name: 'React',
+            endorsements: 8,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
         ],
       };
 
@@ -281,18 +297,23 @@ describe('AI Gateway Integration Tests', () => {
           id: 'job-1',
           title: 'Test Job',
           company: 'Test Co',
+          description: 'Test description',
+          location: 'Test Location',
+          workArrangement: 'Remote' as const,
+          url: 'https://example.com/job/1',
           userId: 'user-1',
           createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
           source: 'manual' as const,
-          status: 'active' as const,
           postedDate: new Date().toISOString(),
+          isSaved: false,
+          isArchived: false,
         },
         profile: {
           id: 'user-1',
           firstName: 'Test',
           lastName: 'User',
           email: 'test@example.com',
-          userId: 'user-1',
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         },
@@ -334,18 +355,23 @@ describe('AI Gateway Integration Tests', () => {
           id: 'job-1',
           title: 'Test Job',
           company: 'Test Co',
+          description: 'Test description',
+          location: 'Test Location',
+          workArrangement: 'Remote' as const,
+          url: 'https://example.com/job/1',
           userId: 'user-1',
           createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
           source: 'manual' as const,
-          status: 'active' as const,
           postedDate: new Date().toISOString(),
+          isSaved: false,
+          isArchived: false,
         },
         profile: {
           id: 'user-1',
           firstName: 'Test',
           lastName: 'User',
           email: 'test@example.com',
-          userId: 'user-1',
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         },
@@ -388,18 +414,23 @@ describe('AI Gateway Integration Tests', () => {
           id: 'job-1',
           title: 'Test Job',
           company: 'Test Co',
+          description: 'Test description',
+          location: 'Test Location',
+          workArrangement: 'Remote' as const,
+          url: 'https://example.com/job/1',
           userId: 'user-1',
           createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
           source: 'manual' as const,
-          status: 'active' as const,
           postedDate: new Date().toISOString(),
+          isSaved: false,
+          isArchived: false,
         },
         profile: {
           id: 'user-1',
           firstName: 'Test',
           lastName: 'User',
           email: 'test@example.com',
-          userId: 'user-1',
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         },
@@ -440,18 +471,23 @@ describe('AI Gateway Integration Tests', () => {
           id: 'job-1',
           title: 'Test Job',
           company: 'Test Co',
+          description: 'Test description',
+          location: 'Test Location',
+          workArrangement: 'Remote' as const,
+          url: 'https://example.com/job/1',
           userId: 'user-1',
           createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
           source: 'manual' as const,
-          status: 'active' as const,
           postedDate: new Date().toISOString(),
+          isSaved: false,
+          isArchived: false,
         },
         profile: {
           id: 'user-1',
           firstName: 'Test',
           lastName: 'User',
           email: 'test@example.com',
-          userId: 'user-1',
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         },
@@ -475,7 +511,7 @@ describe('AI Gateway Integration Tests', () => {
 
       const { createOpenAI } = await import('../../services/openai');
 
-      const client = createOpenAI(mockEnv);
+      createOpenAI(mockEnv);
 
       // Verify gateway configuration
       expect(consoleLogSpy).toHaveBeenCalledWith(
@@ -521,18 +557,23 @@ describe('AI Gateway Integration Tests', () => {
           id: 'job-1',
           title: 'Test Job',
           company: 'Test Co',
+          description: 'Test description',
+          location: 'Test Location',
+          workArrangement: 'Remote' as const,
+          url: 'https://example.com/job/1',
           userId: 'user-1',
           createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
           source: 'manual' as const,
-          status: 'active' as const,
           postedDate: new Date().toISOString(),
+          isSaved: false,
+          isArchived: false,
         },
         profile: {
           id: 'user-1',
           firstName: 'Test',
           lastName: 'User',
           email: 'test@example.com',
-          userId: 'user-1',
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         },
@@ -581,18 +622,23 @@ describe('AI Gateway Integration Tests', () => {
           id: 'job-1',
           title: 'Test Job',
           company: 'Test Co',
+          description: 'Test description',
+          location: 'Test Location',
+          workArrangement: 'Remote' as const,
+          url: 'https://example.com/job/1',
           userId: 'user-1',
           createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
           source: 'manual' as const,
-          status: 'active' as const,
           postedDate: new Date().toISOString(),
+          isSaved: false,
+          isArchived: false,
         },
         profile: {
           id: 'user-1',
           firstName: 'Test',
           lastName: 'User',
           email: 'test@example.com',
-          userId: 'user-1',
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         },

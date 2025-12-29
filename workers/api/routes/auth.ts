@@ -9,6 +9,7 @@
  */
 
 import { Hono } from 'hono';
+import type { Context } from 'hono';
 import { z } from 'zod';
 import type { Env, Variables } from '../types';
 import { HttpError, TABLES } from '../types';
@@ -325,13 +326,13 @@ async function importProfileToDatabase(
 // Redirect Helpers
 // =============================================================================
 
-function redirectWithSuccess(c: { env: Env; redirect: (url: string, status: number) => Response }): Response {
+function redirectWithSuccess(c: Context<{ Bindings: Env; Variables: Variables }>): Response {
   const successUrl = new URL(`${c.env.APP_URL}/profile`);
   successUrl.searchParams.set('linkedin', 'success');
   return c.redirect(successUrl.toString(), 302);
 }
 
-function redirectWithError(c: { env: Env; redirect: (url: string, status: number) => Response }, errorCode: string): Response {
+function redirectWithError(c: Context<{ Bindings: Env; Variables: Variables }>, errorCode: string): Response {
   const errorUrl = new URL(`${c.env.APP_URL}/profile`);
   errorUrl.searchParams.set('linkedin', 'error');
   errorUrl.searchParams.set('error_code', errorCode);

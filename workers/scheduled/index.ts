@@ -47,7 +47,10 @@ export async function handleScheduledJobs(event: ScheduledEvent, env: Env): Prom
     if (minute === 0) {
       await Promise.all([
         runWithLogging('cleanupOAuthStates', () => cleanupOAuthStates(env)),
-        runWithLogging('cleanupRateLimits', () => cleanupExpiredRateLimits(env)),
+        runWithLogging('cleanupRateLimits', async () => {
+          const count = await cleanupExpiredRateLimits(env);
+          return { success: true, message: `Cleaned up ${count} expired rate limit records` };
+        }),
         runWithLogging('cleanupFailedLogins', () => cleanupFailedLogins(env)),
         runWithLogging('unlockExpiredAccounts', () => unlockExpiredAccounts(env)),
       ]);

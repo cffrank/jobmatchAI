@@ -11,7 +11,6 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import type { Mock } from 'vitest';
 import {
   createOpenAI,
   isOpenAIConfigured,
@@ -52,7 +51,7 @@ vi.mock('../supabase', () => ({
 
 describe('OpenAI Service - AI Gateway Integration', () => {
   let mockEnv: Env;
-  let consoleLogSpy: Mock;
+  let consoleLogSpy: any;
 
   beforeEach(() => {
     // Reset mocks
@@ -190,9 +189,8 @@ describe('OpenAI Service - AI Gateway Integration', () => {
       userId: 'user-1',
       createdAt: new Date().toISOString(),
       source: 'manual',
-      status: 'active',
       postedDate: new Date().toISOString(),
-    };
+    } as Job;
 
     const mockProfile: UserProfile = {
       id: 'user-1',
@@ -202,10 +200,9 @@ describe('OpenAI Service - AI Gateway Integration', () => {
       phone: '555-1234',
       location: 'San Francisco, CA',
       summary: 'Experienced software engineer',
-      userId: 'user-1',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-    };
+    } as UserProfile;
 
     const mockWorkExperience: WorkExperience[] = [
       {
@@ -228,20 +225,34 @@ describe('OpenAI Service - AI Gateway Integration', () => {
       {
         id: 'edu-1',
         userId: 'user-1',
-        institution: 'University of Tech',
+        school: 'University of Tech',
         degree: 'Bachelor of Science',
-        fieldOfStudy: 'Computer Science',
+        field: 'Computer Science',
         startDate: '2016-09-01',
         endDate: '2020-05-01',
         current: false,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-      },
+      } as Education,
     ];
 
     const mockSkills: Skill[] = [
-      { id: 'skill-1', userId: 'user-1', name: 'TypeScript', endorsements: 10 },
-      { id: 'skill-2', userId: 'user-1', name: 'React', endorsements: 8 },
+      {
+        id: 'skill-1',
+        userId: 'user-1',
+        name: 'TypeScript',
+        endorsements: 10,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      {
+        id: 'skill-2',
+        userId: 'user-1',
+        name: 'React',
+        endorsements: 8,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
     ];
 
     it('should generate all variants successfully with AI Gateway', async () => {
