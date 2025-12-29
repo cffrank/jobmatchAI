@@ -1,4 +1,4 @@
-import { User, Mail, Phone, Camera } from 'lucide-react'
+import { User, Mail, Phone, Camera, MapPin } from 'lucide-react'
 import { useState } from 'react'
 import type { UserProfile } from '../types'
 
@@ -23,7 +23,12 @@ export function ProfileSettings({
   const [formData, setFormData] = useState({
     fullName: profile.fullName,
     email: profile.email,
-    phone: profile.phone || ''
+    phone: profile.phone || '',
+    streetAddress: profile.streetAddress || '',
+    city: profile.city || '',
+    state: profile.state || '',
+    postalCode: profile.postalCode || '',
+    country: profile.country || ''
   })
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -139,6 +144,76 @@ export function ProfileSettings({
               />
             </div>
 
+            <div>
+              <label htmlFor="streetAddress" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                Street Address
+              </label>
+              <input
+                id="streetAddress"
+                type="text"
+                value={formData.streetAddress}
+                onChange={(e) => setFormData({ ...formData, streetAddress: e.target.value })}
+                placeholder="123 Main St, Apt 4B"
+                className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:text-slate-100"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="city" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                  City
+                </label>
+                <input
+                  id="city"
+                  type="text"
+                  value={formData.city}
+                  onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:text-slate-100"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="state" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                  State / Province
+                </label>
+                <input
+                  id="state"
+                  type="text"
+                  value={formData.state}
+                  onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:text-slate-100"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="postalCode" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                  Postal Code
+                </label>
+                <input
+                  id="postalCode"
+                  type="text"
+                  value={formData.postalCode}
+                  onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })}
+                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:text-slate-100"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="country" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                  Country
+                </label>
+                <input
+                  id="country"
+                  type="text"
+                  value={formData.country}
+                  onChange={(e) => setFormData({ ...formData, country: e.target.value })}
+                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:text-slate-100"
+                />
+              </div>
+            </div>
+
             <div className="flex gap-3 pt-2">
               <button
                 type="submit"
@@ -153,7 +228,12 @@ export function ProfileSettings({
                   setFormData({
                     fullName: profile.fullName,
                     email: profile.email,
-                    phone: profile.phone || ''
+                    phone: profile.phone || '',
+                    streetAddress: profile.streetAddress || '',
+                    city: profile.city || '',
+                    state: profile.state || '',
+                    postalCode: profile.postalCode || '',
+                    country: profile.country || ''
                   })
                 }}
                 className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg font-medium transition-colors"
@@ -195,6 +275,26 @@ export function ProfileSettings({
                 <p className="font-medium text-slate-900 dark:text-slate-50">
                   {profile.phone || 'Not set'}
                 </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
+              <MapPin className="w-5 h-5 text-slate-600 dark:text-slate-400 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-sm text-slate-600 dark:text-slate-400">Address</p>
+                <div className="font-medium text-slate-900 dark:text-slate-50">
+                  {profile.streetAddress || profile.city || profile.state || profile.postalCode || profile.country ? (
+                    <>
+                      {profile.streetAddress && <div>{profile.streetAddress}</div>}
+                      <div>
+                        {[profile.city, profile.state, profile.postalCode].filter(Boolean).join(', ')}
+                      </div>
+                      {profile.country && <div>{profile.country}</div>}
+                    </>
+                  ) : (
+                    'Not set'
+                  )}
+                </div>
               </div>
             </div>
 

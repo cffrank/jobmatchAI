@@ -55,10 +55,18 @@ export default function ApplicationDetailPage() {
   }
 
   const handleUpdateStatus = (status: ApplicationStatus, note?: string) => {
+    const newHistoryEntry = {
+      status,
+      date: new Date().toISOString(),
+      note
+    }
+
     setApplication({
       ...application,
       status,
       lastUpdated: new Date().toISOString(),
+      statusChangedAt: new Date().toISOString(),
+      statusHistory: [...application.statusHistory, newHistoryEntry],
       activityLog: [
         ...application.activityLog,
         {

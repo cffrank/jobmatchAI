@@ -81,3 +81,9 @@ dist-ssr
 
 # Railway environment variable JSON files
 vars/*.json
+
+# Cloudflare Workers secrets
+**/.dev.vars
+**/.dev.vars.*
+workers/.dev.vars
+workers/.dev.vars.*

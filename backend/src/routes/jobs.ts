@@ -57,9 +57,34 @@ const scrapeJobsSchema = z.object({
 });
 
 const updateJobSchema = z.object({
+  // Status fields (database triggers handle saved_at and expires_at)
   isSaved: z.boolean().optional(),
   isArchived: z.boolean().optional(),
-});
+  saved: z.boolean().optional(),  // Allow both naming conventions
+  archived: z.boolean().optional(),
+  // Editable job fields
+  title: z.string().min(1).max(200).optional(),
+  company: z.string().min(1).max(200).optional(),
+  location: z.string().max(200).optional(),
+  description: z.string().optional(),
+  url: z.string().url().optional().or(z.literal('')),
+  jobType: z.enum(['full-time', 'part-time', 'contract', 'internship', 'temporary', 'remote']).optional(),
+  experienceLevel: z.enum(['entry', 'mid', 'senior', 'lead', 'executive']).optional(),
+  salaryMin: z.number().int().min(0).optional(),
+  salaryMax: z.number().int().min(0).optional(),
+}).refine(
+  (data) => {
+    // Validate salary range if both are provided
+    if (data.salaryMin !== undefined && data.salaryMax !== undefined) {
+      return data.salaryMax >= data.salaryMin;
+    }
+    return true;
+  },
+  {
+    message: 'Maximum salary must be greater than or equal to minimum salary',
+    path: ['salaryMax'],
+  }
+);
 
 // =============================================================================
 // Routes
@@ -332,7 +357,7 @@ router.post(
 
 /**
  * PATCH /api/jobs/:id
- * Update job (save/archive)
+ * Update job (save/archive/edit details)
  */
 router.patch(
   '/:id',
@@ -353,13 +378,41 @@ router.patch(
 
     const updates = parseResult.data;
 
+    // Map frontend fields to database column names
+    const dbUpdates: Record<string, any> = {
+      updated_at: new Date().toISOString(),
+    };
+
+    // Handle saved status (support both naming conventions)
+    // Note: saved_at and expires_at are automatically managed by database triggers:
+    // - When saved changes to true: trigger sets saved_at and clears expires_at
+    // - When saved changes to false: trigger clears saved_at and sets expires_at to NOW() + 48 hours
+    if (updates.isSaved !== undefined) {
+      dbUpdates.saved = updates.isSaved;
+    } else if (updates.saved !== undefined) {
+      dbUpdates.saved = updates.saved;
+    }
+
+    // Handle archived status
+    if (updates.isArchived !== undefined) {
+      dbUpdates.archived = updates.isArchived;
+    } else if (updates.archived !== undefined) {
+      dbUpdates.archived = updates.archived;
+    }
+    if (updates.title !== undefined) dbUpdates.title = updates.title;
+    if (updates.company !== undefined) dbUpdates.company = updates.company;
+    if (updates.location !== undefined) dbUpdates.location = updates.location;
+    if (updates.description !== undefined) dbUpdates.description = updates.description;
+    if (updates.url !== undefined) dbUpdates.url = updates.url || null;
+    if (updates.jobType !== undefined) dbUpdates.job_type = updates.jobType;
+    if (updates.experienceLevel !== undefined) dbUpdates.experience_level = updates.experienceLevel;
+    if (updates.salaryMin !== undefined) dbUpdates.salary_min = updates.salaryMin;
+    if (updates.salaryMax !== undefined) dbUpdates.salary_max = updates.salaryMax;
+
     // Verify ownership and update
     const { data: job, error } = await supabaseAdmin
       .from(TABLES.JOBS)
-      .update({
-        ...updates,
-        updated_at: new Date().toISOString(),
-      })
+      .update(dbUpdates)
       .eq('id', id)
       .eq('user_id', userId)
       .select()

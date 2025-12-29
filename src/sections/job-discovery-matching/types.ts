@@ -31,6 +31,9 @@ export interface Job {
   url?: string
   source?: 'linkedin' | 'indeed' | 'manual'
   scrapedAt?: Date
+  // Job expiration and save tracking
+  savedAt?: string  // ISO timestamp when job was saved
+  expiresAt?: string  // ISO timestamp when unsaved job expires (48 hours from creation)
 }
 
 // =============================================================================
@@ -98,4 +101,6 @@ export interface JobDetailProps {
   onUnsaveJob?: () => void
   /** Called when user clicks the Apply button */
   onApply?: () => void
+  /** Called when user clicks the Edit button */
+  onEdit?: () => void
 }

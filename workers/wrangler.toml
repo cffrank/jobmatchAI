@@ -1,0 +1,84 @@
+# JobMatch AI - Cloudflare Workers Configuration
+# https://developers.cloudflare.com/workers/wrangler/configuration/
+
+name = "jobmatch-ai"
+main = "api/index.ts"
+compatibility_date = "2024-12-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Build configuration
+[build]
+command = "npm install"
+
+# Environment-specific configurations
+# Development
+[env.development]
+name = "jobmatch-ai-dev"
+vars = { ENVIRONMENT = "development" }
+
+# Staging
+[env.staging]
+name = "jobmatch-ai-staging"
+vars = { ENVIRONMENT = "staging" }
+
+# Production
+[env.production]
+name = "jobmatch-ai-prod"
+vars = { ENVIRONMENT = "production" }
+
+# Scheduled Jobs (Cron Triggers) - DISABLED due to account limit
+# https://developers.cloudflare.com/workers/configuration/cron-triggers/
+# Note: Account already has 5+ cron triggers from other workers
+# Cleanup tasks can be triggered manually via API if needed
+# [env.production.triggers]
+# crons = [
+#   # Hourly cleanup (rate limits, OAuth states, failed logins, unlock accounts)
+#   "0 * * * *",
+#   # Daily at 3 AM UTC - archive old jobs
+#   "0 3 * * *"
+# ]
+
+# KV Namespaces (for rate limiting in production - TODO)
+# [[kv_namespaces]]
+# binding = "RATE_LIMITS"
+# id = "your-kv-namespace-id"
+
+# D1 Database (if migrating to D1 in future)
+# [[d1_databases]]
+# binding = "DB"
+# database_name = "jobmatch"
+# database_id = "your-d1-database-id"
+
+# R2 Storage (if migrating from Supabase Storage in future)
+# [[r2_buckets]]
+# binding = "STORAGE"
+# bucket_name = "jobmatch-files"
+
+# Durable Objects (for distributed rate limiting - future)
+# [[durable_objects.bindings]]
+# name = "RATE_LIMITER"
+# class_name = "RateLimiter"
+
+# Secrets (configure via wrangler secret put)
+# Required secrets:
+# - SUPABASE_URL
+# - SUPABASE_ANON_KEY
+# - SUPABASE_SERVICE_ROLE_KEY
+# - OPENAI_API_KEY
+# - SENDGRID_API_KEY
+# - LINKEDIN_CLIENT_ID
+# - LINKEDIN_CLIENT_SECRET
+# - LINKEDIN_REDIRECT_URI
+# - APIFY_API_TOKEN
+# - APP_URL
+
+# Worker Limits
+# - 10ms CPU time (paid plans: 50ms)
+# - 128MB memory
+# - 1MB request/response body
+# - 30 second request duration (paid: 300s)
+
+# Performance Tips:
+# 1. Use c.executionCtx.waitUntil() for background tasks
+# 2. Keep cold start fast by lazy-loading heavy modules
+# 3. Use caches.default for response caching

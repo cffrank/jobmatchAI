@@ -455,6 +455,7 @@ function mapDbTrackedApplication(dbApp: DbTrackedApplication): TrackedApplicatio
     status: dbApp.status as TrackedApplication['status'],
     appliedDate: dbApp.applied_date || '',
     lastUpdated: dbApp.last_updated,
+    statusChangedAt: dbApp.status_changed_at || undefined,
     statusHistory: (dbApp.status_history as unknown as TrackedApplication['statusHistory']) || [],
     interviews: (dbApp.interviews as unknown as TrackedApplication['interviews']) || [],
     recruiter: (dbApp.recruiter as unknown as TrackedApplication['recruiter']) || undefined,

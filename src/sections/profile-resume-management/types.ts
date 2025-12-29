@@ -38,6 +38,11 @@ export interface User {
   email: string
   phone: string
   location: string
+  streetAddress?: string
+  city?: string
+  state?: string
+  postalCode?: string
+  country?: string
   linkedInUrl: string
   profileImageUrl: string | null
   headline: string
@@ -80,6 +85,11 @@ export interface ResumeContact {
   email: string
   phone: string
   location: string
+  streetAddress?: string
+  city?: string
+  state?: string
+  postalCode?: string
+  country?: string
   linkedIn: string
 }
 

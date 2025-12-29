@@ -1,12 +1,13 @@
-import { Calendar, ChevronDown, ChevronUp, Clock, Filter, Search, Archive, Download, MoreVertical, Eye, CheckCircle2, XCircle, AlertCircle, MinusCircle, TrendingUp, Plus } from 'lucide-react'
+import { Calendar, ChevronDown, ChevronUp, Clock, Filter, Search, Archive, Download, MoreVertical, Eye, CheckCircle2, XCircle, AlertCircle, MinusCircle, TrendingUp, Plus, Mail, ArchiveIcon } from 'lucide-react'
 import { useState } from 'react'
 import type { ApplicationTrackerProps, TrackedApplication, ApplicationStatus } from '../types'
+import { getStatusColor, getStatusLabel, formatDate, getDaysSince } from '../utils/statusHelpers'
 
 export function ApplicationList({
   applications,
   // filters: placeholder for future implementation
   onViewApplication,
-  // onUpdateStatus: placeholder for future implementation
+  onUpdateStatus,
   // onArchive: placeholder for future implementation
   // onFilter: placeholder for future implementation
   onSort,
@@ -41,31 +42,11 @@ export function ApplicationList({
     )
   }
 
-  const getStatusColor = (status: ApplicationStatus) => {
-    switch (status) {
-      case 'accepted':
-        return 'bg-emerald-100 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-800'
-      case 'offer':
-        return 'bg-emerald-100 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-800'
-      case 'interview_completed':
-      case 'interview_scheduled':
-        return 'bg-blue-100 dark:bg-blue-950/30 text-blue-700 dark:text-blue-400 border-blue-300 dark:border-blue-800'
-      case 'screening':
-        return 'bg-slate-100 dark:bg-slate-800/50 text-slate-700 dark:text-slate-400 border-slate-300 dark:border-slate-700'
-      case 'applied':
-        return 'bg-slate-100 dark:bg-slate-800/50 text-slate-700 dark:text-slate-400 border-slate-300 dark:border-slate-700'
-      case 'rejected':
-        return 'bg-red-100 dark:bg-red-950/30 text-red-700 dark:text-red-400 border-red-300 dark:border-red-800'
-      case 'withdrawn':
-        return 'bg-orange-100 dark:bg-orange-950/30 text-orange-700 dark:text-orange-400 border-orange-300 dark:border-orange-800'
-      default:
-        return 'bg-slate-100 dark:bg-slate-800/50 text-slate-700 dark:text-slate-400 border-slate-300 dark:border-slate-700'
-    }
-  }
 
   const getStatusIcon = (status: ApplicationStatus) => {
     switch (status) {
       case 'accepted':
+      case 'offer_accepted':
         return <CheckCircle2 className="w-4 h-4" />
       case 'offer':
         return <TrendingUp className="w-4 h-4" />
@@ -76,52 +57,18 @@ export function ApplicationList({
         return <Eye className="w-4 h-4" />
       case 'applied':
         return <Clock className="w-4 h-4" />
+      case 'response_received':
+        return <Mail className="w-4 h-4" />
       case 'rejected':
+      case 'offer_declined':
         return <XCircle className="w-4 h-4" />
       case 'withdrawn':
         return <MinusCircle className="w-4 h-4" />
+      case 'abandoned':
+        return <ArchiveIcon className="w-4 h-4" />
       default:
         return <AlertCircle className="w-4 h-4" />
     }
-  }
-
-  const getStatusLabel = (status: ApplicationStatus) => {
-    switch (status) {
-      case 'applied':
-        return 'Applied'
-      case 'screening':
-        return 'Screening'
-      case 'interview_scheduled':
-        return 'Interview Scheduled'
-      case 'interview_completed':
-        return 'Interview Completed'
-      case 'offer':
-        return 'Offer'
-      case 'accepted':
-        return 'Accepted'
-      case 'rejected':
-        return 'Rejected'
-      case 'withdrawn':
-        return 'Withdrawn'
-      default:
-        return status
-    }
-  }
-
-  const getDaysSince = (dateStr: string) => {
-    const date = new Date(dateStr)
-    const now = new Date()
-    const diffTime = Math.abs(now.getTime() - date.getTime())
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24))
-    return diffDays
-  }
-
-  const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
-    })
   }
 
   // Filter and search applications
@@ -139,7 +86,7 @@ export function ApplicationList({
 
   // Stats
   const activeApplications = applications.filter(
-    app => !['accepted', 'rejected', 'withdrawn'].includes(app.status)
+    app => !['accepted', 'offer_accepted', 'rejected', 'offer_declined', 'withdrawn', 'abandoned'].includes(app.status)
   )
   const pendingActions = applications.filter(app => app.followUpActions.some(a => !a.completed))
 
@@ -246,7 +193,7 @@ export function ApplicationList({
               <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
                 <p className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">Status</p>
                 <div className="flex flex-wrap gap-2">
-                  {(['applied', 'screening', 'interview_scheduled', 'interview_completed', 'offer', 'accepted', 'rejected', 'withdrawn'] as ApplicationStatus[]).map(status => (
+                  {(['applied', 'response_received', 'screening', 'interview_scheduled', 'interview_completed', 'offer', 'offer_accepted', 'offer_declined', 'accepted', 'rejected', 'withdrawn', 'abandoned'] as ApplicationStatus[]).map(status => (
                     <button
                       key={status}
                       onClick={() => {
@@ -398,11 +345,14 @@ export function ApplicationList({
                           Match: {app.matchScore}%
                         </div>
                       </td>
-                      <td className="px-4 py-4">
-                        <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg border text-sm font-medium ${getStatusColor(app.status)}`}>
+                      <td className="px-4 py-4" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          onClick={() => onUpdateStatus?.(app.id)}
+                          className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg border text-sm font-medium transition-all hover:shadow-md ${getStatusColor(app.status)}`}
+                        >
                           {getStatusIcon(app.status)}
                           <span>{getStatusLabel(app.status)}</span>
-                        </div>
+                        </button>
                       </td>
                       <td className="px-4 py-4">
                         <div className="text-sm text-slate-900 dark:text-slate-50">

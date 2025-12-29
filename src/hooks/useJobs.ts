@@ -1,8 +1,11 @@
 import { useState, useCallback, useEffect, useMemo } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
-import type { Job, CompatibilityBreakdown } from '@/sections/job-discovery-matching/types'
-import { analyzeJobWithAI } from '@/lib/aiJobMatching'
+import type { Job } from '@/sections/job-discovery-matching/types'
+import { rankJobs } from '@/lib/jobMatching'
+import { useProfile } from './useProfile'
+import { useSkills } from './useSkills'
+import { useWorkExperience } from './useWorkExperience'
 import type { Database } from '@/types/supabase'
 
 type JobRow = Database['public']['Tables']['jobs']['Row']
@@ -27,6 +30,11 @@ type JobRow = Database['public']['Tables']['jobs']['Row']
 export function useJobs(pageSize = 20) {
   const { user } = useAuth()
   const userId = user?.id
+
+  // Fetch user profile data for matching
+  const { profile } = useProfile()
+  const { skills } = useSkills()
+  const { workExperience } = useWorkExperience()
 
   // Fetch saved jobs to mark them in the list
   const { savedJobIds } = useSavedJobs()
@@ -67,9 +75,9 @@ export function useJobs(pageSize = 20) {
         id: row.id,
         title: row.title,
         company: row.company,
-        companyLogo: row.company_logo || '',
+        companyLogo: '', // Default empty logo
         location: row.location || '',
-        workArrangement: (row.work_arrangement as 'Remote' | 'Hybrid' | 'On-site' | 'Unknown') || 'Unknown',
+        workArrangement: 'Unknown',
         salaryMin: row.salary_min || 0,
         salaryMax: row.salary_max || 0,
         postedDate: row.added_at || row.created_at,
@@ -77,12 +85,14 @@ export function useJobs(pageSize = 20) {
         url: row.url || undefined,
         source: row.source as 'linkedin' | 'indeed' | 'manual' || 'manual',
         matchScore: row.match_score || undefined,
-        isSaved: false, // Will be set below
-        // Read from database instead of hardcoding empty arrays
-        requiredSkills: row.required_skills || [],
-        missingSkills: row.missing_skills || [],
-        recommendations: row.recommendations || [],
-        // Use placeholder - will be recalculated by rankJobs with real data
+        isSaved: row.saved || false,
+        // Expiration tracking
+        savedAt: row.saved_at || undefined,
+        expiresAt: row.expires_at || undefined,
+        // Initialize arrays to prevent .map() errors
+        requiredSkills: [],
+        missingSkills: [],
+        recommendations: [],
         compatibilityBreakdown: {
           skillMatch: 0,
           experienceMatch: 0,
@@ -113,17 +123,23 @@ export function useJobs(pageSize = 20) {
     fetchJobs(0, false)
   }, [fetchJobs])
 
-  // Jobs are already sorted by match_score from database (AI-powered scores)
-  // Just need to mark which ones are saved
+  // Rank jobs based on user profile match
   const rankedJobs = useMemo(() => {
     if (jobs.length === 0) return []
 
-    // Mark saved jobs (don't recalculate scores - use AI scores from database)
-    return jobs.map(job => ({
+    // Rank jobs using matching algorithm
+    const ranked = rankJobs(jobs, {
+      user: profile,
+      skills,
+      workExperience,
+    })
+
+    // Mark saved jobs
+    return ranked.map(job => ({
       ...job,
       isSaved: savedJobIds.includes(job.id),
     }))
-  }, [jobs, savedJobIds])
+  }, [jobs, profile, skills, workExperience, savedJobIds])
 
   // Load more callback
   const loadMore = useCallback(() => {
@@ -144,33 +160,89 @@ export function useJobs(pageSize = 20) {
 
   /**
    * Save/bookmark a job
+   * This will automatically set saved_at and clear expires_at via database trigger
    */
   const saveJob = async (jobId: string) => {
     if (!userId) throw new Error('User not authenticated')
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('jobs')
       .update({ saved: true })
       .eq('id', jobId)
       .eq('user_id', userId)
+      .select('saved_at, expires_at')
+      .single()
 
     if (error) throw error
 
-    // Update local state
+    // Update local state with timestamps from database
     setJobs(prev => prev.map(job =>
-      job.id === jobId ? { ...job, saved: true, isSaved: true } : job
+      job.id === jobId ? {
+        ...job,
+        saved: true,
+        isSaved: true,
+        savedAt: data.saved_at,
+        expiresAt: data.expires_at,
+      } : job
     ))
   }
 
   /**
    * Unsave/unbookmark a job
+   * This will automatically clear saved_at and set expires_at via database trigger
    */
   const unsaveJob = async (jobId: string) => {
     if (!userId) throw new Error('User not authenticated')
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('jobs')
       .update({ saved: false })
+      .eq('id', jobId)
+      .eq('user_id', userId)
+      .select('saved_at, expires_at')
+      .single()
+
+    if (error) throw error
+
+    // Update local state with timestamps from database
+    setJobs(prev => prev.map(job =>
+      job.id === jobId ? {
+        ...job,
+        saved: false,
+        isSaved: false,
+        savedAt: data.saved_at,
+        expiresAt: data.expires_at,
+      } : job
+    ))
+  }
+
+  /**
+   * Update job details (title, company, description, etc.)
+   */
+  const updateJob = async (jobId: string, updates: Partial<{
+    title: string
+    company: string
+    location: string
+    description: string
+    url: string
+    salaryMin: number
+    salaryMax: number
+  }>) => {
+    if (!userId) throw new Error('User not authenticated')
+
+    // Map to database column names
+    const dbUpdates: Record<string, any> = {}
+    if (updates.title !== undefined) dbUpdates.title = updates.title
+    if (updates.company !== undefined) dbUpdates.company = updates.company
+    if (updates.location !== undefined) dbUpdates.location = updates.location
+    if (updates.description !== undefined) dbUpdates.description = updates.description
+    if (updates.url !== undefined) dbUpdates.url = updates.url
+    if (updates.salaryMin !== undefined) dbUpdates.salary_min = updates.salaryMin
+    if (updates.salaryMax !== undefined) dbUpdates.salary_max = updates.salaryMax
+
+    const { error } = await supabase
+      .from('jobs')
+      .update(dbUpdates)
       .eq('id', jobId)
       .eq('user_id', userId)
 
@@ -178,7 +250,7 @@ export function useJobs(pageSize = 20) {
 
     // Update local state
     setJobs(prev => prev.map(job =>
-      job.id === jobId ? { ...job, saved: false, isSaved: false } : job
+      job.id === jobId ? { ...job, ...updates } : job
     ))
   }
 
@@ -191,6 +263,7 @@ export function useJobs(pageSize = 20) {
     reset,
     saveJob,
     unsaveJob,
+    updateJob,
     totalCount,
   }
 }
@@ -214,12 +287,15 @@ export function useJob(jobId: string | undefined) {
   const { user } = useAuth()
   const userId = user?.id
 
+  // Fetch user profile data for matching
+  const { profile } = useProfile()
+  const { skills } = useSkills()
+  const { workExperience } = useWorkExperience()
   const { savedJobIds } = useSavedJobs()
 
   // State management
   const [job, setJob] = useState<Job | null>(null)
   const [loading, setLoading] = useState(true)
-  const [analyzing, setAnalyzing] = useState(false)
   const [error, setError] = useState<Error | null>(null)
 
   // Fetch job
@@ -254,32 +330,14 @@ export function useJob(jobId: string | undefined) {
           return
         }
 
-        // Parse compatibility_breakdown from JSON if it exists
-        let compatibilityBreakdown: CompatibilityBreakdown = {
-          skillMatch: 0,
-          experienceMatch: 0,
-          industryMatch: 0,
-          locationMatch: 0,
-        }
-
-        if (data.compatibility_breakdown) {
-          try {
-            compatibilityBreakdown = typeof data.compatibility_breakdown === 'string'
-              ? JSON.parse(data.compatibility_breakdown)
-              : data.compatibility_breakdown
-          } catch (e) {
-            console.warn('[useJob] Failed to parse compatibility_breakdown:', e)
-          }
-        }
-
         // Convert to Job type
         const rawJob: Job = {
           id: data.id,
           title: data.title,
           company: data.company,
-          companyLogo: data.company_logo || '',
+          companyLogo: '', // Default empty logo
           location: data.location || '',
-          workArrangement: (data.work_arrangement as 'Remote' | 'Hybrid' | 'On-site' | 'Unknown') || 'Unknown',
+          workArrangement: 'Unknown',
           salaryMin: data.salary_min || 0,
           salaryMax: data.salary_max || 0,
           postedDate: data.added_at || data.created_at,
@@ -287,53 +345,34 @@ export function useJob(jobId: string | undefined) {
           url: data.url || undefined,
           source: data.source as 'linkedin' | 'indeed' | 'manual' || 'manual',
           matchScore: data.match_score || undefined,
-          isSaved: savedJobIds.includes(data.id),
-          requiredSkills: data.required_skills || [],
-          missingSkills: data.missing_skills || [],
-          recommendations: data.recommendations || [],
-          compatibilityBreakdown,
+          isSaved: data.saved || false,
+          // Expiration tracking
+          savedAt: data.saved_at || undefined,
+          expiresAt: data.expires_at || undefined,
+          // Initialize arrays to prevent .map() errors
+          requiredSkills: [],
+          missingSkills: [],
+          recommendations: [],
+          compatibilityBreakdown: {
+            skillMatch: 0,
+            experienceMatch: 0,
+            industryMatch: 0,
+            locationMatch: 0,
+          },
         }
 
-        setJob(rawJob)
+        // Rank this single job to get match score
+        const [rankedJob] = rankJobs([rawJob], {
+          user: profile,
+          skills,
+          workExperience,
+        })
+
+        setJob({
+          ...rankedJob,
+          isSaved: savedJobIds.includes(rawJob.id),
+        })
         setLoading(false)
-
-        // Trigger AI analysis if job doesn't have a match score OR if it hasn't been analyzed with AI
-        // Old keyword-based scores won't have compatibility_breakdown with all fields populated
-        const breakdown = data.compatibility_breakdown as any
-        const hasAIAnalysis = data.match_score &&
-                             breakdown &&
-                             typeof breakdown === 'object' &&
-                             (breakdown.skillMatch !== undefined)
-
-        if (!hasAIAnalysis) {
-          console.log('[useJob] No AI analysis found, triggering AI matching...')
-          setAnalyzing(true)
-
-          try {
-            const { data: { session } } = await supabase.auth.getSession()
-
-            if (session?.access_token) {
-              const result = await analyzeJobWithAI(jobId, session.access_token)
-
-              // Update job with AI analysis results
-              const updatedJob: Job = {
-                ...rawJob,
-                matchScore: result.analysis.matchScore,
-                compatibilityBreakdown: result.analysis.compatibilityBreakdown,
-                missingSkills: result.analysis.missingSkills,
-                recommendations: result.analysis.recommendations,
-              }
-
-              setJob(updatedJob)
-              console.log(`[useJob] AI analysis complete: ${result.analysis.matchScore}% match`)
-            }
-          } catch (err) {
-            console.error('[useJob] AI analysis failed:', err)
-            // Don't show error to user, just log it
-          } finally {
-            setAnalyzing(false)
-          }
-        }
       } catch (err) {
         console.error('[useJob] Error fetching job:', err)
         setError(err as Error)
@@ -342,37 +381,91 @@ export function useJob(jobId: string | undefined) {
     }
 
     fetchJob()
-  }, [jobId, userId, savedJobIds])
+  }, [jobId, userId, profile, skills, workExperience, savedJobIds])
 
   /**
    * Save/bookmark a job
+   * This will automatically set saved_at and clear expires_at via database trigger
    */
   const saveJob = async (jobId: string) => {
     if (!userId) throw new Error('User not authenticated')
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('jobs')
       .update({ saved: true })
       .eq('id', jobId)
       .eq('user_id', userId)
+      .select('saved_at, expires_at')
+      .single()
 
     if (error) throw error
 
-    // Update local state
+    // Update local state with timestamps from database
     if (job && job.id === jobId) {
-      setJob({ ...job, isSaved: true })
+      setJob({
+        ...job,
+        isSaved: true,
+        savedAt: data.saved_at,
+        expiresAt: data.expires_at,
+      })
     }
   }
 
   /**
    * Unsave/unbookmark a job
+   * This will automatically clear saved_at and set expires_at via database trigger
    */
   const unsaveJob = async (jobId: string) => {
     if (!userId) throw new Error('User not authenticated')
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('jobs')
       .update({ saved: false })
+      .eq('id', jobId)
+      .eq('user_id', userId)
+      .select('saved_at, expires_at')
+      .single()
+
+    if (error) throw error
+
+    // Update local state with timestamps from database
+    if (job && job.id === jobId) {
+      setJob({
+        ...job,
+        isSaved: false,
+        savedAt: data.saved_at,
+        expiresAt: data.expires_at,
+      })
+    }
+  }
+
+  /**
+   * Update job details (title, company, description, etc.)
+   */
+  const updateJob = async (jobId: string, updates: Partial<{
+    title: string
+    company: string
+    location: string
+    description: string
+    url: string
+    salaryMin: number
+    salaryMax: number
+  }>) => {
+    if (!userId) throw new Error('User not authenticated')
+
+    // Map to database column names
+    const dbUpdates: Record<string, any> = {}
+    if (updates.title !== undefined) dbUpdates.title = updates.title
+    if (updates.company !== undefined) dbUpdates.company = updates.company
+    if (updates.location !== undefined) dbUpdates.location = updates.location
+    if (updates.description !== undefined) dbUpdates.description = updates.description
+    if (updates.url !== undefined) dbUpdates.url = updates.url
+    if (updates.salaryMin !== undefined) dbUpdates.salary_min = updates.salaryMin
+    if (updates.salaryMax !== undefined) dbUpdates.salary_max = updates.salaryMax
+
+    const { error } = await supabase
+      .from('jobs')
+      .update(dbUpdates)
       .eq('id', jobId)
       .eq('user_id', userId)
 
@@ -380,17 +473,17 @@ export function useJob(jobId: string | undefined) {
 
     // Update local state
     if (job && job.id === jobId) {
-      setJob({ ...job, isSaved: false })
+      setJob({ ...job, ...updates })
     }
   }
 
   return {
     job,
     loading,
-    analyzing,
     error,
     saveJob,
     unsaveJob,
+    updateJob,
   }
 }
 

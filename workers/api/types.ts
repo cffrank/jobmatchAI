@@ -1,26 +1,66 @@
 /**
- * TypeScript Type Definitions for JobMatch AI Backend
+ * TypeScript Type Definitions for JobMatch AI Cloudflare Workers
  *
  * Comprehensive type definitions for:
+ * - Environment bindings
  * - Database entities (users, jobs, applications)
  * - API request/response payloads
  * - Service interfaces
- * - Middleware extensions
  */
 
-import type { Request } from 'express';
-import type { User } from '@supabase/supabase-js';
+import type { Context } from 'hono';
 
 // =============================================================================
-// Express Extensions
+// Cloudflare Workers Environment Bindings
 // =============================================================================
 
 /**
- * Extended Express Request with authenticated user
+ * Environment bindings available in Cloudflare Workers
+ * These are configured via wrangler.toml and secrets
  */
-export interface AuthenticatedRequest extends Request {
-  user: User;
-  userId: string;
+export interface Env {
+  // Supabase configuration
+  SUPABASE_URL: string;
+  SUPABASE_ANON_KEY: string;
+  SUPABASE_SERVICE_ROLE_KEY: string;
+
+  // OpenAI configuration
+  OPENAI_API_KEY: string;
+
+  // SendGrid configuration
+  SENDGRID_API_KEY?: string;
+  SENDGRID_FROM_EMAIL?: string;
+
+  // LinkedIn OAuth configuration
+  LINKEDIN_CLIENT_ID?: string;
+  LINKEDIN_CLIENT_SECRET?: string;
+  LINKEDIN_REDIRECT_URI?: string;
+
+  // Apify configuration (job scraping)
+  APIFY_API_TOKEN?: string;
+
+  // App configuration
+  APP_URL: string;
+  ENVIRONMENT: 'development' | 'staging' | 'production';
+
+  // Rate Limiting (future KV namespace)
+  // RATE_LIMITS?: KVNamespace;
+
+  // D1 Database (future)
+  // DB?: D1Database;
+}
+
+/**
+ * Hono Context with our environment bindings
+ */
+export type HonoContext = Context<{ Bindings: Env; Variables: Variables }>;
+
+/**
+ * Variables stored in Hono context (set by middleware)
+ */
+export interface Variables {
+  userId?: string;
+  userEmail?: string;
 }
 
 // =============================================================================
@@ -91,21 +131,6 @@ export interface Skill {
   updatedAt: string;
 }
 
-export interface JobPreferences {
-  id: string;
-  userId: string;
-  desiredTitles: string[];
-  desiredLocations: string[];
-  workArrangement: ('Remote' | 'Hybrid' | 'On-site')[];
-  salaryMin?: number;
-  salaryMax?: number;
-  experienceLevel?: string;
-  autoSearchEnabled: boolean;
-  searchFrequency: 'daily' | 'weekly' | 'monthly';
-  createdAt: string;
-  updatedAt: string;
-}
-
 // =============================================================================
 // Job Types
 // =============================================================================
@@ -128,25 +153,10 @@ export interface Job {
   preferredSkills?: string[];
   experienceLevel?: string;
   matchScore?: number;
-  algorithmicScore?: number;
-  aiScore?: number;
-  breakdown?: MatchBreakdown;
-  aiInsights?: string[];
-  missingSkills?: string[];
-  recommendations?: string[];
   isSaved: boolean;
   isArchived: boolean;
-  scrapedAt?: string;
   createdAt: string;
   updatedAt: string;
-}
-
-export interface MatchBreakdown {
-  skillsMatch: number;
-  experienceMatch: number;
-  locationMatch: number;
-  salaryMatch: number;
-  titleMatch: number;
 }
 
 // =============================================================================
@@ -219,25 +229,6 @@ export interface EditHistoryEntry {
 }
 
 // =============================================================================
-// Email Types
-// =============================================================================
-
-export interface EmailRecord {
-  id: string;
-  userId: string;
-  applicationId: string;
-  recipientEmail: string;
-  subject: string;
-  body: string;
-  includeResume: boolean;
-  includeCoverLetter: boolean;
-  sentAt: string;
-  status: 'sent' | 'delivered' | 'bounced' | 'failed';
-  fromEmail: string;
-  fromName: string;
-}
-
-// =============================================================================
 // API Request/Response Types
 // =============================================================================
 
@@ -258,15 +249,6 @@ export interface GenerateApplicationResponse {
 }
 
 // Jobs
-export interface ListJobsQuery {
-  page?: number;
-  limit?: number;
-  archived?: boolean;
-  saved?: boolean;
-  source?: 'linkedin' | 'indeed' | 'manual';
-  minMatchScore?: number;
-}
-
 export interface ListJobsResponse {
   jobs: Job[];
   total: number;
@@ -295,11 +277,6 @@ export interface ScrapeJobsResponse {
 }
 
 // Emails
-export interface SendEmailRequest {
-  applicationId: string;
-  recipientEmail?: string;
-}
-
 export interface SendEmailResponse {
   success: boolean;
   emailId: string;
@@ -307,10 +284,6 @@ export interface SendEmailResponse {
 }
 
 // Exports
-export interface ExportRequest {
-  applicationId: string;
-}
-
 export interface ExportResponse {
   downloadUrl: string;
   fileName: string;
@@ -319,69 +292,20 @@ export interface ExportResponse {
   fileSize: number;
 }
 
-// Auth
-export interface LinkedInCallbackQuery {
-  code: string;
-  state: string;
-  error?: string;
-  error_description?: string;
-}
-
 // =============================================================================
 // Rate Limiting Types
 // =============================================================================
 
-export interface RateLimitRecord {
-  id: string;
-  userId: string;
-  endpoint: string;
-  requestCount: number;
-  windowStart: string;
-  windowEnd: string;
-}
-
 export interface RateLimitConfig {
   maxRequests: number;
   windowMs: number;
-  keyGenerator?: (req: AuthenticatedRequest) => string;
 }
 
-// =============================================================================
-// OAuth State Types
-// =============================================================================
-
-export interface OAuthState {
-  id: string;
-  userId: string;
-  provider: 'linkedin';
-  state: string;
-  createdAt: string;
-  expiresAt: string;
-  metadata?: Record<string, unknown>;
-}
-
-// =============================================================================
-// Service Types
-// =============================================================================
-
-export interface OpenAIGenerationResult {
-  resume: ResumeContent;
-  coverLetter: string;
-  aiRationale: string[];
-}
-
-export interface ScrapedJob {
-  title: string;
-  company: string;
-  location: string;
-  description: string;
-  salary?: string;
-  postedDate?: string;
-  url: string;
-  source: 'linkedin' | 'indeed';
-  jobType?: string;
-  experienceLevel?: string;
-  workArrangement?: string;
+export interface RateLimitResult {
+  allowed: boolean;
+  remaining: number;
+  resetTime: Date;
+  currentCount: number;
 }
 
 // =============================================================================
@@ -417,11 +341,80 @@ export class HttpError extends Error {
 }
 
 // =============================================================================
-// Validation Schema Types (for Zod)
+// Resume Parsing Types
 // =============================================================================
 
-export interface ValidationResult<T> {
-  success: boolean;
-  data?: T;
-  errors?: string[];
+export interface ParsedProfile {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  location: string;
+  streetAddress?: string;
+  city?: string;
+  state?: string;
+  postalCode?: string;
+  country?: string;
+  headline: string;
+  summary: string;
+  linkedInUrl?: string;
 }
+
+export interface ParsedWorkExperience {
+  company: string;
+  position: string;
+  location: string;
+  startDate: string;
+  endDate: string | null;
+  current: boolean;
+  description: string;
+  accomplishments: string[];
+}
+
+export interface ParsedEducation {
+  institution: string;
+  degree: string;
+  fieldOfStudy: string;
+  startDate: string;
+  endDate: string | null;
+  current: boolean;
+  grade?: string;
+}
+
+export interface ParsedSkill {
+  name: string;
+  endorsements: number;
+}
+
+export interface ParsedResume {
+  profile: ParsedProfile;
+  workExperience: ParsedWorkExperience[];
+  education: ParsedEducation[];
+  skills: ParsedSkill[];
+}
+
+// =============================================================================
+// Database Table Names
+// =============================================================================
+
+export const TABLES = {
+  USERS: 'users',
+  WORK_EXPERIENCE: 'work_experience',
+  EDUCATION: 'education',
+  SKILLS: 'skills',
+  JOB_PREFERENCES: 'job_preferences',
+  JOBS: 'jobs',
+  JOB_SEARCHES: 'job_searches',
+  APPLICATIONS: 'applications',
+  APPLICATION_VARIANTS: 'application_variants',
+  EMAILS: 'emails',
+  RATE_LIMITS: 'rate_limits',
+  OAUTH_STATES: 'oauth_states',
+  NOTIFICATIONS: 'notifications',
+} as const;
+
+export const BUCKETS = {
+  EXPORTS: 'exports',
+  RESUMES: 'resumes',
+  AVATARS: 'avatars',
+} as const;
