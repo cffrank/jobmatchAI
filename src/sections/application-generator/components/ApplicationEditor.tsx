@@ -123,19 +123,31 @@ export function ApplicationEditor({
                 AI Variants
               </h3>
               <div className="space-y-2">
-                {application.variants.map((variant) => (
-                  <button
-                    key={variant.id}
-                    onClick={() => onSelectVariant?.(variant.id)}
-                    className={`w-full px-3 py-2.5 rounded-lg border-2 text-left text-sm font-medium transition-all ${
-                      selectedVariant.id === variant.id
-                        ? 'bg-blue-50 dark:bg-blue-950/30 border-blue-600 dark:border-blue-500 text-blue-900 dark:text-blue-300'
-                        : 'bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600'
-                    }`}
-                  >
-                    {variant.name}
-                  </button>
-                ))}
+                {application.variants && application.variants.length > 0 ? (
+                  application.variants.map((variant) => (
+                    <button
+                      key={variant.id}
+                      onClick={() => onSelectVariant?.(variant.id)}
+                      className={`w-full px-3 py-2.5 rounded-lg border-2 text-left text-sm font-medium transition-all ${
+                        selectedVariant?.id === variant.id
+                          ? 'bg-blue-50 dark:bg-blue-950/30 border-blue-600 dark:border-blue-500 text-blue-900 dark:text-blue-300'
+                          : 'bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600'
+                      }`}
+                    >
+                      {variant.name}
+                    </button>
+                  ))
+                ) : (
+                  <div className="text-center py-6">
+                    <Sparkles className="w-8 h-8 text-slate-400 dark:text-slate-600 mx-auto mb-2" />
+                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                      No AI variants yet
+                    </p>
+                    <p className="text-xs text-slate-500 dark:text-slate-500 mt-1">
+                      Generate variants to optimize your application
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Edit History */}
@@ -213,18 +225,32 @@ export function ApplicationEditor({
 
             {/* Content Area */}
             <div className="bg-white dark:bg-slate-900 rounded-b-xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm min-h-[600px]">
-              {activeTab === 'resume' ? (
-                <ResumeEditor
-                  resume={selectedVariant.resume}
-                  previewMode={previewMode}
-                  onEdit={onEdit}
-                />
+              {selectedVariant ? (
+                activeTab === 'resume' ? (
+                  <ResumeEditor
+                    resume={selectedVariant.resume}
+                    previewMode={previewMode}
+                    onEdit={onEdit}
+                  />
+                ) : (
+                  <CoverLetterEditor
+                    coverLetter={selectedVariant.coverLetter}
+                    previewMode={previewMode}
+                    onEdit={onEdit}
+                  />
+                )
               ) : (
-                <CoverLetterEditor
-                  coverLetter={selectedVariant.coverLetter}
-                  previewMode={previewMode}
-                  onEdit={onEdit}
-                />
+                <div className="flex flex-col items-center justify-center h-full min-h-[400px] text-center">
+                  <Sparkles className="w-16 h-16 text-slate-400 dark:text-slate-600 mb-4" />
+                  <h3 className="text-xl font-bold text-slate-900 dark:text-slate-50 mb-2">
+                    No Variant Selected
+                  </h3>
+                  <p className="text-slate-600 dark:text-slate-400 max-w-md">
+                    {application.variants && application.variants.length > 0
+                      ? 'Select a variant from the sidebar to view and edit the resume and cover letter.'
+                      : 'This application has no AI-generated variants yet. Generate variants to get started.'}
+                  </p>
+                </div>
               )}
             </div>
           </div>

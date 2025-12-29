@@ -64,7 +64,7 @@ async function runE2ETests(env: Env): Promise<Response> {
   const results: TestResult[] = [];
 
   try {
-    // Launch browser
+    // Launch browser - env.BROWSER is the Fetcher binding
     const browser = await puppeteer.launch(env.BROWSER);
     const page = await browser.newPage();
 
