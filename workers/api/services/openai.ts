@@ -50,17 +50,54 @@ export const GENERATION_STRATEGIES = [
 // =============================================================================
 
 /**
- * Create an OpenAI client (per-request in Workers)
+ * Create an OpenAI client with optional AI Gateway routing
+ *
+ * If CLOUDFLARE_ACCOUNT_ID and AI_GATEWAY_SLUG are configured, all requests
+ * will be routed through Cloudflare AI Gateway for automatic caching and
+ * cost reduction (60-80% savings via response deduplication).
+ *
+ * Falls back to direct OpenAI API if AI Gateway is not configured.
+ *
+ * @param env - Environment bindings with API keys and configuration
+ * @returns OpenAI client instance
  */
 export function createOpenAI(env: Env): OpenAI {
   if (!env.OPENAI_API_KEY) {
     throw new Error('OPENAI_API_KEY is not configured');
   }
-  return new OpenAI({ apiKey: env.OPENAI_API_KEY });
+
+  // Check if AI Gateway is configured
+  const useAIGateway = env.CLOUDFLARE_ACCOUNT_ID && env.AI_GATEWAY_SLUG;
+
+  if (useAIGateway) {
+    // Route through Cloudflare AI Gateway for caching and analytics
+    const gatewayBaseURL = `https://gateway.ai.cloudflare.com/v1/${env.CLOUDFLARE_ACCOUNT_ID}/${env.AI_GATEWAY_SLUG}/openai`;
+
+    console.log(`[OpenAI] Using Cloudflare AI Gateway: ${env.AI_GATEWAY_SLUG}`);
+
+    return new OpenAI({
+      apiKey: env.OPENAI_API_KEY,
+      baseURL: gatewayBaseURL,
+    });
+  }
+
+  // Fallback to direct OpenAI API
+  console.log('[OpenAI] Using direct OpenAI API (AI Gateway not configured)');
+
+  return new OpenAI({
+    apiKey: env.OPENAI_API_KEY,
+  });
 }
 
 export function isOpenAIConfigured(env: Env): boolean {
   return !!env.OPENAI_API_KEY;
+}
+
+/**
+ * Check if AI Gateway is configured and available
+ */
+export function isAIGatewayConfigured(env: Env): boolean {
+  return !!(env.CLOUDFLARE_ACCOUNT_ID && env.AI_GATEWAY_SLUG);
 }
 
 // =============================================================================
@@ -175,6 +212,9 @@ async function generateVariant(
     response_format: { type: 'json_object' },
   });
 
+  // Log AI Gateway cache status (if available)
+  logAIGatewayCacheStatus(completion, 'application-generation', strategy.name);
+
   const content = completion.choices[0]?.message.content;
   if (!content) {
     throw new Error('No content in OpenAI response');
@@ -186,6 +226,43 @@ async function generateVariant(
 // =============================================================================
 // Helper Functions
 // =============================================================================
+
+/**
+ * Log AI Gateway cache status from OpenAI response headers
+ *
+ * Cloudflare AI Gateway adds a 'cf-aig-cache-status' header to responses:
+ * - HIT: Response served from cache (cost savings!)
+ * - MISS: Response generated fresh (will be cached for future requests)
+ *
+ * @param completion - OpenAI completion response
+ * @param operation - Operation name for logging (e.g., 'application-generation', 'resume-parsing')
+ * @param details - Additional details for logging (e.g., variant name)
+ */
+function logAIGatewayCacheStatus(
+  completion: any,
+  operation: string,
+  details?: string
+): void {
+  try {
+    // Access response headers if available
+    const headers = completion?.response?.headers;
+    const cacheStatus = headers?.get?.('cf-aig-cache-status');
+
+    if (cacheStatus) {
+      const detailsStr = details ? ` (${details})` : '';
+      if (cacheStatus === 'HIT') {
+        console.log(`[AI Gateway] ✓ Cache HIT for ${operation}${detailsStr} - Cost savings!`);
+      } else if (cacheStatus === 'MISS') {
+        console.log(`[AI Gateway] ✗ Cache MISS for ${operation}${detailsStr} - Response will be cached`);
+      } else {
+        console.log(`[AI Gateway] Cache status for ${operation}${detailsStr}: ${cacheStatus}`);
+      }
+    }
+  } catch (error) {
+    // Silently ignore if headers are not accessible (direct OpenAI API)
+    // This is expected when AI Gateway is not configured
+  }
+}
 
 /**
  * Format user address into a single string for resume
@@ -508,6 +585,9 @@ Return the response as JSON with this EXACT structure:
     temperature: 0.3,
     max_tokens: 4000,
   });
+
+  // Log AI Gateway cache status (if available)
+  logAIGatewayCacheStatus(completion, 'resume-parsing', storagePath.split('/').pop());
 
   const content = completion.choices[0]?.message.content;
   if (!content) {

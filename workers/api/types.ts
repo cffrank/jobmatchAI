@@ -43,6 +43,10 @@ export interface Env {
   APP_URL: string;
   ENVIRONMENT: 'development' | 'staging' | 'production';
 
+  // Cloudflare AI Gateway configuration (optional)
+  CLOUDFLARE_ACCOUNT_ID?: string;
+  AI_GATEWAY_SLUG?: string;
+
   // Rate Limiting (future KV namespace)
   // RATE_LIMITS?: KVNamespace;
 

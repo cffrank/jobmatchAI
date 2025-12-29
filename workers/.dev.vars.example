@@ -24,6 +24,24 @@ SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 OPENAI_API_KEY=sk-your-openai-api-key
 
 # =============================================================================
+# Cloudflare AI Gateway Configuration (Optional - Recommended for Cost Savings)
+# =============================================================================
+
+# Cloudflare account ID - get from: wrangler whoami
+# Or from dashboard URL: https://dash.cloudflare.com/{ACCOUNT_ID}/
+CLOUDFLARE_ACCOUNT_ID=your-cloudflare-account-id
+
+# AI Gateway slug (create at: AI > AI Gateway > Create Gateway)
+# Recommended name: jobmatch-ai-gateway
+AI_GATEWAY_SLUG=jobmatch-ai-gateway
+
+# NOTE: AI Gateway provides:
+# - 60-80% cost reduction through automatic response caching
+# - Request analytics and monitoring (100% FREE)
+# - No code changes required - just set these environment variables
+# - Falls back to direct OpenAI API if not configured
+
+# =============================================================================
 # SendGrid Configuration (Optional)
 # =============================================================================
 
