@@ -20,6 +20,10 @@ on:
 env:
   NODE_VERSION: '22.x'
 
+permissions:
+  contents: read
+  deployments: write
+
 jobs:
   # Run all tests before deploying
   run-tests:
