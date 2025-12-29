@@ -287,6 +287,17 @@ function formatAddress(profile: UserProfile): string {
 function buildSystemPrompt(strategyPrompt: string): string {
   return `You are an expert resume writer specializing in ATS-optimized applications. ${strategyPrompt}.
 
+KEYWORD EXTRACTION & ATS OPTIMIZATION:
+CRITICAL: First, analyze the job description to extract:
+- Technical skills and tools mentioned (e.g., Python, AWS, React, SQL)
+- Industry-specific terminology and buzzwords
+- Required qualifications and certifications
+- Action verbs and power words used in the job posting
+- Soft skills mentioned (e.g., leadership, communication, problem-solving)
+
+Then, naturally incorporate these keywords throughout the resume and cover letter to maximize ATS compatibility.
+DO NOT list keywords separately - weave them into achievements and descriptions.
+
 EXAMPLES OF EXCELLENT RESUME BULLETS:
 
 Bad: "Responsible for managing kitchen staff and preparing meals"
@@ -296,24 +307,27 @@ KEY PRINCIPLES FOR RESUME BULLETS:
 - Start with powerful action verbs (Led, Managed, Developed, Increased, Reduced)
 - Include specific, quantifiable metrics (%, $, numbers)
 - Show clear impact and business results
+- Naturally incorporate keywords from the job description
 - Length: 50-150 characters per bullet
 
 PROFESSIONAL SUMMARY REQUIREMENTS:
 - Length: 100-300 characters
 - Mention total years of experience
-- Include 2-3 most relevant skills from job description
+- Include 2-3 most relevant skills/keywords from job description
 - Highlight 1-2 key achievements with numbers
+- Use industry terminology from the job posting
 
 COVER LETTER REQUIREMENTS:
 - Length: 500-1500 characters
 - Mention company name at least twice
 - Reference specific job title in opening paragraph
 - Include 2-3 concrete achievements with metrics
+- Mirror language and keywords from job description
 
 Return JSON with this EXACT structure:
 {
   "resume": {
-    "summary": "Brief professional summary string (100-300 chars with metrics)",
+    "summary": "Brief professional summary string (100-300 chars with metrics and job-specific keywords)",
     "experience": [
       {
         "title": "Job title",
@@ -321,10 +335,10 @@ Return JSON with this EXACT structure:
         "location": "City, State",
         "startDate": "YYYY-MM",
         "endDate": "YYYY-MM or Present",
-        "bullets": ["Achievement with metrics", "Another achievement with numbers", "Third achievement showing impact"]
+        "bullets": ["Achievement with metrics and keywords", "Another achievement with numbers and relevant terms", "Third achievement showing impact with job-specific language"]
       }
     ],
-    "skills": ["Skill 1", "Skill 2", "Skill 3"],
+    "skills": ["Skill 1 from job posting", "Skill 2 from job posting", "Skill 3 from job posting"],
     "education": [
       {
         "degree": "Degree name in Field",
@@ -334,8 +348,8 @@ Return JSON with this EXACT structure:
       }
     ]
   },
-  "coverLetter": "Multi-paragraph cover letter text with \\n\\n separating paragraphs.",
-  "aiRationale": ["Specific reason why this resume matches job requirement 1", "How achievement X addresses need Y"]
+  "coverLetter": "Multi-paragraph cover letter text with \\n\\n separating paragraphs. Use keywords and terminology from the job description.",
+  "aiRationale": ["Extracted keyword X from job description and incorporated into summary/experience", "Matched achievement Y to job requirement Z using specific terminology from posting"]
 }`;
 }
 
@@ -415,7 +429,21 @@ ${skillNames}
 ---
 
 TASK:
-Create a tailored resume and cover letter that maximizes ATS compatibility and highlights relevant experience.`;
+1. ANALYZE the job description above to identify:
+   - Key technical skills, tools, and technologies mentioned
+   - Industry-specific terminology and buzzwords
+   - Required qualifications, certifications, and experience levels
+   - Action verbs and power words used in the posting
+   - Core competencies and soft skills emphasized
+
+2. CREATE a tailored resume and cover letter that:
+   - Naturally incorporates keywords and terminology from the job description
+   - Maximizes ATS compatibility by mirroring the job posting language
+   - Highlights the candidate's most relevant experience using job-specific terminology
+   - Uses metrics and achievements that align with the job requirements
+   - Maintains authenticity while optimizing for keyword matching
+
+3. EXPLAIN your keyword strategy in the aiRationale field, documenting which keywords you extracted and how you incorporated them.`;
 }
 
 // =============================================================================

@@ -254,6 +254,10 @@ function estimateRequiredExperience(job: Job): number {
 /**
  * Calculate industry match score
  * Evaluates domain/industry experience alignment
+ *
+ * NOTE: This is a simplified fallback. The AI backend (workers/api/services/openai.ts)
+ * performs much more sophisticated semantic matching by analyzing job descriptions
+ * directly without relying on hardcoded keyword lists.
  */
 function calculateIndustryMatch(
   job: Job,
@@ -264,14 +268,20 @@ function calculateIndustryMatch(
     return { score: 0 }
   }
 
-  // Extract industry keywords from job
-  const jobIndustryKeywords = extractIndustryKeywords(job)
-  console.log(`[JobMatching] Job industry keywords:`, jobIndustryKeywords)
+  // Simple heuristic: check if any work experience companies or positions
+  // appear in the job description (basic text matching)
+  const jobText = `${job.title} ${job.company} ${job.description}`.toLowerCase()
 
-  // Check if user has experience in similar industries
   const hasIndustryMatch = workExperience.some(exp => {
-    const expText = `${exp.company} ${exp.position} ${exp.description || ''}`.toLowerCase()
-    const match = jobIndustryKeywords.some(keyword => expText.includes(keyword))
+    const company = exp.company.toLowerCase()
+    const position = exp.position.toLowerCase()
+    const description = (exp.description || '').toLowerCase()
+
+    // Check for company name overlap or similar position titles
+    const match = jobText.includes(company) ||
+                  jobText.includes(position) ||
+                  (description && jobText.includes(description.substring(0, 50)))
+
     if (match) {
       console.log(`[JobMatching] Industry match found: ${exp.company} (${exp.position})`)
     }
@@ -282,37 +292,6 @@ function calculateIndustryMatch(
 
   // Score based on industry alignment
   return { score: hasIndustryMatch ? 100 : 60 } // 60 = neutral for different industry
-}
-
-/**
- * Extract industry keywords from job
- */
-function extractIndustryKeywords(job: Job): string[] {
-  const text = `${job.title} ${job.company} ${job.description}`.toLowerCase()
-  const keywords: string[] = []
-
-  // Common industry identifiers
-  const industries = [
-    'fintech', 'finance', 'banking',
-    'healthcare', 'medical', 'health',
-    'e-commerce', 'retail', 'marketplace',
-    'saas', 'enterprise', 'b2b',
-    'social', 'media', 'content',
-    'gaming', 'game',
-    'ai', 'ml', 'machine learning',
-    'crypto', 'blockchain', 'web3',
-    'education', 'edtech',
-    'logistics', 'supply chain',
-    'security', 'cybersecurity',
-  ]
-
-  for (const industry of industries) {
-    if (text.includes(industry)) {
-      keywords.push(industry)
-    }
-  }
-
-  return keywords
 }
 
 /**
