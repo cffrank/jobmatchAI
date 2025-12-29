@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ApplicationEditor } from './components/ApplicationEditor'
 import { useApplication, useApplications } from '@/hooks/useApplications'
 import { useJob } from '@/hooks/useJobs'
+import { useTrackedApplications } from '@/hooks/useTrackedApplications'
 import { generateApplicationVariants } from '@/lib/aiGenerator'
 import { exportApplication, ExportError } from '@/lib/exportApplication'
 import { EmailDialog } from './components/EmailDialog'
@@ -31,6 +32,7 @@ export default function ApplicationEditorPage() {
   // Use Supabase hook to fetch application (skip if creating new)
   const { application, loading, error } = useApplication(isNewApplication ? undefined : id)
   const { updateApplication } = useApplications()
+  const { addTrackedApplication } = useTrackedApplications()
 
   // Fetch job details if generating new application
   const { job, loading: jobLoading } = useJob(jobId || undefined)
@@ -355,11 +357,36 @@ export default function ApplicationEditorPage() {
 
   const handleSubmit = async () => {
     try {
+      // Update application status to submitted
       await updateApplication(application.id, {
         status: 'submitted',
         submittedAt: new Date().toISOString()
       })
-      toast.success('Application submitted!')
+
+      // Create tracked application for status tracking
+      await addTrackedApplication({
+        jobId: application.jobId || undefined,
+        applicationId: application.id,
+        company: application.company,
+        jobTitle: application.jobTitle,
+        location: application.location || '',
+        matchScore: application.matchScore || 0,
+        status: 'applied',
+        appliedDate: new Date().toISOString(),
+        statusHistory: [{
+          status: 'applied',
+          date: new Date().toISOString(),
+          note: 'Application submitted'
+        }],
+        activityLog: [{
+          date: new Date().toISOString(),
+          action: 'Application submitted',
+          details: `Submitted application for ${application.jobTitle} at ${application.company}`
+        }],
+        notes: ''
+      })
+
+      toast.success('Application submitted and added to tracker!')
       navigate('/tracker')
     } catch (error) {
       toast.error('Failed to submit application')
