@@ -534,18 +534,10 @@ async function extractTextFromPDFWithVision(pdfUrl: string, env: Env): Promise<s
   try {
     console.log('[extractTextFromPDFWithVision] Using Workers AI Vision to read PDF');
 
-    // First, agree to the Llama 3.2 Vision license terms
-    console.log('[extractTextFromPDFWithVision] Sending license agreement');
-    await env.AI.run('@cf/meta/llama-3.2-11b-vision-instruct', {
-      messages: [
-        {
-          role: 'user',
-          content: 'agree',
-        },
-      ],
-    });
-
-    // Now use Llama 3.2 Vision to read the PDF
+    // Use Llama 3.2 Vision to read the PDF
+    // Note: License must be accepted once per account via:
+    // curl https://api.cloudflare.com/client/v4/accounts/$ACCOUNT_ID/ai/run/@cf/meta/llama-3.2-11b-vision-instruct \
+    //   -H "Authorization: Bearer $API_TOKEN" -d '{"prompt": "agree"}'
     const response = await env.AI.run('@cf/meta/llama-3.2-11b-vision-instruct', {
       messages: [
         {
