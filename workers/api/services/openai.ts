@@ -9,7 +9,6 @@
  */
 
 import OpenAI from 'openai';
-import { extractText } from 'unpdf';
 import type { Env, Job, UserProfile, WorkExperience, Education, Skill, ApplicationVariant, ResumeContent, ParsedResume, JobCompatibilityAnalysis } from '../types';
 import { createSupabaseAdmin } from './supabase';
 import { analyzeJobCompatibilityWithWorkersAI } from './workersAI';
@@ -528,49 +527,10 @@ function getFallbackVariant(
 // =============================================================================
 
 /**
- * Extract text from PDF using unpdf library
- * Works in Cloudflare Workers, no external APIs needed
- */
-async function extractTextFromPDF(pdfUrl: string): Promise<string> {
-  try {
-    console.log('[extractTextFromPDF] Fetching PDF from signed URL');
-    const pdfResponse = await fetch(pdfUrl);
-    if (!pdfResponse.ok) {
-      throw new Error(`Failed to fetch PDF: ${pdfResponse.status} ${pdfResponse.statusText}`);
-    }
-
-    const pdfBuffer = await pdfResponse.arrayBuffer();
-    console.log(`[extractTextFromPDF] Fetched PDF (${Math.round(pdfBuffer.byteLength / 1024)}KB)`);
-
-    // Use unpdf library to extract text (works in Cloudflare Workers)
-    console.log('[extractTextFromPDF] Extracting text with unpdf library');
-    const { text } = await extractText(new Uint8Array(pdfBuffer));
-
-    console.log('[extractTextFromPDF] Extracted text length:', text.length);
-
-    if (!text || text.trim().length === 0) {
-      throw new Error('No text could be extracted from the PDF. The PDF may be corrupted or unreadable.');
-    }
-
-    return text.trim();
-  } catch (error) {
-    console.error('[extractTextFromPDF] Error details:', {
-      message: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
-      type: typeof error,
-      error: error,
-    });
-    throw new Error(`Failed to extract text from PDF: ${error instanceof Error ? error.message : String(error)}`);
-  }
-}
-
-/**
  * Parse resume file and extract structured information using AI
  *
- * - For images: Uses OpenAI GPT-4o with Vision
- * - For PDFs: Uses unpdf library to extract text, then parses with Workers AI (Llama 3.3 70B)
- *   - Completely free, no external APIs needed
- *   - Cost-effective and fully serverless
+ * Uses OpenAI GPT-4o with Vision to parse both images and PDFs
+ * PDFs are processed as visual documents via the Vision API
  */
 export async function parseResume(env: Env, storagePath: string): Promise<ParsedResume> {
   const openai = createOpenAI(env);
@@ -590,10 +550,10 @@ export async function parseResume(env: Env, storagePath: string): Promise<Parsed
 
   const isPdf = ext === 'pdf';
   if (isPdf) {
-    console.log('[parseResume] PDF detected, will extract text');
+    console.log('[parseResume] PDF detected, will process as visual document');
   }
 
-  // Generate signed URL for the file
+  // Generate signed URL for the image
   const { data: signedUrlData, error: urlError } = await supabase.storage
     .from('files')
     .createSignedUrl(storagePath, 3600);
@@ -605,14 +565,6 @@ export async function parseResume(env: Env, storagePath: string): Promise<Parsed
 
   const fileUrl = signedUrlData.signedUrl;
   console.log(`[parseResume] Signed URL generated successfully`);
-
-  // For PDFs, extract text using unpdf library
-  let pdfText: string | null = null;
-  if (isPdf) {
-    console.log('[parseResume] Extracting text from PDF');
-    pdfText = await extractTextFromPDF(fileUrl);
-    console.log(`[parseResume] Extracted ${pdfText.length} characters from PDF`);
-  }
 
   const prompt = `
 You are an expert resume parser. Extract all information from this resume and return it as structured JSON.
@@ -673,93 +625,36 @@ Return the response as JSON with this EXACT structure:
 }
 `;
 
-  let parsedData: ParsedResume;
+  const completion = await openai.chat.completions.create({
+    model: MODELS.RESUME_PARSING,
+    messages: [
+      {
+        role: 'system',
+        content: 'You are an expert resume parser. Extract all information from resumes and return valid JSON only.',
+      },
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: prompt },
+          { type: 'image_url', image_url: { url: fileUrl } },
+        ],
+      },
+    ],
+    response_format: { type: 'json_object' },
+    temperature: 0.3,
+    max_tokens: 4000,
+  });
 
-  if (isPdf && pdfText) {
-    // For PDFs, use Workers AI (Llama 3.3 70B) with extracted text
-    // Using the more powerful model for resume parsing to ensure accurate extraction
-    console.log('[parseResume] Using Workers AI (Llama 3.3 70B) to parse PDF text');
+  // Log AI Gateway cache status (if available)
+  logAIGatewayCacheStatus(completion, 'resume-parsing', storagePath.split('/').pop());
 
-    const aiPrompt = `${prompt}\n\nCRITICAL: Extract COMPLETE information for each position including:
-- Full job description (what they did in the role)
-- ALL accomplishments, achievements, and bullet points
-- Technologies, tools, and skills used
-- Quantifiable results and metrics
-
-Resume Text:
-${pdfText}`;
-
-    const response = await env.AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
-      messages: [
-        {
-          role: 'system',
-          content: 'You are an expert resume parser. Extract ALL information from resumes including complete job descriptions and accomplishments. Return valid JSON only. Follow the exact structure provided. Do not omit any details.',
-        },
-        {
-          role: 'user',
-          content: aiPrompt,
-        },
-      ],
-      temperature: 0.2,
-      max_tokens: 8000,
-    });
-
-    console.log('[parseResume] Workers AI response received');
-
-    // Workers AI returns {response: string}
-    const responseText = typeof response === 'object' && 'response' in response
-      ? (response as { response: string }).response
-      : JSON.stringify(response);
-
-    // Try to extract JSON from the response
-    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      console.error('[parseResume] No JSON found in Workers AI response:', responseText);
-      throw new Error('Failed to parse resume: AI did not return valid JSON');
-    }
-
-    parsedData = JSON.parse(jsonMatch[0]) as ParsedResume;
-    console.log('[parseResume] Successfully parsed resume with Workers AI');
-
-  } else {
-    // For images, use OpenAI Vision API
-    console.log('[parseResume] Using OpenAI Vision to parse image');
-
-    const userMessage: OpenAI.Chat.ChatCompletionUserMessageParam = {
-      role: 'user',
-      content: [
-        { type: 'text', text: prompt },
-        { type: 'image_url', image_url: { url: fileUrl } },
-      ],
-    };
-
-    const completion = await openai.chat.completions.create({
-      model: MODELS.RESUME_PARSING,
-      messages: [
-        {
-          role: 'system',
-          content: 'You are an expert resume parser. Extract all information from resumes and return valid JSON only.',
-        },
-        userMessage,
-      ],
-      response_format: { type: 'json_object' },
-      temperature: 0.3,
-      max_tokens: 4000,
-    });
-
-    // Log AI Gateway cache status (if available)
-    logAIGatewayCacheStatus(completion, 'resume-parsing', storagePath.split('/').pop());
-
-    const content = completion.choices[0]?.message.content;
-    if (!content) {
-      throw new Error('No content in OpenAI response');
-    }
-
-    parsedData = JSON.parse(content) as ParsedResume;
-    console.log('[parseResume] Successfully parsed resume with OpenAI Vision');
+  const content = completion.choices[0]?.message.content;
+  if (!content) {
+    throw new Error('No content in OpenAI response');
   }
 
-  return parsedData;
+  console.log('[parseResume] Successfully parsed resume');
+  return JSON.parse(content) as ParsedResume;
 }
 
 // =============================================================================
