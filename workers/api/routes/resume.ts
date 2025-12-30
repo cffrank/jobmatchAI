@@ -1,13 +1,16 @@
 /**
  * Resume Routes for Cloudflare Workers
  *
- * Handles resume parsing and import functionality.
+ * Handles resume parsing, gap analysis, and import functionality.
  *
  * Endpoints:
  * - POST /api/resume/parse - Parse resume file using AI
- *   - PDF files: Text extracted with unpdf → parsed with Workers AI (Llama 3.1 8B)
+ *   - PDF files: Text extracted with Railway → parsed with Workers AI (Llama 3.3 70B)
  *   - Image files: Parsed with OpenAI GPT-4o Vision
  *   - Supports: PDF, PNG, JPG, JPEG, GIF, WEBP
+ * - POST /api/resume/analyze-gaps - Analyze resume for gaps and generate improvement questions
+ * - GET /api/resume/gap-analysis/:id - Get gap analysis by ID
+ * - PATCH /api/resume/gap-analysis/:id/answer - Answer a question in gap analysis
  */
 
 import { Hono } from 'hono';
@@ -17,6 +20,8 @@ import { authenticateUser, getUserId } from '../middleware/auth';
 import { rateLimiter } from '../middleware/rateLimiter';
 import { createValidationError } from '../middleware/errorHandler';
 import { parseResume } from '../services/openai';
+import { analyzeResumeGaps } from '../services/resumeGapAnalysis';
+import { createSupabaseAdmin } from '../services/supabase';
 
 // =============================================================================
 // Router Setup
@@ -129,7 +134,7 @@ app.get('/supported-formats', async (c) => {
         extension: '.pdf',
         mimeType: 'application/pdf',
         status: 'fully_supported',
-        note: 'Text extracted using Workers AI Vision (Llama 3.2 11B), then parsed with Cloudflare Workers AI (Llama 3.3 70B). Completely free and fully serverless.',
+        note: 'Text extracted using Railway PDF parser, then parsed with Cloudflare Workers AI (Llama 3.3 70B). Completely free and fully serverless.',
       },
     ],
     recommendations: [
@@ -140,6 +145,260 @@ app.get('/supported-formats', async (c) => {
       'For all uploads, ensure text is clearly visible and high-resolution.',
     ],
   });
+});
+
+/**
+ * POST /api/resume/analyze-gaps
+ * Analyze user's current profile for gaps and generate improvement questions
+ *
+ * Uses Workers AI (Llama 3.3 70B) to identify gaps, red flags, and generate
+ * 5-10 targeted questions to help strengthen the resume/profile.
+ *
+ * Completely free - no external API costs.
+ */
+app.post('/analyze-gaps', authenticateUser, rateLimiter(), async (c) => {
+  const userId = getUserId(c);
+  const supabase = createSupabaseAdmin(c.env);
+
+  console.log(`[/api/resume/analyze-gaps] Starting analysis for user ${userId}`);
+
+  try {
+    // Fetch user's profile data
+    const { data: profile, error: profileError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', userId)
+      .single();
+
+    if (profileError || !profile) {
+      throw new Error('Failed to fetch user profile');
+    }
+
+    // Fetch work experience
+    const { data: workExperiences, error: workError } = await supabase
+      .from('work_experience')
+      .select('*')
+      .eq('user_id', userId)
+      .order('start_date', { ascending: false });
+
+    if (workError) {
+      throw new Error('Failed to fetch work experience');
+    }
+
+    // Fetch education
+    const { data: education, error: eduError } = await supabase
+      .from('education')
+      .select('*')
+      .eq('user_id', userId)
+      .order('start_date', { ascending: false });
+
+    if (eduError) {
+      throw new Error('Failed to fetch education');
+    }
+
+    // Fetch skills
+    const { data: skills, error: skillsError } = await supabase
+      .from('skills')
+      .select('*')
+      .eq('user_id', userId);
+
+    if (skillsError) {
+      throw new Error('Failed to fetch skills');
+    }
+
+    console.log(`[/api/resume/analyze-gaps] Data fetched for user ${userId}`);
+
+    // Analyze resume with Workers AI
+    const analysis = await analyzeResumeGaps(
+      c.env,
+      profile,
+      workExperiences || [],
+      education || [],
+      skills || []
+    );
+
+    // Save analysis to database
+    const { data: savedAnalysis, error: saveError } = await supabase
+      .from('resume_gap_analyses')
+      .insert({
+        user_id: userId,
+        overall_assessment: analysis.resume_analysis.overall_assessment,
+        gap_count: analysis.resume_analysis.gap_count,
+        red_flag_count: analysis.resume_analysis.red_flag_count,
+        urgency: analysis.resume_analysis.urgency,
+        identified_gaps: analysis.identified_gaps_and_flags,
+        clarification_questions: analysis.clarification_questions,
+        immediate_action: analysis.next_steps.immediate_action,
+        long_term_recommendations: analysis.next_steps.long_term_recommendations,
+        questions_total: analysis.clarification_questions.length,
+        questions_answered: 0,
+        status: 'pending',
+      })
+      .select()
+      .single();
+
+    if (saveError) {
+      console.error('[/api/resume/analyze-gaps] Error saving analysis:', saveError);
+      throw new Error('Failed to save gap analysis');
+    }
+
+    console.log(
+      `[/api/resume/analyze-gaps] Analysis saved for user ${userId}, ID: ${savedAnalysis.id}`
+    );
+
+    return c.json({
+      ...analysis,
+      analysis_id: savedAnalysis.id,
+    }, 200);
+  } catch (error) {
+    console.error(`[/api/resume/analyze-gaps] Failed for user ${userId}:`, error);
+    throw error;
+  }
+});
+
+/**
+ * GET /api/resume/gap-analysis/:id
+ * Get a gap analysis by ID
+ */
+app.get('/gap-analysis/:id', authenticateUser, async (c) => {
+  const userId = getUserId(c);
+  const analysisId = c.req.param('id');
+  const supabase = createSupabaseAdmin(c.env);
+
+  console.log(`[/api/resume/gap-analysis/:id] Fetching analysis ${analysisId} for user ${userId}`);
+
+  try {
+    const { data, error } = await supabase
+      .from('resume_gap_analyses')
+      .select('*')
+      .eq('id', analysisId)
+      .eq('user_id', userId)
+      .single();
+
+    if (error || !data) {
+      return c.json({ error: 'Gap analysis not found' }, 404);
+    }
+
+    return c.json(data, 200);
+  } catch (error) {
+    console.error(`[/api/resume/gap-analysis/:id] Failed:`, error);
+    throw error;
+  }
+});
+
+/**
+ * PATCH /api/resume/gap-analysis/:id/answer
+ * Answer a question in a gap analysis
+ *
+ * Request body: { question_id: number, answer: string }
+ */
+app.patch('/gap-analysis/:id/answer', authenticateUser, rateLimiter(), async (c) => {
+  const userId = getUserId(c);
+  const analysisId = c.req.param('id');
+  const supabase = createSupabaseAdmin(c.env);
+
+  const body = await c.req.json();
+  const { question_id, answer } = z
+    .object({
+      question_id: z.number(),
+      answer: z.string().min(1, 'Answer cannot be empty'),
+    })
+    .parse(body);
+
+  console.log(
+    `[/api/resume/gap-analysis/:id/answer] Answering question ${question_id} in analysis ${analysisId}`
+  );
+
+  try {
+    // Fetch existing analysis
+    const { data: analysis, error: fetchError } = await supabase
+      .from('resume_gap_analyses')
+      .select('*')
+      .eq('id', analysisId)
+      .eq('user_id', userId)
+      .single();
+
+    if (fetchError || !analysis) {
+      return c.json({ error: 'Gap analysis not found' }, 404);
+    }
+
+    // Update the specific question with the answer
+    const questions = analysis.clarification_questions as any[];
+    const questionIndex = questions.findIndex((q) => q.question_id === question_id);
+
+    if (questionIndex === -1) {
+      return c.json({ error: 'Question not found' }, 404);
+    }
+
+    // Add answer to question
+    questions[questionIndex].answer = answer;
+
+    // Count how many questions have been answered
+    const answeredCount = questions.filter((q) => q.answer && q.answer.trim().length > 0).length;
+
+    // Update status based on progress
+    let status = analysis.status;
+    if (answeredCount === questions.length) {
+      status = 'completed';
+    } else if (answeredCount > 0) {
+      status = 'in_progress';
+    }
+
+    // Save updated analysis
+    const { data: updatedAnalysis, error: updateError } = await supabase
+      .from('resume_gap_analyses')
+      .update({
+        clarification_questions: questions,
+        questions_answered: answeredCount,
+        status,
+        completed_at: status === 'completed' ? new Date().toISOString() : null,
+      })
+      .eq('id', analysisId)
+      .eq('user_id', userId)
+      .select()
+      .single();
+
+    if (updateError) {
+      throw new Error('Failed to update gap analysis');
+    }
+
+    console.log(
+      `[/api/resume/gap-analysis/:id/answer] Answer saved, progress: ${answeredCount}/${questions.length}`
+    );
+
+    return c.json(updatedAnalysis, 200);
+  } catch (error) {
+    console.error(`[/api/resume/gap-analysis/:id/answer] Failed:`, error);
+    throw error;
+  }
+});
+
+/**
+ * GET /api/resume/gap-analyses
+ * List all gap analyses for the current user
+ */
+app.get('/gap-analyses', authenticateUser, async (c) => {
+  const userId = getUserId(c);
+  const supabase = createSupabaseAdmin(c.env);
+
+  console.log(`[/api/resume/gap-analyses] Fetching all analyses for user ${userId}`);
+
+  try {
+    const { data, error } = await supabase
+      .from('resume_gap_analyses')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw new Error('Failed to fetch gap analyses');
+    }
+
+    return c.json(data || [], 200);
+  } catch (error) {
+    console.error(`[/api/resume/gap-analyses] Failed:`, error);
+    throw error;
+  }
 });
 
 export default app;
