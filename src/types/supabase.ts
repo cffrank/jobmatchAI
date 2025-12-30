@@ -238,6 +238,155 @@ export type Database = {
         }
         Relationships: []
       }
+      gap_analyses: {
+        Row: {
+          created_at: string
+          gap_count: number
+          id: string
+          identified_gaps_and_flags: Json
+          next_steps: Json
+          overall_assessment: string
+          red_flag_count: number
+          updated_at: string
+          urgency: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          gap_count?: number
+          id?: string
+          identified_gaps_and_flags?: Json
+          next_steps?: Json
+          overall_assessment: string
+          red_flag_count?: number
+          updated_at?: string
+          urgency: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          gap_count?: number
+          id?: string
+          identified_gaps_and_flags?: Json
+          next_steps?: Json
+          overall_assessment?: string
+          red_flag_count?: number
+          updated_at?: string
+          urgency?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gap_analyses_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gap_analysis_answers: {
+        Row: {
+          answer: string | null
+          context: string
+          created_at: string
+          expected_outcome: string
+          gap_addressed: string
+          gap_analysis_id: string
+          id: string
+          priority: string
+          question: string
+          question_id: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          answer?: string | null
+          context: string
+          created_at?: string
+          expected_outcome: string
+          gap_addressed: string
+          gap_analysis_id: string
+          id?: string
+          priority: string
+          question: string
+          question_id: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          answer?: string | null
+          context?: string
+          created_at?: string
+          expected_outcome?: string
+          gap_addressed?: string
+          gap_analysis_id?: string
+          id?: string
+          priority?: string
+          question?: string
+          question_id?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gap_analysis_answers_gap_analysis_id_fkey"
+            columns: ["gap_analysis_id"]
+            isOneToOne: false
+            referencedRelation: "gap_analyses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gap_analysis_answers_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      work_experience_narratives: {
+        Row: {
+          created_at: string
+          id: string
+          narrative: string
+          updated_at: string
+          user_id: string
+          work_experience_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          narrative: string
+          updated_at?: string
+          user_id: string
+          work_experience_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          narrative?: string
+          updated_at?: string
+          user_id?: string
+          work_experience_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_experience_narratives_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_experience_narratives_work_experience_id_fkey"
+            columns: ["work_experience_id"]
+            isOneToOne: true
+            referencedRelation: "work_experience"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoices: {
         Row: {
           amount_due: number

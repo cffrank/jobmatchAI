@@ -147,14 +147,84 @@ export function ResumeUploadDialog({ isOpen, onClose, onSuccess }: ResumeUploadD
     setStep('preview')
   }
 
+  const saveGapAnalysisData = async () => {
+    if (!user || !gapAnalysis) return null
+
+    try {
+      // Save gap analysis
+      const { data: gapAnalysisRecord, error: gapError } = await supabase
+        .from('gap_analyses')
+        .insert({
+          user_id: user.id,
+          overall_assessment: gapAnalysis.resume_analysis.overall_assessment,
+          gap_count: gapAnalysis.resume_analysis.gap_count,
+          red_flag_count: gapAnalysis.resume_analysis.red_flag_count,
+          urgency: gapAnalysis.resume_analysis.urgency,
+          identified_gaps_and_flags: gapAnalysis.identified_gaps_and_flags as any,
+          next_steps: gapAnalysis.next_steps as any,
+        })
+        .select()
+        .single()
+
+      if (gapError) {
+        console.error('Error saving gap analysis:', gapError)
+        return null
+      }
+
+      // Save answers if any
+      if (Object.keys(questionAnswers).length > 0) {
+        const answersToInsert = gapAnalysis.clarification_questions
+          .filter((q) => questionAnswers[q.question_id])
+          .map((q) => ({
+            gap_analysis_id: gapAnalysisRecord.id,
+            user_id: user.id,
+            question_id: q.question_id,
+            priority: q.priority,
+            gap_addressed: q.gap_addressed,
+            question: q.question,
+            context: q.context,
+            expected_outcome: q.expected_outcome,
+            answer: questionAnswers[q.question_id],
+          }))
+
+        if (answersToInsert.length > 0) {
+          const { error: answersError } = await supabase
+            .from('gap_analysis_answers')
+            .insert(answersToInsert)
+
+          if (answersError) {
+            console.error('Error saving gap analysis answers:', answersError)
+          }
+        }
+      }
+
+      return gapAnalysisRecord.id
+    } catch (err) {
+      console.error('Error saving gap analysis data:', err)
+      return null
+    }
+  }
+
   const handleApplyData = async () => {
     if (!parsedData) return
 
     try {
       setStep('applying')
-      // TODO: Store answers and narratives with profile data in future
-      // For now, just apply the parsed data
+
+      // Step 1: Save gap analysis and answers
+      await saveGapAnalysisData()
+
+      // Step 2: Apply parsed data (this deletes and re-adds profile data)
       await applyParsedData(parsedData)
+
+      // Step 3: Save work experience narratives (after work experiences are created)
+      // We need to wait a bit for the work experiences to be created
+      if (workNarratives.length > 0) {
+        setTimeout(async () => {
+          await saveWorkNarratives()
+        }, 1000)
+      }
+
       setStep('done')
       toast.success('Profile updated successfully!')
       setTimeout(() => {
@@ -165,6 +235,44 @@ export function ResumeUploadDialog({ isOpen, onClose, onSuccess }: ResumeUploadD
       console.error('Error applying parsed data:', err)
       toast.error('Failed to update profile. Please try again.')
       setStep('gapReview')
+    }
+  }
+
+  const saveWorkNarratives = async () => {
+    if (!user || workNarratives.length === 0) return
+
+    try {
+      // Get the user's work experiences to match position_index
+      const { data: workExperiences } = await supabase
+        .from('work_experience')
+        .select('id')
+        .eq('user_id', user.id)
+        .order('start_date', { ascending: false })
+
+      if (!workExperiences) return
+
+      // Map narratives to work experience IDs
+      const narrativesToInsert = workNarratives
+        .filter((n) => n.position_index < workExperiences.length && n.narrative.trim())
+        .map((n) => ({
+          work_experience_id: workExperiences[n.position_index].id,
+          user_id: user.id,
+          narrative: n.narrative,
+        }))
+
+      if (narrativesToInsert.length > 0) {
+        const { error } = await supabase
+          .from('work_experience_narratives')
+          .insert(narrativesToInsert)
+
+        if (error) {
+          console.error('Error saving work experience narratives:', error)
+        } else {
+          console.log(`Saved ${narrativesToInsert.length} work experience narratives`)
+        }
+      }
+    } catch (err) {
+      console.error('Error saving work narratives:', err)
     }
   }
 
