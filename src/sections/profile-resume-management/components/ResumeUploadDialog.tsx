@@ -84,7 +84,7 @@ export function ResumeUploadDialog({ isOpen, onClose, onSuccess }: ResumeUploadD
     const backendUrl = import.meta.env.VITE_BACKEND_URL
     if (!backendUrl) throw new Error('Backend URL not configured')
 
-    const response = await fetch(`${backendUrl}/api/gap-analysis/analyze-parsed-resume`, {
+    const response = await fetch(`${backendUrl}/api/resume/analyze-gaps`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

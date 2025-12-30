@@ -163,93 +163,55 @@ app.post('/analyze-gaps', authenticateUser, rateLimiter(), async (c) => {
   console.log(`[/api/resume/analyze-gaps] Starting analysis for user ${userId}`);
 
   try {
-    // Fetch user's profile data
-    const { data: profile, error: profileError } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', userId)
-      .single();
+    // Get parsed resume data from request body (before import)
+    const body = await c.req.json();
+    const { profile, workExperience, education, skills } = body;
 
-    if (profileError || !profile) {
-      throw new Error('Failed to fetch user profile');
+    console.log(`[/api/resume/analyze-gaps] Received parsed data:`, {
+      hasProfile: !!profile,
+      workExperienceCount: workExperience?.length || 0,
+      educationCount: education?.length || 0,
+      skillsCount: skills?.length || 0,
+    });
+
+    // Validate required data
+    if (!profile) {
+      throw new Error('Profile data is required');
     }
 
-    // Fetch work experience
-    const { data: workExperiences, error: workError } = await supabase
-      .from('work_experience')
-      .select('*')
-      .eq('user_id', userId)
-      .order('start_date', { ascending: false });
+    // Use parsed data for analysis
+    const profileData = {
+      id: userId,
+      email: profile.email || '',
+      full_name: profile.full_name || '',
+      phone_number: profile.phone_number || '',
+      linkedin_url: profile.linkedin_url || '',
+      portfolio_url: profile.portfolio_url || '',
+      professional_summary: profile.professional_summary || '',
+      city: profile.city || '',
+      state: profile.state || '',
+      country: profile.country || '',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
 
-    if (workError) {
-      throw new Error('Failed to fetch work experience');
-    }
-
-    // Fetch education
-    const { data: education, error: eduError } = await supabase
-      .from('education')
-      .select('*')
-      .eq('user_id', userId)
-      .order('start_date', { ascending: false });
-
-    if (eduError) {
-      throw new Error('Failed to fetch education');
-    }
-
-    // Fetch skills
-    const { data: skills, error: skillsError } = await supabase
-      .from('skills')
-      .select('*')
-      .eq('user_id', userId);
-
-    if (skillsError) {
-      throw new Error('Failed to fetch skills');
-    }
-
-    console.log(`[/api/resume/analyze-gaps] Data fetched for user ${userId}`);
+    console.log(`[/api/resume/analyze-gaps] Using parsed data for analysis`);
 
     // Analyze resume with Workers AI
     const analysis = await analyzeResumeGaps(
       c.env,
-      profile,
-      workExperiences || [],
+      profileData,
+      workExperience || [],
       education || [],
       skills || []
     );
 
-    // Save analysis to database
-    const { data: savedAnalysis, error: saveError } = await supabase
-      .from('resume_gap_analyses')
-      .insert({
-        user_id: userId,
-        overall_assessment: analysis.resume_analysis.overall_assessment,
-        gap_count: analysis.resume_analysis.gap_count,
-        red_flag_count: analysis.resume_analysis.red_flag_count,
-        urgency: analysis.resume_analysis.urgency,
-        identified_gaps: analysis.identified_gaps_and_flags,
-        clarification_questions: analysis.clarification_questions,
-        immediate_action: analysis.next_steps.immediate_action,
-        long_term_recommendations: analysis.next_steps.long_term_recommendations,
-        questions_total: analysis.clarification_questions.length,
-        questions_answered: 0,
-        status: 'pending',
-      })
-      .select()
-      .single();
-
-    if (saveError) {
-      console.error('[/api/resume/analyze-gaps] Error saving analysis:', saveError);
-      throw new Error('Failed to save gap analysis');
-    }
-
     console.log(
-      `[/api/resume/analyze-gaps] Analysis saved for user ${userId}, ID: ${savedAnalysis.id}`
+      `[/api/resume/analyze-gaps] Analysis complete for user ${userId}: ${analysis.resume_analysis.gap_count} gaps, ${analysis.resume_analysis.red_flag_count} red flags`
     );
 
-    return c.json({
-      ...analysis,
-      analysis_id: savedAnalysis.id,
-    }, 200);
+    // Return analysis to frontend (frontend will save it during import)
+    return c.json(analysis, 200);
   } catch (error) {
     console.error(`[/api/resume/analyze-gaps] Failed for user ${userId}:`, error);
     throw error;
