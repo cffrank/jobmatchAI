@@ -1188,6 +1188,7 @@ export type Database = {
       }
       work_experience: {
         Row: {
+          accomplishments: string[] | null
           company: string
           created_at: string
           description: string | null
@@ -1202,6 +1203,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          accomplishments?: string[] | null
           company: string
           created_at?: string
           description?: string | null
@@ -1216,6 +1218,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          accomplishments?: string[] | null
           company?: string
           created_at?: string
           description?: string | null

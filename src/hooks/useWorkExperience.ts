@@ -105,6 +105,7 @@ export function useWorkExperience() {
       start_date: data.startDate,
       end_date: data.endDate || null,
       is_current: data.current,
+      accomplishments: data.accomplishments?.filter(a => a.trim() !== '') || [],
     })
 
     if (insertError) throw insertError
@@ -124,6 +125,9 @@ export function useWorkExperience() {
     if (data.startDate !== undefined) updateData.start_date = data.startDate
     if (data.endDate !== undefined) updateData.end_date = data.endDate || null
     if (data.current !== undefined) updateData.is_current = data.current
+    if (data.accomplishments !== undefined) {
+      updateData.accomplishments = data.accomplishments.filter(a => a.trim() !== '')
+    }
 
     const { error: updateError } = await supabase
       .from('work_experience')
@@ -172,6 +176,6 @@ function mapDbWorkExperience(dbExp: DbWorkExperience): WorkExperience {
     endDate: dbExp.end_date || '',
     current: dbExp.is_current || false,
     description: dbExp.description || '',
-    accomplishments: [], // Not in database schema
+    accomplishments: dbExp.accomplishments || [],
   }
 }
