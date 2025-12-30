@@ -20,7 +20,7 @@ import { authenticateUser, getUserId } from '../middleware/auth';
 import { rateLimiter } from '../middleware/rateLimiter';
 import { createValidationError } from '../middleware/errorHandler';
 import { parseResume } from '../services/openai';
-import { analyzeResumeGaps } from '../services/resumeGapAnalysis';
+import { analyzeResumeGaps, type ResumeGapAnalysis } from '../services/resumeGapAnalysis';
 import { createSupabaseAdmin } from '../services/supabase';
 
 // =============================================================================
@@ -323,7 +323,7 @@ app.patch('/gap-analysis/:id/answer', authenticateUser, rateLimiter(), async (c)
     }
 
     // Update the specific question with the answer
-    const questions = analysis.clarification_questions as any[];
+    const questions = analysis.clarification_questions as ResumeGapAnalysis['clarification_questions'];
     const questionIndex = questions.findIndex((q) => q.question_id === question_id);
 
     if (questionIndex === -1) {

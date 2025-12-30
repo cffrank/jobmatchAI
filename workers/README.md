@@ -91,6 +91,63 @@ curl http://localhost:8787/health
 curl http://localhost:8787/api
 ```
 
+## New Features ✨
+
+### Resume Gap Analysis
+Automatically analyzes your resume/profile for gaps and generates targeted questions to help you strengthen it.
+
+**How it works:**
+1. AI analyzes your current profile (work experience, education, skills)
+2. Identifies gaps (missing info) and red flags (concerning patterns)
+3. Generates 5-10 targeted questions to fill those gaps
+4. You answer the questions to improve your profile
+5. Tracks your progress (% of questions answered)
+
+**Powered by:** Workers AI (Llama 3.3 70B) - 100% free, no external API costs
+
+**Example:**
+```bash
+# Analyze your resume
+curl -X POST http://localhost:8787/api/resume/analyze-gaps \
+  -H "Authorization: Bearer YOUR_TOKEN"
+
+# Answer a question
+curl -X PATCH http://localhost:8787/api/resume/gap-analysis/abc123/answer \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"question_id": 1, "answer": "I was consulting from 2020-2024 while building my business..."}'
+```
+
+**Analysis Output:**
+- Overall assessment with urgency level (CRITICAL, HIGH, MEDIUM, LOW)
+- Identified gaps with severity ratings
+- 5-10 questions to strengthen your profile
+- Immediate action recommendations
+- Long-term improvement suggestions
+
+### 10-Dimension Job Compatibility Scoring
+Enhanced job matching with comprehensive scoring across 10 dimensions:
+
+1. **Skill Match** (30% weight) - Technical skills alignment
+2. **Industry Match** (15% weight) - Domain experience
+3. **Experience Level** (20% weight) - Years and complexity
+4. **Location Match** (10% weight) - Geographic compatibility
+5. **Seniority Level** (5% weight) - Career level appropriateness
+6. **Education/Certification** (5% weight) - Formal credentials
+7. **Soft Skills & Leadership** (5% weight) - Communication, teamwork
+8. **Employment Stability** (5% weight) - Job tenure patterns
+9. **Growth Potential** (3% weight) - Learning agility
+10. **Company Scale** (2% weight) - Startup vs enterprise fit
+
+**Scoring Tiers:**
+- 80-100: **Strong Match** (highly recommend)
+- 65-79: **Good Match** (recommend with minor reservations)
+- 50-64: **Moderate Match** (notable gaps to address)
+- 35-49: **Weak Match** (significant concerns)
+- 0-34: **Poor Match** (not recommended)
+
+**Powered by:** Workers AI (Llama 3.3 70B) - 100% free
+
 ## Deployment
 
 ### Configure Secrets
@@ -195,6 +252,10 @@ wrangler deploy --env production
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
 | `/api/resume/parse` | POST | Required | Parse resume with Vision API |
+| `/api/resume/analyze-gaps` | POST | Required | Analyze resume for gaps |
+| `/api/resume/gap-analysis/:id` | GET | Required | Get gap analysis by ID |
+| `/api/resume/gap-analysis/:id/answer` | PATCH | Required | Answer gap analysis question |
+| `/api/resume/gap-analyses` | GET | Required | List all gap analyses |
 | `/api/resume/supported-formats` | GET | None | List supported formats |
 
 ## Rate Limits
