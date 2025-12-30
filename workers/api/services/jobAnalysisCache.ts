@@ -65,10 +65,32 @@ export async function getFromKVCache(
 
     if (!cached) {
       console.log(`[JobAnalysisCache] KV cache MISS for ${key}`);
+
+      // Log KV cache miss
+      console.log(JSON.stringify({
+        event: 'cache_lookup',
+        cache_type: 'kv',
+        user_id: userId,
+        job_id: jobId,
+        result: 'miss',
+        timestamp: new Date().toISOString(),
+      }));
+
       return null;
     }
 
     console.log(`[JobAnalysisCache] ✓ KV cache HIT for ${key} - Cost savings!`);
+
+    // Log KV cache hit
+    console.log(JSON.stringify({
+      event: 'cache_lookup',
+      cache_type: 'kv',
+      user_id: userId,
+      job_id: jobId,
+      result: 'hit',
+      timestamp: new Date().toISOString(),
+    }));
+
     return cached as JobCompatibilityAnalysis;
   } catch (error) {
     console.error('[JobAnalysisCache] Error reading from KV cache:', error);
@@ -175,10 +197,32 @@ export async function getFromDatabase(
 
     if (error || !data) {
       console.log(`[JobAnalysisCache] Database cache MISS for user ${userId}, job ${jobId}`);
+
+      // Log database cache miss
+      console.log(JSON.stringify({
+        event: 'cache_lookup',
+        cache_type: 'database',
+        user_id: userId,
+        job_id: jobId,
+        result: 'miss',
+        timestamp: new Date().toISOString(),
+      }));
+
       return null;
     }
 
     console.log(`[JobAnalysisCache] ✓ Database cache HIT for user ${userId}, job ${jobId}`);
+
+    // Log database cache hit
+    console.log(JSON.stringify({
+      event: 'cache_lookup',
+      cache_type: 'database',
+      user_id: userId,
+      job_id: jobId,
+      result: 'hit',
+      timestamp: new Date().toISOString(),
+    }));
+
     return data.analysis as JobCompatibilityAnalysis;
   } catch (error) {
     console.error('[JobAnalysisCache] Error reading from database cache:', error);

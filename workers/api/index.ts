@@ -31,6 +31,7 @@ import authRouter from './routes/auth';
 import exportsRouter from './routes/exports';
 import resumeRouter from './routes/resume';
 import profileRouter from './routes/profile';
+import analyticsRouter from './routes/analytics';
 
 // Scheduled jobs
 import { handleScheduledJobs } from '../scheduled';
@@ -133,6 +134,7 @@ app.route('/api/jobs', jobsRouter);
 app.route('/api/exports', exportsRouter);
 app.route('/api/resume', resumeRouter);
 app.route('/api/profile', profileRouter);
+app.route('/api/analytics', analyticsRouter);
 
 // =============================================================================
 // API Documentation (development only)
@@ -188,6 +190,12 @@ app.get('/api', (c) => {
         'POST /api/profile/skills': 'Add skill',
         'PUT /api/profile/skills/:id': 'Update skill',
         'DELETE /api/profile/skills/:id': 'Delete skill',
+      },
+      analytics: {
+        'GET /api/analytics/workers-ai': 'Workers AI usage metrics and monitoring guide',
+        'GET /api/analytics/cache': 'Cache efficiency metrics',
+        'GET /api/analytics/models': 'Model performance comparison',
+        'GET /api/analytics/cost-savings': 'Cost savings estimates',
       },
     },
     authentication: 'Bearer token in Authorization header',

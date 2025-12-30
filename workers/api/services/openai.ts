@@ -709,17 +709,64 @@ export async function analyzeJobCompatibility(
         console.log(`[analyzeJobCompatibility] ✓ SUCCESS with Workers AI in ${duration}ms (95-98% cost savings)`);
         console.log(`[analyzeJobCompatibility] Score: ${workersAIResult.overallScore}, Recommendation: ${workersAIResult.recommendation}`);
 
+        // Log hybrid strategy decision: Workers AI success
+        console.log(JSON.stringify({
+          event: 'hybrid_strategy_decision',
+          job_id: job.id,
+          user_id: profile.id,
+          strategy: 'workers_ai',
+          result: 'success',
+          duration_ms: duration,
+          cost_savings_percent: 95,
+          timestamp: new Date().toISOString(),
+        }));
+
         return workersAIResult;
       }
 
       // If Workers AI returned null (quality validation failed), fallback to OpenAI
       console.warn('[analyzeJobCompatibility] Workers AI quality validation failed, falling back to OpenAI');
+
+      // Log hybrid strategy decision: Quality validation failed
+      console.log(JSON.stringify({
+        event: 'hybrid_strategy_decision',
+        job_id: job.id,
+        user_id: profile.id,
+        strategy: 'workers_ai',
+        result: 'quality_validation_failed',
+        fallback_to: 'openai',
+        timestamp: new Date().toISOString(),
+      }));
     } catch (error) {
       // Workers AI failed with an error, fallback to OpenAI
-      console.error('[analyzeJobCompatibility] Workers AI error, falling back to OpenAI:', error instanceof Error ? error.message : String(error));
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error('[analyzeJobCompatibility] Workers AI error, falling back to OpenAI:', errorMessage);
+
+      // Log hybrid strategy decision: Workers AI error
+      console.log(JSON.stringify({
+        event: 'hybrid_strategy_decision',
+        job_id: job.id,
+        user_id: profile.id,
+        strategy: 'workers_ai',
+        result: 'error',
+        error: errorMessage,
+        fallback_to: 'openai',
+        timestamp: new Date().toISOString(),
+      }));
     }
   } else {
     console.log('[analyzeJobCompatibility] Workers AI disabled via feature flag, using OpenAI');
+
+    // Log hybrid strategy decision: Feature flag disabled
+    console.log(JSON.stringify({
+      event: 'hybrid_strategy_decision',
+      job_id: job.id,
+      user_id: profile.id,
+      strategy: 'openai',
+      result: 'feature_flag_disabled',
+      reason: 'USE_WORKERS_AI_FOR_COMPATIBILITY=false',
+      timestamp: new Date().toISOString(),
+    }));
   }
 
   // Fallback to OpenAI
@@ -896,6 +943,18 @@ REQUIREMENTS:
   const duration = Date.now() - startTime;
   console.log(`[analyzeJobCompatibility] ✓ SUCCESS with OpenAI (fallback) in ${duration}ms`);
   console.log(`[analyzeJobCompatibility] Overall score: ${analysis.overallScore}, Recommendation: ${analysis.recommendation}`);
+
+  // Log OpenAI fallback success
+  console.log(JSON.stringify({
+    event: 'openai_fallback_success',
+    job_id: job.id,
+    user_id: profile.id,
+    model: MODELS.MATCH_ANALYSIS,
+    duration_ms: duration,
+    overall_score: analysis.overallScore,
+    recommendation: analysis.recommendation,
+    timestamp: new Date().toISOString(),
+  }));
 
   return analysis;
 }

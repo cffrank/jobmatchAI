@@ -105,13 +105,18 @@ export async function analyzeJobCompatibilityWithWorkersAI(
   const userPrompt = buildUserPrompt(context);
 
   let lastError: Error | null = null;
+  let modelIndex = 0;
 
   // Try primary model first, then fallback models
   const modelsToTry = [COMPATIBILITY_MODEL, ...FALLBACK_MODELS];
 
   for (const model of modelsToTry) {
+    const modelStartTime = Date.now();
+
     // Retry loop for transient failures
     for (let attempt = 1; attempt <= ANALYSIS_CONFIG.MAX_RETRIES; attempt++) {
+      const attemptStartTime = Date.now();
+
       try {
         console.log(`[WorkersAI] Attempting analysis with ${model} (attempt ${attempt}/${ANALYSIS_CONFIG.MAX_RETRIES})`);
 
@@ -127,8 +132,25 @@ export async function analyzeJobCompatibilityWithWorkersAI(
           response_format: { type: 'json_object' },
         }) as WorkersAIResponse;
 
+        const attemptDuration = Date.now() - attemptStartTime;
+
         // Extract and parse response
         if (!response || !response.response) {
+          // Log failed attempt
+          console.log(JSON.stringify({
+            event: 'workers_ai_attempt',
+            job_id: job.id,
+            user_id: profile.id,
+            model,
+            model_index: modelIndex,
+            attempt,
+            max_attempts: ANALYSIS_CONFIG.MAX_RETRIES,
+            success: false,
+            error: 'Empty response from Workers AI',
+            duration_ms: attemptDuration,
+            timestamp: new Date().toISOString(),
+          }));
+
           throw new Error('Empty response from Workers AI');
         }
 
@@ -139,23 +161,75 @@ export async function analyzeJobCompatibilityWithWorkersAI(
         if (!validationResult.isValid) {
           console.warn(`[WorkersAI] Quality validation failed with ${model}: ${validationResult.reason}`);
           console.warn('[WorkersAI] Will try fallback model or return null for OpenAI fallback');
+
+          // Log validation failure
+          console.log(JSON.stringify({
+            event: 'workers_ai_validation_failed',
+            job_id: job.id,
+            user_id: profile.id,
+            model,
+            model_index: modelIndex,
+            attempt,
+            validation_failure: validationResult.reason,
+            duration_ms: attemptDuration,
+            overall_score: analysis.overallScore,
+            timestamp: new Date().toISOString(),
+          }));
+
           lastError = new Error(`Quality validation failed: ${validationResult.reason}`);
           break; // Try next model
         }
 
-        const duration = Date.now() - startTime;
+        const totalDuration = Date.now() - startTime;
         console.log(
-          `[WorkersAI] ✓ Successfully generated analysis with ${model} in ${duration}ms (attempt ${attempt})`
+          `[WorkersAI] ✓ Successfully generated analysis with ${model} in ${totalDuration}ms (attempt ${attempt})`
         );
         console.log(`[WorkersAI] Overall score: ${analysis.overallScore}, Recommendation: ${analysis.recommendation}`);
+
+        // Log successful analysis
+        console.log(JSON.stringify({
+          event: 'workers_ai_analysis_success',
+          job_id: job.id,
+          user_id: profile.id,
+          model,
+          model_index: modelIndex,
+          attempt,
+          max_attempts: ANALYSIS_CONFIG.MAX_RETRIES,
+          success: true,
+          validation_passed: true,
+          duration_ms: totalDuration,
+          attempt_duration_ms: attemptDuration,
+          overall_score: analysis.overallScore,
+          recommendation: analysis.recommendation,
+          timestamp: new Date().toISOString(),
+        }));
 
         return analysis;
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
+        const attemptDuration = Date.now() - attemptStartTime;
+
         console.error(
           `[WorkersAI] Attempt ${attempt}/${ANALYSIS_CONFIG.MAX_RETRIES} failed with ${model}:`,
           lastError.message
         );
+
+        // Log failed attempt
+        console.log(JSON.stringify({
+          event: 'workers_ai_attempt_failed',
+          job_id: job.id,
+          user_id: profile.id,
+          model,
+          model_index: modelIndex,
+          attempt,
+          max_attempts: ANALYSIS_CONFIG.MAX_RETRIES,
+          success: false,
+          error: lastError.message,
+          error_type: lastError.name,
+          duration_ms: attemptDuration,
+          will_retry: attempt < ANALYSIS_CONFIG.MAX_RETRIES,
+          timestamp: new Date().toISOString(),
+        }));
 
         // If this was the last attempt for this model, try next model
         if (attempt < ANALYSIS_CONFIG.MAX_RETRIES) {
@@ -166,7 +240,23 @@ export async function analyzeJobCompatibilityWithWorkersAI(
       }
     }
 
+    const modelDuration = Date.now() - modelStartTime;
     console.log(`[WorkersAI] All attempts failed with ${model}, trying next model...`);
+
+    // Log model exhaustion
+    console.log(JSON.stringify({
+      event: 'workers_ai_model_exhausted',
+      job_id: job.id,
+      user_id: profile.id,
+      model,
+      model_index: modelIndex,
+      total_attempts: ANALYSIS_CONFIG.MAX_RETRIES,
+      duration_ms: modelDuration,
+      will_fallback: modelIndex < modelsToTry.length - 1,
+      timestamp: new Date().toISOString(),
+    }));
+
+    modelIndex++;
   }
 
   // All models exhausted
@@ -175,6 +265,19 @@ export async function analyzeJobCompatibilityWithWorkersAI(
     `[WorkersAI] Failed to generate valid analysis after trying ${modelsToTry.length} models (${totalDuration}ms total)`
   );
   console.log('[WorkersAI] Returning null to trigger OpenAI fallback');
+
+  // Log complete failure (will fallback to OpenAI)
+  console.log(JSON.stringify({
+    event: 'workers_ai_complete_failure',
+    job_id: job.id,
+    user_id: profile.id,
+    models_tried: modelsToTry.length,
+    total_attempts: modelsToTry.length * ANALYSIS_CONFIG.MAX_RETRIES,
+    duration_ms: totalDuration,
+    fallback_to: 'openai',
+    last_error: lastError?.message,
+    timestamp: new Date().toISOString(),
+  }));
 
   return null; // Signal caller to use OpenAI fallback
 }
