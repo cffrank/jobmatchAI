@@ -183,17 +183,37 @@ export async function analyzeResumeGaps(
   });
 
   console.log('[analyzeResumeGaps] Workers AI response received');
+  console.log('[analyzeResumeGaps] Response type:', typeof response);
 
-  // Extract JSON from response
-  const responseText =
-    typeof response === 'object' && 'response' in response
-      ? (response as { response: string }).response
-      : JSON.stringify(response);
+  // Extract text from response (Workers AI returns different formats)
+  let responseText: string;
 
-  // Find JSON in response (in case there's extra text)
+  if (typeof response === 'string') {
+    responseText = response;
+  } else if (typeof response === 'object' && response !== null) {
+    // Check for common Workers AI response formats
+    if ('response' in response && typeof response.response === 'string') {
+      responseText = response.response;
+    } else if ('result' in response && typeof response.result === 'object') {
+      // Some models return { result: { response: "..." } }
+      const result = response.result as { response?: string };
+      responseText = result.response || JSON.stringify(response);
+    } else if ('text' in response && typeof response.text === 'string') {
+      responseText = response.text;
+    } else {
+      // Last resort: stringify the entire response
+      responseText = JSON.stringify(response);
+    }
+  } else {
+    responseText = String(response);
+  }
+
+  console.log('[analyzeResumeGaps] Response text length:', responseText.length);
+
+  // Find JSON in response (in case there's extra text like markdown code blocks)
   const jsonMatch = responseText.match(/\{[\s\S]*\}/);
   if (!jsonMatch) {
-    console.error('[analyzeResumeGaps] No JSON found in response:', responseText);
+    console.error('[analyzeResumeGaps] No JSON found in response:', responseText.substring(0, 500));
     throw new Error('Failed to parse gap analysis: AI did not return valid JSON');
   }
 
