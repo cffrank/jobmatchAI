@@ -2,6 +2,46 @@ import { useState, useRef } from 'react'
 import { X, Upload, FileText, CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useResumeParser, type ParsedResume } from '@/hooks/useResumeParser'
+import { ResumeGapAnalysisReview } from './ResumeGapAnalysisReview'
+import { useAuth } from '@/contexts/AuthContext'
+import { supabase } from '@/lib/supabase'
+
+interface GapAnalysisQuestion {
+  question_id: number
+  priority: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'
+  gap_addressed: string
+  question: string
+  context: string
+  expected_outcome: string
+  answer?: string
+}
+
+interface GapAnalysis {
+  resume_analysis: {
+    overall_assessment: string
+    gap_count: number
+    red_flag_count: number
+    urgency: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'
+  }
+  identified_gaps_and_flags: Array<{
+    id: number
+    type: 'GAP' | 'RED_FLAG'
+    category: string
+    description: string
+    impact: string
+    severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'
+  }>
+  clarification_questions: GapAnalysisQuestion[]
+  next_steps: {
+    immediate_action: string
+    long_term_recommendations: string[]
+  }
+}
+
+interface WorkExperienceNarrative {
+  position_index: number
+  narrative: string
+}
 
 interface ResumeUploadDialogProps {
   isOpen: boolean
@@ -10,10 +50,15 @@ interface ResumeUploadDialogProps {
 }
 
 export function ResumeUploadDialog({ isOpen, onClose, onSuccess }: ResumeUploadDialogProps) {
+  const { user } = useAuth()
   const { uploadAndParseResume, applyParsedData, parsing, uploading, progress, error } = useResumeParser()
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [parsedData, setParsedData] = useState<ParsedResume | null>(null)
-  const [step, setStep] = useState<'select' | 'parsing' | 'preview' | 'applying' | 'done'>('select')
+  const [gapAnalysis, setGapAnalysis] = useState<GapAnalysis | null>(null)
+  const [analyzingGaps, setAnalyzingGaps] = useState(false)
+  const [questionAnswers, setQuestionAnswers] = useState<Record<number, string>>({})
+  const [workNarratives, setWorkNarratives] = useState<WorkExperienceNarrative[]>([])
+  const [step, setStep] = useState<'select' | 'parsing' | 'preview' | 'analyzing' | 'gapReview' | 'applying' | 'done'>('select')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   if (!isOpen) return null
@@ -24,23 +69,82 @@ export function ResumeUploadDialog({ isOpen, onClose, onSuccess }: ResumeUploadD
       setSelectedFile(file)
       setStep('select')
       setParsedData(null)
+      setGapAnalysis(null)
     }
+  }
+
+  const analyzeResumeGaps = async (data: ParsedResume): Promise<GapAnalysis> => {
+    if (!user) throw new Error('User not authenticated')
+
+    // Get auth session for API call
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) throw new Error('No active session')
+
+    // Call Workers backend API for gap analysis
+    const backendUrl = import.meta.env.VITE_BACKEND_URL
+    if (!backendUrl) throw new Error('Backend URL not configured')
+
+    const response = await fetch(`${backendUrl}/api/gap-analysis/analyze-parsed-resume`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({
+        profile: data.profile,
+        workExperience: data.workExperience,
+        education: data.education,
+        skills: data.skills,
+      }),
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: 'Failed to analyze resume' }))
+      throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`)
+    }
+
+    return await response.json()
   }
 
   const handleUploadAndParse = async () => {
     if (!selectedFile) return
 
     try {
+      // Step 1: Parse resume
       setStep('parsing')
       const data = await uploadAndParseResume(selectedFile)
       setParsedData(data)
-      setStep('preview')
       toast.success('Resume parsed successfully!')
+
+      // Step 2: Analyze for gaps
+      setStep('analyzing')
+      setAnalyzingGaps(true)
+      const analysis = await analyzeResumeGaps(data)
+      setGapAnalysis(analysis)
+      setAnalyzingGaps(false)
+
+      // Step 3: Show gap review
+      setStep('gapReview')
+      toast.success('Gap analysis complete!')
     } catch (err) {
-      console.error('Error parsing resume:', err)
-      toast.error('Failed to parse resume. Please try again.')
+      console.error('Error processing resume:', err)
+      toast.error('Failed to process resume. Please try again.')
       setStep('select')
+      setAnalyzingGaps(false)
     }
+  }
+
+  const handleGapReviewContinue = (
+    answers: Record<number, string>,
+    narratives: WorkExperienceNarrative[]
+  ) => {
+    setQuestionAnswers(answers)
+    setWorkNarratives(narratives)
+    handleApplyData()
+  }
+
+  const handleBackToPreview = () => {
+    setStep('preview')
   }
 
   const handleApplyData = async () => {
@@ -48,6 +152,8 @@ export function ResumeUploadDialog({ isOpen, onClose, onSuccess }: ResumeUploadD
 
     try {
       setStep('applying')
+      // TODO: Store answers and narratives with profile data in future
+      // For now, just apply the parsed data
       await applyParsedData(parsedData)
       setStep('done')
       toast.success('Profile updated successfully!')
@@ -58,13 +164,16 @@ export function ResumeUploadDialog({ isOpen, onClose, onSuccess }: ResumeUploadD
     } catch (err) {
       console.error('Error applying parsed data:', err)
       toast.error('Failed to update profile. Please try again.')
-      setStep('preview')
+      setStep('gapReview')
     }
   }
 
   const handleClose = () => {
     setSelectedFile(null)
     setParsedData(null)
+    setGapAnalysis(null)
+    setQuestionAnswers({})
+    setWorkNarratives([])
     setStep('select')
     onClose()
   }
@@ -90,7 +199,7 @@ export function ResumeUploadDialog({ isOpen, onClose, onSuccess }: ResumeUploadD
           <button
             onClick={handleClose}
             className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-            disabled={step === 'parsing' || step === 'applying'}
+            disabled={step === 'parsing' || step === 'analyzing' || step === 'applying'}
           >
             <X className="w-5 h-5 text-slate-600 dark:text-slate-400" />
           </button>
@@ -200,7 +309,41 @@ export function ResumeUploadDialog({ isOpen, onClose, onSuccess }: ResumeUploadD
             </div>
           )}
 
-          {/* Step 3: Preview Parsed Data */}
+          {/* Step 3: Analyzing for Gaps */}
+          {step === 'analyzing' && (
+            <div className="text-center py-12">
+              <Loader2 className="w-16 h-16 mx-auto mb-4 text-amber-600 animate-spin" />
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">
+                Analyzing your resume for gaps...
+              </h3>
+              <p className="text-slate-600 dark:text-slate-400 mb-4">
+                Our AI is identifying areas that need clarification
+              </p>
+              <div className="max-w-md mx-auto bg-slate-50 dark:bg-slate-800 rounded-lg p-4">
+                <p className="text-sm text-slate-600 dark:text-slate-400 mb-2">
+                  We're checking for:
+                </p>
+                <ul className="text-sm text-slate-700 dark:text-slate-300 space-y-1 text-left list-disc list-inside">
+                  <li>Employment timeline gaps</li>
+                  <li>Short job tenures</li>
+                  <li>Career transitions</li>
+                  <li>Missing information</li>
+                </ul>
+              </div>
+            </div>
+          )}
+
+          {/* Step 4: Gap Analysis Review */}
+          {step === 'gapReview' && parsedData && gapAnalysis && (
+            <ResumeGapAnalysisReview
+              parsedData={parsedData}
+              gapAnalysis={gapAnalysis}
+              onContinue={handleGapReviewContinue}
+              onBack={handleBackToPreview}
+            />
+          )}
+
+          {/* Step 5: Preview Parsed Data (Optional - only shown when going back) */}
           {step === 'preview' && parsedData && (
             <div className="space-y-6">
               <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 flex items-start gap-3">
@@ -320,16 +463,22 @@ export function ResumeUploadDialog({ isOpen, onClose, onSuccess }: ResumeUploadD
                 </div>
               )}
 
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                <p className="text-sm text-blue-900 dark:text-blue-100">
+                  This is a preview of the parsed data. Click "Continue" to proceed with the gap analysis.
+                </p>
+              </div>
+
               <button
-                onClick={handleApplyData}
+                onClick={() => setStep('gapReview')}
                 className="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium"
               >
-                Import to Profile
+                Continue to Gap Analysis
               </button>
             </div>
           )}
 
-          {/* Step 4: Applying */}
+          {/* Step 6: Applying */}
           {step === 'applying' && (
             <div className="text-center py-12">
               <Loader2 className="w-16 h-16 mx-auto mb-4 text-blue-600 animate-spin" />
@@ -384,7 +533,7 @@ export function ResumeUploadDialog({ isOpen, onClose, onSuccess }: ResumeUploadD
         <div className="flex justify-end gap-3 p-6 border-t border-slate-200 dark:border-slate-800">
           <button
             onClick={handleClose}
-            disabled={step === 'parsing' || step === 'applying'}
+            disabled={step === 'parsing' || step === 'analyzing' || step === 'applying'}
             className="px-6 py-2 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {step === 'done' ? 'Close' : 'Cancel'}
