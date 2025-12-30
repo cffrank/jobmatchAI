@@ -20,6 +20,7 @@
     "@supabase/supabase-js": "^2.89.0",
     "hono": "^4.6.0",
     "openai": "^4.72.0",
+    "unpdf": "^1.4.0",
     "zod": "^3.23.0"
   },
   "devDependencies": {

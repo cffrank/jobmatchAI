@@ -4,9 +4,10 @@
  * Handles resume parsing and import functionality.
  *
  * Endpoints:
- * - POST /api/resume/parse - Parse resume file using OpenAI GPT-4o Vision
- *   - Supports: PNG, JPG, JPEG, GIF, WEBP, PDF
- *   - PDFs are processed as visual documents
+ * - POST /api/resume/parse - Parse resume file using AI
+ *   - PDF files: Text extracted with unpdf → parsed with Workers AI (Llama 3.1 8B)
+ *   - Image files: Parsed with OpenAI GPT-4o Vision
+ *   - Supports: PDF, PNG, JPG, JPEG, GIF, WEBP
  */
 
 import { Hono } from 'hono';
@@ -37,11 +38,16 @@ const parseResumeSchema = z.object({
 
 /**
  * POST /api/resume/parse
- * Parse resume file using OpenAI GPT-4o with Vision
+ * Parse resume file using AI
  *
- * Supports:
- * - PDF files - Processed as visual documents
- * - Image files (PNG, JPG, JPEG, GIF, WEBP)
+ * PDF files (recommended):
+ * - Text extracted using unpdf (serverless PDF parser)
+ * - Parsed with Cloudflare Workers AI (Llama 3.1 8B Instruct)
+ * - Cost-effective, fully serverless
+ *
+ * Image files:
+ * - Parsed with OpenAI GPT-4o Vision
+ * - Supports: PNG, JPG, JPEG, GIF, WEBP
  *
  * The file should already be uploaded to Supabase storage.
  * This endpoint takes the storage path and returns parsed resume data.
@@ -122,14 +128,15 @@ app.get('/supported-formats', async (c) => {
         extension: '.pdf',
         mimeType: 'application/pdf',
         status: 'fully_supported',
-        note: 'Processed as visual document using OpenAI GPT-4o Vision.',
+        note: 'Text extracted using unpdf, then parsed with Cloudflare Workers AI (Llama 3.1 8B). Cost-effective and fully serverless.',
       },
     ],
     recommendations: [
-      'For best results, upload a high-resolution image (PNG or JPEG) of your resume.',
-      'Ensure text is clearly visible and not blurry.',
-      'Single-page resumes work best; for multi-page, upload each page as a separate image.',
-      'If using a PDF, consider taking a screenshot or using a PDF-to-image converter.',
+      'PDF format is recommended for best results and cost-effectiveness.',
+      'Ensure your PDF contains selectable text (not scanned images).',
+      'Multi-page PDFs are fully supported and processed automatically.',
+      'Images (PNG, JPEG) are also supported via OpenAI Vision API.',
+      'For image uploads, ensure text is clearly visible and high-resolution.',
     ],
   });
 });
