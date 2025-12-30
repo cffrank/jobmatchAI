@@ -219,7 +219,10 @@ wrangler deploy --env production
 ## Known Limitations
 
 ### PDF Parsing
-PDF parsing is not available in Cloudflare Workers due to Node.js-specific dependencies in pdf-parse. Users should upload resume images (PNG, JPG, JPEG, GIF, WebP) for best results.
+PDF parsing is now fully supported using Cloudflare Workers AI! PDFs are processed using:
+- **Llama 3.2 Vision 11B** - Extracts text from PDF pages (works with both selectable text and scanned images)
+- **Llama 3.3 70B Instruct** - Parses extracted text into structured resume data
+- Completely free and serverless - no external APIs needed
 
 ### PDF/DOCX Generation
 Full PDF and DOCX generation (using pdfkit/docx libraries) is not available in Workers. The API returns structured data that can be used for client-side document generation using libraries like jsPDF or docx.js.
@@ -242,7 +245,7 @@ Key differences from the Express.js implementation:
 | Env vars | `process.env` | `c.env` |
 | Request state | `req.userId` | `c.get('userId')` |
 | Response | `res.json()` | `c.json()` |
-| PDF parsing | pdf-parse | Not available |
+| PDF parsing | pdf-parse | Workers AI Vision (Llama 3.2 11B) |
 | PDF generation | pdfkit | Client-side |
 | Cron jobs | node-cron | Cron Triggers |
 | File system | fs module | Not available |

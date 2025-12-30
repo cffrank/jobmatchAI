@@ -41,8 +41,9 @@ const parseResumeSchema = z.object({
  * Parse resume file using AI
  *
  * PDF files (recommended):
- * - Text extracted using unpdf (serverless PDF parser)
- * - Parsed with Cloudflare Workers AI (Llama 3.1 8B Instruct)
+ * - Text extracted using Workers AI Vision (Llama 3.2 11B Vision Instruct)
+ * - Parsed with Cloudflare Workers AI (Llama 3.3 70B Instruct)
+ * - Completely free, no external APIs needed
  * - Cost-effective, fully serverless
  *
  * Image files:
@@ -128,15 +129,15 @@ app.get('/supported-formats', async (c) => {
         extension: '.pdf',
         mimeType: 'application/pdf',
         status: 'fully_supported',
-        note: 'Text extracted using unpdf, then parsed with Cloudflare Workers AI (Llama 3.1 8B). Cost-effective and fully serverless.',
+        note: 'Text extracted using Workers AI Vision (Llama 3.2 11B), then parsed with Cloudflare Workers AI (Llama 3.3 70B). Completely free and fully serverless.',
       },
     ],
     recommendations: [
       'PDF format is recommended for best results and cost-effectiveness.',
-      'Ensure your PDF contains selectable text (not scanned images).',
+      'Works with both selectable text and scanned image PDFs (uses Vision AI).',
       'Multi-page PDFs are fully supported and processed automatically.',
       'Images (PNG, JPEG) are also supported via OpenAI Vision API.',
-      'For image uploads, ensure text is clearly visible and high-resolution.',
+      'For all uploads, ensure text is clearly visible and high-resolution.',
     ],
   });
 });

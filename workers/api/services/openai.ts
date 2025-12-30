@@ -527,55 +527,62 @@ function getFallbackVariant(
 // =============================================================================
 
 /**
- * Extract text from PDF using pdf.co API (free tier: 300 requests/month)
- * Falls back to raw text extraction if API fails
+ * Extract text from PDF using Workers AI Vision (Llama 3.2 Vision 11B)
+ * Completely free, no external APIs needed
  */
-async function extractTextFromPDF(pdfArrayBuffer: ArrayBuffer, env: Env): Promise<string> {
+async function extractTextFromPDFWithVision(pdfUrl: string, env: Env): Promise<string> {
   try {
-    console.log('[extractTextFromPDF] Starting extraction, buffer size:', pdfArrayBuffer.byteLength);
+    console.log('[extractTextFromPDFWithVision] Using Workers AI Vision to read PDF');
 
-    // Convert ArrayBuffer to base64
-    const base64Pdf = btoa(
-      new Uint8Array(pdfArrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
-    );
-
-    // Use pdf.co API for reliable PDF text extraction
-    const pdfCoApiKey = env.PDFCO_API_KEY || 'demo'; // Free demo key works for testing
-
-    console.log('[extractTextFromPDF] Calling pdf.co API...');
-
-    const response = await fetch('https://api.pdf.co/v1/pdf/convert/to/text', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': pdfCoApiKey,
-      },
-      body: JSON.stringify({
-        file: `data:application/pdf;base64,${base64Pdf}`,
-        inline: true, // Return text inline instead of URL
-      }),
+    // First, agree to the Llama 3.2 Vision license terms
+    console.log('[extractTextFromPDFWithVision] Sending license agreement');
+    await env.AI.run('@cf/meta/llama-3.2-11b-vision-instruct', {
+      messages: [
+        {
+          role: 'user',
+          content: 'agree',
+        },
+      ],
     });
 
-    if (!response.ok) {
-      throw new Error(`pdf.co API error: ${response.status} ${response.statusText}`);
+    // Now use Llama 3.2 Vision to read the PDF
+    const response = await env.AI.run('@cf/meta/llama-3.2-11b-vision-instruct', {
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: 'Extract ALL text from this PDF document. Include every word, maintaining the original structure and formatting as much as possible. Return only the extracted text, nothing else.',
+            },
+            {
+              type: 'image_url',
+              image_url: {
+                url: pdfUrl,
+              },
+            },
+          ],
+        },
+      ],
+      max_tokens: 4096,
+    });
+
+    console.log('[extractTextFromPDFWithVision] Vision API response received');
+
+    // Workers AI returns {response: string}
+    const responseText = typeof response === 'object' && 'response' in response
+      ? (response as { response: string }).response
+      : JSON.stringify(response);
+
+    console.log('[extractTextFromPDFWithVision] Extracted text length:', responseText.length);
+
+    if (!responseText || responseText.trim().length === 0) {
+      throw new Error('No text could be extracted from the PDF. The PDF may be corrupted or unreadable.');
     }
 
-    const result = await response.json() as { error: boolean; text?: string; message?: string };
-
-    if (result.error) {
-      throw new Error(`pdf.co error: ${result.message || 'Unknown error'}`);
-    }
-
-    const fullText = result.text || '';
-    console.log('[extractTextFromPDF] Extracted text length:', fullText.length);
-
-    if (!fullText || fullText.trim().length === 0) {
-      throw new Error('No text could be extracted from the PDF. The PDF may be image-based or corrupted.');
-    }
-
-    return fullText.trim();
+    return responseText.trim();
   } catch (error) {
-    console.error('[extractTextFromPDF] Error details:', {
+    console.error('[extractTextFromPDFWithVision] Error details:', {
       message: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,
       type: typeof error,
@@ -589,7 +596,9 @@ async function extractTextFromPDF(pdfArrayBuffer: ArrayBuffer, env: Env): Promis
  * Parse resume file and extract structured information using AI
  *
  * - For images: Uses OpenAI GPT-4o with Vision
- * - For PDFs: Extracts text using pdfjs-dist, then parses with OpenAI GPT-4o
+ * - For PDFs: Uses Workers AI Vision (Llama 3.2 11B) to extract text, then parses with Workers AI (Llama 3.3 70B)
+ *   - Completely free, no external APIs needed
+ *   - Cost-effective and fully serverless
  */
 export async function parseResume(env: Env, storagePath: string): Promise<ParsedResume> {
   const openai = createOpenAI(env);
@@ -625,17 +634,12 @@ export async function parseResume(env: Env, storagePath: string): Promise<Parsed
   const fileUrl = signedUrlData.signedUrl;
   console.log(`[parseResume] Signed URL generated successfully`);
 
-  // For PDFs, fetch and extract text
+  // For PDFs, use Workers AI Vision to extract text
   let pdfText: string | null = null;
   if (isPdf) {
-    console.log('[parseResume] Fetching PDF for text extraction');
-    const pdfResponse = await fetch(fileUrl);
-    if (!pdfResponse.ok) {
-      throw new Error(`Failed to fetch PDF: ${pdfResponse.statusText}`);
-    }
-    const pdfArrayBuffer = await pdfResponse.arrayBuffer();
-    pdfText = await extractTextFromPDF(pdfArrayBuffer, env);
-    console.log(`[parseResume] Extracted ${pdfText.length} characters from PDF`);
+    console.log('[parseResume] Using Workers AI Vision to extract text from PDF');
+    pdfText = await extractTextFromPDFWithVision(fileUrl, env);
+    console.log(`[parseResume] Extracted ${pdfText.length} characters from PDF using Vision`);
   }
 
   const prompt = `
