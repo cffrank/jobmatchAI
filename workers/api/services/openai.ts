@@ -330,6 +330,19 @@ ONLY use information explicitly provided in the candidate's profile data.
 If no metrics exist for an achievement, DO NOT add them.
 Honest, accurate content is MORE IMPORTANT than impressive-sounding metrics.
 
+⚠️ PRESERVE FACTUAL DATA ⚠️
+The following fields must NEVER be changed - use them EXACTLY as provided:
+- Position/Job Titles (e.g., "Senior Software Engineer" stays "Senior Software Engineer")
+- Company Names (e.g., "Google Inc." stays "Google Inc.")
+- Employment Dates (start dates, end dates, "Present")
+- School Names
+- Degree Names
+- Graduation Years
+- Location/City information
+
+These are FACTUAL records that cannot be altered for any reason.
+You may ONLY tailor the achievement bullets and professional summary.
+
 EXAMPLES OF EXCELLENT RESUME BULLETS:
 
 If source data has metrics:
@@ -480,6 +493,8 @@ TASK:
    - Uses ONLY the actual metrics and achievements provided in the candidate's work history
    - NEVER fabricates, estimates, or invents numbers, percentages, or achievements
    - Maintains complete accuracy and authenticity while optimizing for keyword matching
+   - PRESERVES all factual data EXACTLY as provided (position titles, company names, dates, schools, degrees)
+   - Tailors ONLY the achievement bullets and professional summary - NOT job titles or company names
 
 3. EXPLAIN your keyword strategy in the aiRationale field, documenting which keywords you extracted and how you incorporated them.`;
 }
