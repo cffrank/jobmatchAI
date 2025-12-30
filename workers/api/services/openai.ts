@@ -534,6 +534,20 @@ async function extractTextFromPDFWithVision(pdfUrl: string, env: Env): Promise<s
   try {
     console.log('[extractTextFromPDFWithVision] Using Workers AI Vision to read PDF');
 
+    // Fetch the PDF and convert to base64 data URI
+    // Llama 3.2 Vision requires data URI format, not HTTPS URLs
+    console.log('[extractTextFromPDFWithVision] Fetching PDF from signed URL');
+    const pdfResponse = await fetch(pdfUrl);
+    if (!pdfResponse.ok) {
+      throw new Error(`Failed to fetch PDF: ${pdfResponse.status} ${pdfResponse.statusText}`);
+    }
+
+    const pdfBuffer = await pdfResponse.arrayBuffer();
+    const base64Pdf = btoa(String.fromCharCode(...new Uint8Array(pdfBuffer)));
+    const dataUri = `data:application/pdf;base64,${base64Pdf}`;
+
+    console.log(`[extractTextFromPDFWithVision] Converted PDF to base64 (${Math.round(base64Pdf.length / 1024)}KB)`);
+
     // Use Llama 3.2 Vision to read the PDF
     // Note: License must be accepted once per account via:
     // curl https://api.cloudflare.com/client/v4/accounts/$ACCOUNT_ID/ai/run/@cf/meta/llama-3.2-11b-vision-instruct \
@@ -550,7 +564,7 @@ async function extractTextFromPDFWithVision(pdfUrl: string, env: Env): Promise<s
             {
               type: 'image_url',
               image_url: {
-                url: pdfUrl,
+                url: dataUri,
               },
             },
           ],
