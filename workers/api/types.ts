@@ -423,3 +423,53 @@ export const BUCKETS = {
   RESUMES: 'resumes',
   AVATARS: 'avatars',
 } as const;
+
+// =============================================================================
+// Job Compatibility Analysis Types
+// =============================================================================
+
+/**
+ * Individual dimension score in the compatibility analysis
+ */
+export interface CompatibilityDimension {
+  score: number; // 1-10 scale
+  justification: string;
+}
+
+/**
+ * Comprehensive job-candidate compatibility analysis
+ * 10-dimension scoring framework with weighted average
+ */
+export interface JobCompatibilityAnalysis {
+  // Overall weighted score (0-100)
+  overallScore: number;
+
+  // Recommendation category
+  recommendation: 'Strong Match' | 'Good Match' | 'Moderate Match' | 'Weak Match' | 'Poor Match';
+
+  // Individual dimension scores (1-10 scale each)
+  dimensions: {
+    skillMatch: CompatibilityDimension; // 30% weight
+    industryMatch: CompatibilityDimension; // 15% weight
+    experienceLevel: CompatibilityDimension; // 20% weight
+    locationMatch: CompatibilityDimension; // 10% weight
+    seniorityLevel: CompatibilityDimension; // 5% weight
+    educationCertification: CompatibilityDimension; // 5% weight
+    softSkillsLeadership: CompatibilityDimension; // 5% weight
+    employmentStability: CompatibilityDimension; // 5% weight
+    growthPotential: CompatibilityDimension; // 3% weight
+    companyScaleAlignment: CompatibilityDimension; // 2% weight
+  };
+
+  // Summary insights
+  strengths: string[]; // Top 3 strengths
+  gaps: string[]; // Top 3 gaps/concerns
+  redFlags: string[]; // Any critical concerns (empty if none)
+}
+
+/**
+ * Request to analyze job-candidate compatibility
+ */
+export interface AnalyzeJobCompatibilityRequest {
+  jobId: string;
+}

@@ -7,18 +7,21 @@
  * - GET /api/jobs - List user's jobs with pagination and filters
  * - GET /api/jobs/:id - Get job by ID
  * - POST /api/jobs/scrape - Scrape jobs from sources (TODO: Apify integration)
+ * - POST /api/jobs/:id/analyze - Analyze job-candidate compatibility (10-dimension framework)
  * - PATCH /api/jobs/:id - Update job (save/archive)
  * - DELETE /api/jobs/:id - Delete job
+ * - POST /api/jobs/cleanup - Admin endpoint to cleanup old jobs
  */
 
 import { Hono } from 'hono';
 import { z } from 'zod';
-import type { Env, Variables, ListJobsResponse, ScrapeJobsResponse } from '../types';
+import type { Env, Variables, ListJobsResponse, ScrapeJobsResponse, Job, UserProfile, WorkExperience, Education, Skill } from '../types';
 import { TABLES } from '../types';
 import { authenticateUser, requireAdmin, getUserId } from '../middleware/auth';
 import { rateLimiter } from '../middleware/rateLimiter';
 import { createNotFoundError, createValidationError } from '../middleware/errorHandler';
 import { createSupabaseAdmin } from '../services/supabase';
+import { analyzeJobCompatibility } from '../services/openai';
 
 // =============================================================================
 // Router Setup
@@ -278,6 +281,97 @@ app.delete('/:id', authenticateUser, async (c) => {
 });
 
 /**
+ * POST /api/jobs/:id/analyze
+ * Analyze job-candidate compatibility using 10-dimension framework
+ */
+app.post('/:id/analyze', authenticateUser, rateLimiter(), async (c) => {
+  const userId = getUserId(c);
+  const jobId = c.req.param('id');
+  const supabase = createSupabaseAdmin(c.env);
+
+  console.log(`Analyzing compatibility for user ${userId}, job ${jobId}`);
+
+  // Fetch job data
+  const { data: job, error: jobError } = await supabase
+    .from(TABLES.JOBS)
+    .select('*')
+    .eq('id', jobId)
+    .eq('user_id', userId)
+    .single();
+
+  if (jobError || !job) {
+    throw createNotFoundError('Job', jobId);
+  }
+
+  // Fetch user profile
+  const { data: profile, error: profileError } = await supabase
+    .from(TABLES.USERS)
+    .select('*')
+    .eq('id', userId)
+    .single();
+
+  if (profileError || !profile) {
+    throw createNotFoundError('User profile');
+  }
+
+  // Fetch work experience
+  const { data: workExperience } = await supabase
+    .from(TABLES.WORK_EXPERIENCE)
+    .select('*')
+    .eq('user_id', userId)
+    .order('start_date', { ascending: false });
+
+  if (!workExperience || workExperience.length === 0) {
+    throw createValidationError('Add work experience to your profile first', {
+      workExperience: 'At least one work experience entry is required',
+    });
+  }
+
+  // Fetch education
+  const { data: education } = await supabase
+    .from(TABLES.EDUCATION)
+    .select('*')
+    .eq('user_id', userId)
+    .order('end_date', { ascending: false });
+
+  // Fetch skills
+  const { data: skills } = await supabase
+    .from(TABLES.SKILLS)
+    .select('*')
+    .eq('user_id', userId)
+    .order('endorsements', { ascending: false });
+
+  // Map database records to type interfaces
+  const mappedJob: Job = mapDatabaseJob(job);
+  const mappedProfile: UserProfile = mapDatabaseProfile(profile);
+  const mappedWorkExperience: WorkExperience[] = (workExperience || []).map(mapDatabaseWorkExperience);
+  const mappedEducation: Education[] = (education || []).map(mapDatabaseEducation);
+  const mappedSkills: Skill[] = (skills || []).map(mapDatabaseSkill);
+
+  // Analyze compatibility
+  const analysis = await analyzeJobCompatibility(c.env, {
+    job: mappedJob,
+    profile: mappedProfile,
+    workExperience: mappedWorkExperience,
+    education: mappedEducation,
+    skills: mappedSkills,
+  });
+
+  // Optionally update job's match_score in database
+  await supabase
+    .from(TABLES.JOBS)
+    .update({
+      match_score: analysis.overallScore,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', jobId);
+
+  console.log(`Compatibility analysis complete: ${analysis.overallScore} (${analysis.recommendation})`);
+
+  return c.json(analysis);
+});
+
+/**
  * POST /api/jobs/cleanup
  * Admin endpoint to cleanup old jobs
  */
@@ -313,5 +407,106 @@ app.post('/cleanup', authenticateUser, requireAdmin, async (c) => {
     cutoffDate: cutoffDate.toISOString(),
   });
 });
+
+// =============================================================================
+// Database Mapping Functions
+// =============================================================================
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
+function mapDatabaseJob(record: any): Job {
+  return {
+    id: record.id,
+    userId: record.user_id,
+    title: record.title,
+    company: record.company,
+    companyLogo: record.company_logo,
+    location: record.location,
+    workArrangement: record.work_arrangement,
+    salaryMin: record.salary_min,
+    salaryMax: record.salary_max,
+    postedDate: record.posted_date,
+    description: record.description,
+    url: record.url,
+    source: record.source,
+    requiredSkills: record.required_skills,
+    preferredSkills: record.preferred_skills,
+    experienceLevel: record.experience_level,
+    matchScore: record.match_score,
+    isSaved: record.is_saved,
+    isArchived: record.is_archived,
+    createdAt: record.created_at,
+    updatedAt: record.updated_at,
+  };
+}
+
+function mapDatabaseProfile(record: any): UserProfile {
+  return {
+    id: record.id,
+    email: record.email,
+    firstName: record.first_name,
+    lastName: record.last_name,
+    phone: record.phone,
+    location: record.location,
+    summary: record.summary,
+    headline: record.headline,
+    profileImageUrl: record.profile_image_url,
+    linkedInUrl: record.linkedin_url,
+    linkedInImported: record.linkedin_imported,
+    linkedInImportedAt: record.linkedin_imported_at,
+    createdAt: record.created_at,
+    updatedAt: record.updated_at,
+  };
+}
+
+function mapDatabaseWorkExperience(record: any): WorkExperience {
+  return {
+    id: record.id,
+    userId: record.user_id,
+    position: record.position,
+    company: record.company,
+    location: record.location,
+    startDate: record.start_date,
+    endDate: record.end_date,
+    current: record.current,
+    description: record.description,
+    accomplishments: record.accomplishments || [],
+    createdAt: record.created_at,
+    updatedAt: record.updated_at,
+  };
+}
+
+function mapDatabaseEducation(record: any): Education {
+  return {
+    id: record.id,
+    userId: record.user_id,
+    degree: record.degree,
+    field: record.field,
+    school: record.school,
+    location: record.location,
+    startDate: record.start_date,
+    endDate: record.end_date,
+    graduationYear: record.graduation_year,
+    gpa: record.gpa,
+    honors: record.honors,
+    createdAt: record.created_at,
+    updatedAt: record.updated_at,
+  };
+}
+
+function mapDatabaseSkill(record: any): Skill {
+  return {
+    id: record.id,
+    userId: record.user_id,
+    name: record.name,
+    level: record.level,
+    endorsements: record.endorsements,
+    yearsOfExperience: record.years_of_experience,
+    createdAt: record.created_at,
+    updatedAt: record.updated_at,
+  };
+}
+
+/* eslint-enable @typescript-eslint/no-explicit-any */
 
 export default app;
