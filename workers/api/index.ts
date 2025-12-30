@@ -30,6 +30,7 @@ import emailsRouter from './routes/emails';
 import authRouter from './routes/auth';
 import exportsRouter from './routes/exports';
 import resumeRouter from './routes/resume';
+import profileRouter from './routes/profile';
 
 // Scheduled jobs
 import { handleScheduledJobs } from '../scheduled';
@@ -131,6 +132,7 @@ app.route('/api/auth', authRouter);
 app.route('/api/jobs', jobsRouter);
 app.route('/api/exports', exportsRouter);
 app.route('/api/resume', resumeRouter);
+app.route('/api/profile', profileRouter);
 
 // =============================================================================
 // API Documentation (development only)
@@ -177,6 +179,15 @@ app.get('/api', (c) => {
       resume: {
         'POST /api/resume/parse': 'Parse resume file using AI',
         'GET /api/resume/supported-formats': 'Get supported file formats',
+      },
+      profile: {
+        'PUT /api/profile': 'Update user profile (auto-triggers embedding update)',
+        'POST /api/profile/work-experience': 'Add work experience',
+        'PUT /api/profile/work-experience/:id': 'Update work experience',
+        'DELETE /api/profile/work-experience/:id': 'Delete work experience',
+        'POST /api/profile/skills': 'Add skill',
+        'PUT /api/profile/skills/:id': 'Update skill',
+        'DELETE /api/profile/skills/:id': 'Delete skill',
       },
     },
     authentication: 'Bearer token in Authorization header',

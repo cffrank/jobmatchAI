@@ -11,6 +11,7 @@
 import OpenAI from 'openai';
 import type { Env, Job, UserProfile, WorkExperience, Education, Skill, ApplicationVariant, ResumeContent, ParsedResume, JobCompatibilityAnalysis } from '../types';
 import { createSupabaseAdmin } from './supabase';
+import { analyzeJobCompatibilityWithWorkersAI } from './workersAI';
 
 // =============================================================================
 // Configuration
@@ -25,6 +26,20 @@ export const MODELS = {
 export const GENERATION_CONFIG = {
   TEMPERATURE: 0.7,
   MAX_TOKENS: 3000,
+} as const;
+
+/**
+ * Feature flags for AI model selection
+ */
+export const AI_FEATURE_FLAGS = {
+  /**
+   * Use Cloudflare Workers AI for job compatibility analysis
+   * - Primary: Workers AI (Llama 3.1 8B) - 95% cost savings
+   * - Fallback: OpenAI GPT-4o-mini if Workers AI fails or low quality
+   *
+   * Set to false to use OpenAI only (useful for A/B testing or rollback)
+   */
+  USE_WORKERS_AI_FOR_COMPATIBILITY: true,
 } as const;
 
 export const GENERATION_STRATEGIES = [
@@ -657,8 +672,17 @@ Return the response as JSON with this EXACT structure:
 /**
  * Analyze job-candidate compatibility using comprehensive 10-dimension framework
  *
+ * HYBRID STRATEGY:
+ * 1. Primary: Cloudflare Workers AI (Llama 3.1 8B) - 95% cost savings
+ * 2. Fallback: OpenAI GPT-4o-mini if Workers AI fails or quality validation fails
+ *
  * This function evaluates how well a candidate matches a job posting across
  * 10 weighted dimensions, providing detailed scoring, justifications, and recommendations.
+ *
+ * Cost comparison:
+ * - Workers AI: ~$0.001-0.002 per analysis
+ * - OpenAI GPT-4o-mini: ~$0.03-0.05 per analysis
+ * - Estimated savings: 95-98% when Workers AI succeeds
  *
  * @param env - Environment bindings
  * @param context - Job and candidate profile data
@@ -668,10 +692,39 @@ export async function analyzeJobCompatibility(
   env: Env,
   context: GenerationContext
 ): Promise<JobCompatibilityAnalysis> {
-  const { job, profile, workExperience, education, skills } = context;
-  const openai = createOpenAI(env);
+  const { job, profile } = context;
+  const startTime = Date.now();
 
   console.log(`[analyzeJobCompatibility] Analyzing match for job ${job.id}, user ${profile.id}`);
+
+  // Try Workers AI first if feature flag is enabled
+  if (AI_FEATURE_FLAGS.USE_WORKERS_AI_FOR_COMPATIBILITY) {
+    console.log('[analyzeJobCompatibility] Attempting analysis with Cloudflare Workers AI (cost-optimized)');
+
+    try {
+      const workersAIResult = await analyzeJobCompatibilityWithWorkersAI(env, context);
+
+      if (workersAIResult) {
+        const duration = Date.now() - startTime;
+        console.log(`[analyzeJobCompatibility] ✓ SUCCESS with Workers AI in ${duration}ms (95-98% cost savings)`);
+        console.log(`[analyzeJobCompatibility] Score: ${workersAIResult.overallScore}, Recommendation: ${workersAIResult.recommendation}`);
+
+        return workersAIResult;
+      }
+
+      // If Workers AI returned null (quality validation failed), fallback to OpenAI
+      console.warn('[analyzeJobCompatibility] Workers AI quality validation failed, falling back to OpenAI');
+    } catch (error) {
+      // Workers AI failed with an error, fallback to OpenAI
+      console.error('[analyzeJobCompatibility] Workers AI error, falling back to OpenAI:', error instanceof Error ? error.message : String(error));
+    }
+  } else {
+    console.log('[analyzeJobCompatibility] Workers AI disabled via feature flag, using OpenAI');
+  }
+
+  // Fallback to OpenAI
+  console.log('[analyzeJobCompatibility] Using OpenAI GPT-4o-mini for compatibility analysis');
+  const openai = createOpenAI(env);
 
   // Build comprehensive system prompt with 10-dimension framework
   const systemPrompt = `You are an expert recruiter and talent assessment specialist. Your task is to analyze the compatibility between a job posting and a candidate's profile using a comprehensive 10-dimension scoring framework.
@@ -817,6 +870,7 @@ REQUIREMENTS:
 - Consider cultural fit and role-specific nuances`;
 
   // Build user prompt with all candidate data
+  const { workExperience, education, skills } = context;
   const userPrompt = buildCompatibilityUserPrompt(job, profile, workExperience, education, skills);
 
   const completion = await openai.chat.completions.create({
@@ -839,6 +893,8 @@ REQUIREMENTS:
   }
 
   const analysis = JSON.parse(content) as JobCompatibilityAnalysis;
+  const duration = Date.now() - startTime;
+  console.log(`[analyzeJobCompatibility] ✓ SUCCESS with OpenAI (fallback) in ${duration}ms`);
   console.log(`[analyzeJobCompatibility] Overall score: ${analysis.overallScore}, Recommendation: ${analysis.recommendation}`);
 
   return analysis;

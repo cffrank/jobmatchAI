@@ -22,6 +22,8 @@ import { rateLimiter } from '../middleware/rateLimiter';
 import { createNotFoundError, createValidationError } from '../middleware/errorHandler';
 import { createSupabaseAdmin } from '../services/supabase';
 import { analyzeJobCompatibility } from '../services/openai';
+import { generateJobEmbedding } from '../services/embeddings';
+import { getCachedAnalysis, cacheAnalysis } from '../services/jobAnalysisCache';
 
 // =============================================================================
 // Router Setup
@@ -62,6 +64,53 @@ const updateJobSchema = z.object({
   isSaved: z.boolean().optional(),
   isArchived: z.boolean().optional(),
 });
+
+// =============================================================================
+// Helper Functions
+// =============================================================================
+
+/**
+ * Generate and save embedding for a job (non-blocking)
+ *
+ * This helper is called after a job is created in the database.
+ * It generates the embedding asynchronously and updates the job record.
+ *
+ * Usage in routes:
+ *   c.executionCtx.waitUntil(generateAndSaveJobEmbedding(c.env, supabase, job));
+ *
+ * @param env - Environment bindings (for AI API)
+ * @param supabase - Supabase admin client
+ * @param job - Job object with all fields
+ */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+async function generateAndSaveJobEmbedding(
+  env: Env,
+  supabase: any,
+  job: Job
+): Promise<void> {
+  try {
+    console.log(`[Embeddings] Starting embedding generation for job ${job.id}`);
+    const embedding = await generateJobEmbedding(env, job);
+
+    const { error } = await supabase
+      .from(TABLES.JOBS)
+      .update({ embedding: embedding })
+      .eq('id', job.id);
+
+    if (error) {
+      console.error(`[Embeddings] Failed to save embedding for job ${job.id}:`, error);
+      throw error;
+    }
+
+    console.log(`[Embeddings] Successfully generated and saved embedding for job ${job.id}`);
+  } catch (error) {
+    console.error(
+      `[Embeddings] Failed to generate embedding for job ${job.id}:`,
+      error instanceof Error ? error.message : String(error)
+    );
+    // Don't throw - embedding generation is optional and shouldn't fail the request
+  }
+}
 
 // =============================================================================
 // Routes
@@ -204,6 +253,31 @@ app.post('/scrape', authenticateUser, rateLimiter(), async (c) => {
   // TODO: Implement Apify integration for Cloudflare Workers
   // The existing jobScraper.service.ts uses Apify client which works in Workers
   // For now, return a placeholder response
+  //
+  // When jobs are scraped and saved to the database, embeddings will be
+  // generated asynchronously using the pattern below:
+  //
+  // const supabase = createSupabaseAdmin(c.env);
+  // const createdJobs = []; // Array of jobs created from scraping
+  //
+  // // Generate embeddings asynchronously (non-blocking)
+  // c.executionCtx.waitUntil(
+  //   (async () => {
+  //     for (const job of createdJobs) {
+  //       try {
+  //         const embedding = await generateJobEmbedding(c.env, job);
+  //         await supabase
+  //           .from('jobs')
+  //           .update({ embedding: embedding })
+  //           .eq('id', job.id);
+  //         console.log(`[Embeddings] Generated embedding for job ${job.id}`);
+  //       } catch (error) {
+  //         console.error(`[Embeddings] Failed for job ${job.id}:`, error);
+  //         // Continue processing other jobs
+  //       }
+  //     }
+  //   })()
+  // );
 
   const response: ScrapeJobsResponse = {
     success: false,
@@ -283,6 +357,14 @@ app.delete('/:id', authenticateUser, async (c) => {
 /**
  * POST /api/jobs/:id/analyze
  * Analyze job-candidate compatibility using 10-dimension framework
+ *
+ * Implements hybrid caching strategy:
+ * 1. Check KV cache (fast, 7-day TTL)
+ * 2. Fallback to database cache
+ * 3. Generate new analysis if no cache hit
+ * 4. Store in both KV and database
+ *
+ * Cache invalidation happens when user profile changes (see profile routes)
  */
 app.post('/:id/analyze', authenticateUser, rateLimiter(), async (c) => {
   const userId = getUserId(c);
@@ -291,6 +373,35 @@ app.post('/:id/analyze', authenticateUser, rateLimiter(), async (c) => {
 
   console.log(`Analyzing compatibility for user ${userId}, job ${jobId}`);
 
+  // === CACHE CHECK ===
+  // Try to get cached analysis first (KV → Database fallback)
+  const cached = await getCachedAnalysis(c.env, userId, jobId);
+
+  if (cached) {
+    console.log(`[Cache HIT] Using cached analysis from ${cached.source} (cached at ${cached.cachedAt})`);
+    console.log(`[Cost Savings] Avoided OpenAI API call (~$0.03-0.05 saved)`);
+
+    // Still update job's match_score in database
+    await supabase
+      .from(TABLES.JOBS)
+      .update({
+        match_score: cached.analysis.overallScore,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', jobId);
+
+    // Return cached result with metadata
+    return c.json({
+      ...cached.analysis,
+      cached: true,
+      cacheSource: cached.source,
+      cachedAt: cached.cachedAt,
+    });
+  }
+
+  console.log('[Cache MISS] Generating new analysis...');
+
+  // === FETCH DATA ===
   // Fetch job data
   const { data: job, error: jobError } = await supabase
     .from(TABLES.JOBS)
@@ -341,14 +452,14 @@ app.post('/:id/analyze', authenticateUser, rateLimiter(), async (c) => {
     .eq('user_id', userId)
     .order('endorsements', { ascending: false });
 
-  // Map database records to type interfaces
+  // === MAP DATA ===
   const mappedJob: Job = mapDatabaseJob(job);
   const mappedProfile: UserProfile = mapDatabaseProfile(profile);
   const mappedWorkExperience: WorkExperience[] = (workExperience || []).map(mapDatabaseWorkExperience);
   const mappedEducation: Education[] = (education || []).map(mapDatabaseEducation);
   const mappedSkills: Skill[] = (skills || []).map(mapDatabaseSkill);
 
-  // Analyze compatibility
+  // === GENERATE ANALYSIS ===
   const analysis = await analyzeJobCompatibility(c.env, {
     job: mappedJob,
     profile: mappedProfile,
@@ -357,7 +468,11 @@ app.post('/:id/analyze', authenticateUser, rateLimiter(), async (c) => {
     skills: mappedSkills,
   });
 
-  // Optionally update job's match_score in database
+  // === CACHE NEW ANALYSIS ===
+  // Store in both KV and database (fire and forget)
+  c.executionCtx.waitUntil(cacheAnalysis(c.env, userId, jobId, analysis));
+
+  // === UPDATE JOB MATCH SCORE ===
   await supabase
     .from(TABLES.JOBS)
     .update({
@@ -367,8 +482,15 @@ app.post('/:id/analyze', authenticateUser, rateLimiter(), async (c) => {
     .eq('id', jobId);
 
   console.log(`Compatibility analysis complete: ${analysis.overallScore} (${analysis.recommendation})`);
+  console.log('[Cost] OpenAI API call made (~$0.03-0.05)');
 
-  return c.json(analysis);
+  // Return fresh result
+  return c.json({
+    ...analysis,
+    cached: false,
+    cacheSource: 'generated',
+    cachedAt: new Date().toISOString(),
+  });
 });
 
 /**

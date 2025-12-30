@@ -48,6 +48,32 @@ export interface Env {
   AI_GATEWAY_SLUG?: string;
   CF_AIG_TOKEN?: string; // AI Gateway authentication token
 
+  // Cloudflare KV Namespaces
+  JOB_ANALYSIS_CACHE?: KVNamespace; // Job compatibility analysis cache (7-day TTL)
+
+  // Cloudflare Workers AI binding
+  // Configured in wrangler.toml [ai] binding = "AI"
+  // Used for:
+  // - Semantic embeddings: @cf/baai/bge-base-en-v1.5 (768-dimensional vectors)
+  // - Job compatibility analysis: @cf/meta/llama-3.1-8b-instruct (text generation with JSON mode)
+  // Type: Ai from @cloudflare/workers-types
+  AI: {
+    run(
+      model: string,
+      inputs:
+        | { text: string[] } // For embeddings
+        | { // For text generation with JSON mode
+            messages: { role: string; content: string }[];
+            temperature?: number;
+            max_tokens?: number;
+            response_format?: { type: 'json_object' };
+          }
+    ): Promise<
+      | { shape: number[]; data: number[][] } // Embeddings response
+      | { response: string } // Text generation response
+    >;
+  };
+
   // Rate Limiting (future KV namespace)
   // RATE_LIMITS?: KVNamespace;
 

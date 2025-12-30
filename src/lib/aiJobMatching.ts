@@ -9,32 +9,21 @@
  * - Understands domain relevance (IT vs Medical vs Business)
  */
 
-import type { Job, CompatibilityBreakdown } from '@/sections/job-discovery-matching/types'
+import type { JobCompatibilityAnalysis } from '@/sections/job-discovery-matching/types'
 
 const API_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'
-
-interface AIAnalysisResult {
-  success: boolean
-  job: Job
-  analysis: {
-    matchScore: number
-    compatibilityBreakdown: CompatibilityBreakdown
-    missingSkills: string[]
-    recommendations: string[]
-  }
-}
 
 /**
  * Request AI-powered semantic analysis for a job
  *
  * @param jobId - ID of the job to analyze
  * @param authToken - User's authentication token
- * @returns Analysis results including match score and compatibility breakdown
+ * @returns Full 10-dimension compatibility analysis
  */
 export async function analyzeJobWithAI(
   jobId: string,
   authToken: string
-): Promise<AIAnalysisResult> {
+): Promise<JobCompatibilityAnalysis> {
   try {
     const response = await fetch(`${API_URL}/api/jobs/${jobId}/analyze`, {
       method: 'POST',
@@ -49,10 +38,10 @@ export async function analyzeJobWithAI(
       throw new Error(error.message || `HTTP ${response.status}`)
     }
 
-    const result = await response.json()
-    console.log(`[AI Matching] Job ${jobId} analyzed: ${result.analysis.matchScore}% match`)
+    const analysis: JobCompatibilityAnalysis = await response.json()
+    console.log(`[AI Matching] Job ${jobId} analyzed: ${analysis.overallScore}% (${analysis.recommendation})`)
 
-    return result
+    return analysis
   } catch (error) {
     console.error('[AI Matching] Analysis failed:', error)
     throw error
@@ -65,19 +54,19 @@ export async function analyzeJobWithAI(
  * @param jobIds - Array of job IDs to analyze
  * @param authToken - User's authentication token
  * @param onProgress - Optional callback for progress updates
- * @returns Array of analysis results
+ * @returns Array of compatibility analyses
  */
 export async function batchAnalyzeJobs(
   jobIds: string[],
   authToken: string,
   onProgress?: (completed: number, total: number) => void
-): Promise<AIAnalysisResult[]> {
-  const results: AIAnalysisResult[] = []
+): Promise<JobCompatibilityAnalysis[]> {
+  const results: JobCompatibilityAnalysis[] = []
 
   for (let i = 0; i < jobIds.length; i++) {
     try {
-      const result = await analyzeJobWithAI(jobIds[i], authToken)
-      results.push(result)
+      const analysis = await analyzeJobWithAI(jobIds[i], authToken)
+      results.push(analysis)
 
       if (onProgress) {
         onProgress(i + 1, jobIds.length)

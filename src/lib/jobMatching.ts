@@ -67,8 +67,10 @@ export function calculateJobMatch(
 ): JobMatchResult {
   const { user, skills, workExperience } = profile
 
-  // If no profile data, return zero match
-  if (!user || skills.length === 0) {
+  // If no user profile, return zero match
+  // Note: We allow calculations even with empty skills/workExperience arrays
+  // Individual calculation functions handle empty data gracefully
+  if (!user) {
     return {
       matchScore: 0,
       compatibilityBreakdown: {
@@ -182,7 +184,7 @@ function calculateExperienceMatch(
   workExperience: WorkExperience[]
 ): { score: number } {
   if (workExperience.length === 0) {
-    console.warn('[JobMatching] calculateExperienceMatch: No work experience provided')
+    console.debug('[JobMatching] calculateExperienceMatch: No work experience provided')
     return { score: 0 }
   }
 
@@ -264,7 +266,7 @@ function calculateIndustryMatch(
   workExperience: WorkExperience[]
 ): { score: number } {
   if (workExperience.length === 0) {
-    console.warn('[JobMatching] calculateIndustryMatch: No work experience provided')
+    console.debug('[JobMatching] calculateIndustryMatch: No work experience provided')
     return { score: 0 }
   }
 
