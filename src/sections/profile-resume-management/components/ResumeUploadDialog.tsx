@@ -448,6 +448,8 @@ export function ResumeUploadDialog({ isOpen, onClose, onSuccess }: ResumeUploadD
               gapAnalysis={gapAnalysis}
               onContinue={handleGapReviewContinue}
               onBack={handleBackToPreview}
+              initialAnswers={questionAnswers}
+              initialNarratives={workNarratives}
             />
           )}
 

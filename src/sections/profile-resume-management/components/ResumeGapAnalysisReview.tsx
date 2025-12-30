@@ -44,6 +44,8 @@ interface ResumeGapAnalysisReviewProps {
   gapAnalysis: GapAnalysis
   onContinue: (answers: Record<number, string>, narratives: WorkExperienceNarrative[]) => void
   onBack: () => void
+  initialAnswers?: Record<number, string>
+  initialNarratives?: WorkExperienceNarrative[]
 }
 
 export function ResumeGapAnalysisReview({
@@ -51,9 +53,18 @@ export function ResumeGapAnalysisReview({
   gapAnalysis,
   onContinue,
   onBack,
+  initialAnswers = {},
+  initialNarratives = [],
 }: ResumeGapAnalysisReviewProps) {
-  const [answers, setAnswers] = useState<Record<number, string>>({})
-  const [narratives, setNarratives] = useState<Record<number, string>>({})
+  const [answers, setAnswers] = useState<Record<number, string>>(initialAnswers)
+  const [narratives, setNarratives] = useState<Record<number, string>>(() => {
+    // Convert array of WorkExperienceNarrative to Record<number, string>
+    const narrativesMap: Record<number, string> = {}
+    initialNarratives.forEach((n) => {
+      narrativesMap[n.position_index] = n.narrative
+    })
+    return narrativesMap
+  })
   const [expandedQuestions, setExpandedQuestions] = useState<Set<number>>(new Set())
   const [expandedExperiences, setExpandedExperiences] = useState<Set<number>>(new Set())
 
