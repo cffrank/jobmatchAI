@@ -532,18 +532,30 @@ function getFallbackVariant(
  */
 async function extractTextFromPDF(pdfArrayBuffer: ArrayBuffer): Promise<string> {
   try {
+    console.log('[extractTextFromPDF] Starting extraction, buffer size:', pdfArrayBuffer.byteLength);
+
     const { text } = await extractText(new Uint8Array(pdfArrayBuffer));
+
+    console.log('[extractTextFromPDF] Extraction complete, text type:', typeof text);
+    console.log('[extractTextFromPDF] Is array:', Array.isArray(text));
 
     // unpdf returns text as an array of strings (one per page)
     const fullText = Array.isArray(text) ? text.join('\n\n') : String(text);
+
+    console.log('[extractTextFromPDF] Full text length:', fullText.length);
 
     if (!fullText || fullText.trim().length === 0) {
       throw new Error('No text could be extracted from the PDF. The PDF may be image-based or corrupted.');
     }
     return fullText.trim();
   } catch (error) {
-    console.error('[extractTextFromPDF] Failed to extract text:', error);
-    throw new Error('Failed to extract text from PDF. The file may be corrupted, password-protected, or image-based.');
+    console.error('[extractTextFromPDF] Error details:', {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      type: typeof error,
+      error: error,
+    });
+    throw new Error(`Failed to extract text from PDF: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 
@@ -662,24 +674,32 @@ Return the response as JSON with this EXACT structure:
   let parsedData: ParsedResume;
 
   if (isPdf && pdfText) {
-    // For PDFs, use Workers AI (Llama 3.1 8B) with extracted text
-    console.log('[parseResume] Using Workers AI to parse PDF text');
+    // For PDFs, use Workers AI (Llama 3.3 70B) with extracted text
+    // Using the more powerful model for resume parsing to ensure accurate extraction
+    console.log('[parseResume] Using Workers AI (Llama 3.3 70B) to parse PDF text');
 
-    const aiPrompt = `${prompt}\n\nResume Text:\n${pdfText}`;
+    const aiPrompt = `${prompt}\n\nCRITICAL: Extract COMPLETE information for each position including:
+- Full job description (what they did in the role)
+- ALL accomplishments, achievements, and bullet points
+- Technologies, tools, and skills used
+- Quantifiable results and metrics
 
-    const response = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
+Resume Text:
+${pdfText}`;
+
+    const response = await env.AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
       messages: [
         {
           role: 'system',
-          content: 'You are an expert resume parser. Extract all information from resumes and return valid JSON only. Follow the exact structure provided.',
+          content: 'You are an expert resume parser. Extract ALL information from resumes including complete job descriptions and accomplishments. Return valid JSON only. Follow the exact structure provided. Do not omit any details.',
         },
         {
           role: 'user',
           content: aiPrompt,
         },
       ],
-      temperature: 0.3,
-      max_tokens: 4000,
+      temperature: 0.2,
+      max_tokens: 8000,
     });
 
     console.log('[parseResume] Workers AI response received');
