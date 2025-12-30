@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ArrowLeft, Bookmark, BookmarkCheck, Sparkles, MapPin, Briefcase, DollarSign, Calendar, AlertTriangle, CheckCircle2, TrendingUp, Award, Lightbulb, Pencil, Clock, Loader2 } from 'lucide-react'
 import type { JobDetailProps } from '../types'
 import { CompatibilityDetails } from './CompatibilityDetails'
@@ -15,6 +15,11 @@ export function JobDetail({
 }: JobDetailProps) {
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [localJob, setLocalJob] = useState(job)
+
+  // Sync local state when job prop changes (e.g., after saving)
+  useEffect(() => {
+    setLocalJob(job)
+  }, [job])
 
   const handleAnalyzeCompatibility = async () => {
     setIsAnalyzing(true)
@@ -457,7 +462,13 @@ export function JobDetail({
             {/* Apply CTA */}
             <button
               onClick={onApply}
-              className="w-full px-6 py-4 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-xl font-bold text-lg transition-all shadow-lg hover:shadow-xl hover:scale-105"
+              disabled={!currentJob.isSaved}
+              className={`w-full px-6 py-4 rounded-xl font-bold text-lg transition-all shadow-lg ${
+                currentJob.isSaved
+                  ? 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white hover:shadow-xl hover:scale-105 cursor-pointer'
+                  : 'bg-slate-300 dark:bg-slate-700 text-slate-500 dark:text-slate-400 cursor-not-allowed opacity-60'
+              }`}
+              title={!currentJob.isSaved ? 'Save this job first to apply' : 'Generate application'}
             >
               Apply to This Position
             </button>
