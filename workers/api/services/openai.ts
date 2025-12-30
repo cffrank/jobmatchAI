@@ -529,8 +529,8 @@ function getFallbackVariant(
 /**
  * Parse resume file and extract structured information using AI
  *
- * Uses OpenAI GPT-4o with Vision to parse both images and PDFs
- * PDFs are processed as visual documents via the Vision API
+ * - For PDFs: Railway service extracts text → Llama 3.3 70B parses
+ * - For images: OpenAI GPT-4o Vision
  */
 export async function parseResume(env: Env, storagePath: string): Promise<ParsedResume> {
   const openai = createOpenAI(env);
@@ -549,11 +549,8 @@ export async function parseResume(env: Env, storagePath: string): Promise<Parsed
   }
 
   const isPdf = ext === 'pdf';
-  if (isPdf) {
-    console.log('[parseResume] PDF detected, will process as visual document');
-  }
 
-  // Generate signed URL for the image
+  // Generate signed URL for the file
   const { data: signedUrlData, error: urlError } = await supabase.storage
     .from('files')
     .createSignedUrl(storagePath, 3600);
@@ -625,36 +622,104 @@ Return the response as JSON with this EXACT structure:
 }
 `;
 
-  const completion = await openai.chat.completions.create({
-    model: MODELS.RESUME_PARSING,
-    messages: [
-      {
-        role: 'system',
-        content: 'You are an expert resume parser. Extract all information from resumes and return valid JSON only.',
-      },
-      {
-        role: 'user',
-        content: [
-          { type: 'text', text: prompt },
-          { type: 'image_url', image_url: { url: fileUrl } },
-        ],
-      },
-    ],
-    response_format: { type: 'json_object' },
-    temperature: 0.3,
-    max_tokens: 4000,
-  });
+  let parsedData: ParsedResume;
 
-  // Log AI Gateway cache status (if available)
-  logAIGatewayCacheStatus(completion, 'resume-parsing', storagePath.split('/').pop());
+  if (isPdf) {
+    // For PDFs: Call Railway service to extract text, then parse with Llama 3.3 70B
+    console.log('[parseResume] PDF detected - using Railway PDF parser service');
 
-  const content = completion.choices[0]?.message.content;
-  if (!content) {
-    throw new Error('No content in OpenAI response');
+    const pdfParserUrl = env.PDF_PARSER_SERVICE_URL || 'https://jobmatch-pdf-parser.railway.app';
+    console.log(`[parseResume] Calling PDF parser at ${pdfParserUrl}`);
+
+    const pdfResponse = await fetch(`${pdfParserUrl}/parse-pdf`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ pdfUrl: fileUrl }),
+    });
+
+    if (!pdfResponse.ok) {
+      const errorText = await pdfResponse.text();
+      console.error('[parseResume] PDF parser error:', errorText);
+      throw new Error(`PDF parser service error: ${pdfResponse.status} ${errorText}`);
+    }
+
+    const pdfData = await pdfResponse.json() as { text: string; pages: number };
+    console.log(`[parseResume] Extracted ${pdfData.text.length} characters from ${pdfData.pages} pages`);
+
+    // Parse extracted text with Llama 3.3 70B (free Workers AI)
+    console.log('[parseResume] Parsing PDF text with Workers AI (Llama 3.3 70B)');
+
+    const aiPrompt = `${prompt}\n\nResume Text:\n${pdfData.text}`;
+
+    const response = await env.AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
+      messages: [
+        {
+          role: 'system',
+          content: 'You are an expert resume parser. Extract ALL information from resumes and return valid JSON only. Follow the exact structure provided.',
+        },
+        {
+          role: 'user',
+          content: aiPrompt,
+        },
+      ],
+      temperature: 0.2,
+      max_tokens: 8000,
+    });
+
+    console.log('[parseResume] Workers AI response received');
+
+    const responseText = typeof response === 'object' && 'response' in response
+      ? (response as { response: string }).response
+      : JSON.stringify(response);
+
+    // Extract JSON from response
+    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      console.error('[parseResume] No JSON found in Workers AI response:', responseText);
+      throw new Error('Failed to parse resume: AI did not return valid JSON');
+    }
+
+    parsedData = JSON.parse(jsonMatch[0]) as ParsedResume;
+    console.log('[parseResume] Successfully parsed PDF resume with Workers AI');
+
+  } else {
+    // For images: Use OpenAI Vision
+    console.log('[parseResume] Image detected - using OpenAI Vision');
+
+    const completion = await openai.chat.completions.create({
+      model: MODELS.RESUME_PARSING,
+      messages: [
+        {
+          role: 'system',
+          content: 'You are an expert resume parser. Extract all information from resumes and return valid JSON only.',
+        },
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: prompt },
+            { type: 'image_url', image_url: { url: fileUrl } },
+          ],
+        },
+      ],
+      response_format: { type: 'json_object' },
+      temperature: 0.3,
+      max_tokens: 4000,
+    });
+
+    logAIGatewayCacheStatus(completion, 'resume-parsing', storagePath.split('/').pop());
+
+    const content = completion.choices[0]?.message.content;
+    if (!content) {
+      throw new Error('No content in OpenAI response');
+    }
+
+    parsedData = JSON.parse(content) as ParsedResume;
+    console.log('[parseResume] Successfully parsed image resume with OpenAI Vision');
   }
 
-  console.log('[parseResume] Successfully parsed resume');
-  return JSON.parse(content) as ParsedResume;
+  return parsedData;
 }
 
 // =============================================================================
