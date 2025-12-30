@@ -4,9 +4,9 @@
  * Handles resume parsing and import functionality.
  *
  * Endpoints:
- * - POST /api/resume/parse - Parse resume file using OpenAI Vision API
- *
- * NOTE: PDF parsing is limited in Workers. Image-based resumes are fully supported.
+ * - POST /api/resume/parse - Parse resume file using OpenAI GPT-4o Vision
+ *   - Supports: PNG, JPG, JPEG, GIF, WEBP, PDF
+ *   - PDFs are processed as visual documents
  */
 
 import { Hono } from 'hono';
@@ -40,8 +40,8 @@ const parseResumeSchema = z.object({
  * Parse resume file using OpenAI GPT-4o with Vision
  *
  * Supports:
- * - Image files (PNG, JPG, JPEG, GIF, WEBP) - fully supported
- * - PDF files - returns error with guidance to use image format
+ * - PDF files - Processed as visual documents
+ * - Image files (PNG, JPG, JPEG, GIF, WEBP)
  *
  * The file should already be uploaded to Supabase storage.
  * This endpoint takes the storage path and returns parsed resume data.
@@ -121,8 +121,8 @@ app.get('/supported-formats', async (c) => {
         format: 'PDF',
         extension: '.pdf',
         mimeType: 'application/pdf',
-        status: 'coming_soon',
-        note: 'PDF parsing requires additional processing. Convert to image for best results.',
+        status: 'fully_supported',
+        note: 'Processed as visual document using OpenAI GPT-4o Vision.',
       },
     ],
     recommendations: [

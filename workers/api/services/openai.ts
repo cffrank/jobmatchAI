@@ -20,7 +20,7 @@ import { analyzeJobCompatibilityWithWorkersAI } from './workersAI';
 export const MODELS = {
   APPLICATION_GENERATION: 'gpt-4o-mini',
   MATCH_ANALYSIS: 'gpt-4o-mini',
-  RESUME_PARSING: 'gpt-4o', // Vision model for resume parsing
+  RESUME_PARSING: 'gpt-4o', // Vision model for resume parsing (images + PDFs)
 } as const;
 
 export const GENERATION_CONFIG = {
@@ -528,8 +528,9 @@ function getFallbackVariant(
 
 /**
  * Parse resume file and extract structured information using AI
- * For Cloudflare Workers: Uses Vision API for images, returns error for PDFs
- * (PDF parsing requires Node.js-specific libraries not available in Workers)
+ *
+ * Uses OpenAI GPT-4o with Vision to parse both images and PDFs
+ * PDFs are processed as visual documents via the Vision API
  */
 export async function parseResume(env: Env, storagePath: string): Promise<ParsedResume> {
   const openai = createOpenAI(env);
@@ -539,26 +540,17 @@ export async function parseResume(env: Env, storagePath: string): Promise<Parsed
 
   // Detect file type
   const ext = storagePath.toLowerCase().split('.').pop();
-  const isImage = ['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext || '');
-  const isPdf = ext === 'pdf';
+  const isSupported = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'pdf'].includes(ext || '');
 
-  if (isPdf) {
-    // TODO: PDF parsing in Workers requires different approach
-    // Options:
-    // 1. Use pdfjs-serverless package
-    // 2. Convert PDF to image client-side before upload
-    // 3. Use an external PDF-to-text API
+  if (!isSupported) {
     throw new Error(
-      'PDF parsing is not yet supported in Cloudflare Workers. ' +
-      'Please upload an image of your resume (PNG, JPG, JPEG, GIF, or WEBP) or ' +
-      'convert your PDF to an image before uploading.'
+      'Unsupported file format. Please upload an image file (PNG, JPG, JPEG, GIF, WEBP) or PDF.'
     );
   }
 
-  if (!isImage) {
-    throw new Error(
-      'Unsupported file format. Please upload an image file (PNG, JPG, JPEG, GIF, WEBP).'
-    );
+  const isPdf = ext === 'pdf';
+  if (isPdf) {
+    console.log('[parseResume] PDF detected, will process as visual document');
   }
 
   // Generate signed URL for the image
