@@ -36,7 +36,7 @@ async function getAuthToken() {
   let data = await response.json();
 
   // If user already exists, sign in instead
-  if (data.error && data.error.includes('already registered')) {
+  if (data.error || data.msg?.includes('already registered') || data.error_code === 'user_already_exists') {
     console.log('   User already exists, signing in...\n');
 
     response = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {

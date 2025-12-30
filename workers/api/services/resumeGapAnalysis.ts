@@ -209,6 +209,7 @@ export async function analyzeResumeGaps(
   }
 
   console.log('[analyzeResumeGaps] Response text length:', responseText.length);
+  console.log('[analyzeResumeGaps] First 500 chars:', responseText.substring(0, 500));
 
   // Find JSON in response (in case there's extra text like markdown code blocks)
   const jsonMatch = responseText.match(/\{[\s\S]*\}/);
@@ -217,7 +218,28 @@ export async function analyzeResumeGaps(
     throw new Error('Failed to parse gap analysis: AI did not return valid JSON');
   }
 
-  const analysis = JSON.parse(jsonMatch[0]) as ResumeGapAnalysis;
+  console.log('[analyzeResumeGaps] JSON matched, length:', jsonMatch[0].length);
+
+  let analysis: ResumeGapAnalysis;
+  try {
+    analysis = JSON.parse(jsonMatch[0]) as ResumeGapAnalysis;
+  } catch (parseError) {
+    console.error('[analyzeResumeGaps] JSON parse error:', parseError);
+    console.error('[analyzeResumeGaps] Failed to parse:', jsonMatch[0].substring(0, 1000));
+    throw new Error('Failed to parse gap analysis JSON: ' + parseError);
+  }
+
+  console.log('[analyzeResumeGaps] Parsed analysis structure:', {
+    has_resume_analysis: !!analysis.resume_analysis,
+    has_gaps: !!analysis.identified_gaps_and_flags,
+    has_questions: !!analysis.clarification_questions,
+    has_next_steps: !!analysis.next_steps,
+  });
+
+  if (!analysis.resume_analysis) {
+    console.error('[analyzeResumeGaps] Missing resume_analysis in response:', analysis);
+    throw new Error('Invalid gap analysis response: missing resume_analysis field');
+  }
 
   console.log(
     `[analyzeResumeGaps] Analysis complete: ${analysis.resume_analysis.gap_count} gaps, ${analysis.resume_analysis.red_flag_count} red flags`
