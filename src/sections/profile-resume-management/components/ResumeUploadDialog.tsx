@@ -149,15 +149,19 @@ export function ResumeUploadDialog({ isOpen, onClose, onSuccess }: ResumeUploadD
                     </button>
                   </div>
 
-                  <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4">
-                    <p className="text-sm text-blue-900 dark:text-blue-100">
-                      <strong>What happens next:</strong>
+                  <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4 mb-4">
+                    <p className="text-sm font-semibold text-amber-900 dark:text-amber-100 mb-2">
+                      ⚠️ Important: This will replace all existing profile data
                     </p>
-                    <ul className="text-sm text-blue-800 dark:text-blue-200 mt-2 space-y-1 list-disc list-inside">
-                      <li>We'll extract information from your resume using AI</li>
-                      <li>You'll be able to review the extracted data</li>
-                      <li>Choose which information to import to your profile</li>
+                    <ul className="text-sm text-amber-800 dark:text-amber-200 space-y-1 list-disc list-inside">
+                      <li>All current work experience will be deleted</li>
+                      <li>All current education will be deleted</li>
+                      <li>All current skills will be deleted</li>
+                      <li>Profile will be updated with resume data</li>
                     </ul>
+                    <p className="text-sm text-amber-900 dark:text-amber-100 mt-2">
+                      You'll be able to review the data before importing.
+                    </p>
                   </div>
 
                   <button
@@ -209,6 +213,15 @@ export function ResumeUploadDialog({ isOpen, onClose, onSuccess }: ResumeUploadD
                     Review the information below before importing to your profile.
                   </p>
                 </div>
+              </div>
+
+              <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
+                <p className="text-sm font-semibold text-amber-900 dark:text-amber-100 mb-1">
+                  ⚠️ This will replace all existing profile data
+                </p>
+                <p className="text-sm text-amber-800 dark:text-amber-200">
+                  All current work experience, education, and skills will be deleted and replaced with the data shown below.
+                </p>
               </div>
 
               {/* Profile Info */}
@@ -321,10 +334,10 @@ export function ResumeUploadDialog({ isOpen, onClose, onSuccess }: ResumeUploadD
             <div className="text-center py-12">
               <Loader2 className="w-16 h-16 mx-auto mb-4 text-blue-600 animate-spin" />
               <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">
-                Importing to your profile...
+                Replacing your profile data...
               </h3>
               <p className="text-slate-600 dark:text-slate-400 mb-4">
-                Adding work experience, education, and skills to your profile
+                Clearing existing data and importing from resume
               </p>
               <div className="max-w-md mx-auto">
                 <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2">

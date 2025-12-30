@@ -58,9 +58,9 @@ export function useResumeParser() {
     allowedTypes: ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
   })
   const { updateProfile } = useProfile()
-  const { addWorkExperience } = useWorkExperience()
-  const { addEducation } = useEducation()
-  const { addSkill } = useSkills()
+  const { workExperience, addWorkExperience, deleteWorkExperience } = useWorkExperience()
+  const { education, addEducation, deleteEducation } = useEducation()
+  const { skills, addSkill, deleteSkill } = useSkills()
 
   const [parsing, setParsing] = useState(false)
   const [uploading, setUploading] = useState(false)
@@ -144,6 +144,7 @@ export function useResumeParser() {
 
   /**
    * Apply parsed resume data to user profile
+   * REPLACES all existing work experience, education, and skills
    */
   const applyParsedData = async (data: ParsedResume): Promise<void> => {
     if (!user) throw new Error('User not authenticated')
@@ -153,7 +154,49 @@ export function useResumeParser() {
     try {
       setProgress(0)
 
-      // Update profile
+      // Step 1: Delete all existing data (REPLACE mode)
+      console.log('[applyParsedData] Deleting existing profile data...')
+
+      // Delete all work experience
+      console.log(`[applyParsedData] Deleting ${workExperience.length} existing work experience entries...`)
+      for (const exp of workExperience) {
+        try {
+          await deleteWorkExperience(exp.id)
+          console.log(`[applyParsedData] ✅ Deleted work experience: ${exp.position} at ${exp.company}`)
+        } catch (err) {
+          console.error(`[applyParsedData] ⚠️ Failed to delete work experience ${exp.id}:`, err)
+          // Continue deleting others even if one fails
+        }
+      }
+
+      // Delete all education
+      console.log(`[applyParsedData] Deleting ${education.length} existing education entries...`)
+      for (const edu of education) {
+        try {
+          await deleteEducation(edu.id)
+          console.log(`[applyParsedData] ✅ Deleted education: ${edu.degree} from ${edu.school}`)
+        } catch (err) {
+          console.error(`[applyParsedData] ⚠️ Failed to delete education ${edu.id}:`, err)
+          // Continue deleting others even if one fails
+        }
+      }
+
+      // Delete all skills
+      console.log(`[applyParsedData] Deleting ${skills.length} existing skills...`)
+      for (const skill of skills) {
+        try {
+          await deleteSkill(skill.id)
+          console.log(`[applyParsedData] ✅ Deleted skill: ${skill.name}`)
+        } catch (err) {
+          console.error(`[applyParsedData] ⚠️ Failed to delete skill ${skill.id}:`, err)
+          // Continue deleting others even if one fails
+        }
+      }
+
+      console.log('[applyParsedData] ✅ Existing data cleared')
+      setProgress(15)
+
+      // Step 2: Update profile
       console.log('[applyParsedData] Updating profile...')
       try {
         await updateProfile({
@@ -172,9 +215,9 @@ export function useResumeParser() {
         console.error('[applyParsedData] ❌', msg, err)
         errors.push(msg)
       }
-      setProgress(25)
+      setProgress(30)
 
-      // Add work experience entries
+      // Step 3: Add work experience entries
       console.log(`[applyParsedData] Adding ${data.workExperience.length} work experience entries...`)
       for (let i = 0; i < data.workExperience.length; i++) {
         const exp = data.workExperience[i]
@@ -197,9 +240,9 @@ export function useResumeParser() {
           errors.push(msg)
         }
       }
-      setProgress(50)
+      setProgress(55)
 
-      // Add education entries
+      // Step 4: Add education entries
       console.log(`[applyParsedData] Adding ${data.education.length} education entries...`)
       for (let i = 0; i < data.education.length; i++) {
         const edu = data.education[i]
@@ -222,9 +265,9 @@ export function useResumeParser() {
           errors.push(msg)
         }
       }
-      setProgress(75)
+      setProgress(80)
 
-      // Add skills (skip duplicates)
+      // Step 5: Add skills
       console.log(`[applyParsedData] Adding ${data.skills.length} skills...`)
       for (const skill of data.skills) {
         try {
@@ -233,12 +276,7 @@ export function useResumeParser() {
             endorsements: skill.endorsements,
           })
         } catch (err) {
-          // Skip duplicate skills (unique constraint violation)
           const error = err as Error
-          if (error.message?.includes('unique_user_skill') || error.message?.includes('duplicate key')) {
-            console.log(`[applyParsedData] ⏭️  Skill "${skill.name}" already exists, skipping`)
-            continue
-          }
           const msg = `Skill "${skill.name}" failed: ${error.message}`
           console.error('[applyParsedData] ❌', msg, err)
           errors.push(msg)
