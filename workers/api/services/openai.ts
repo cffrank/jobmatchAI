@@ -309,30 +309,41 @@ CRITICAL: First, analyze the job description to extract:
 Then, naturally incorporate these keywords throughout the resume and cover letter to maximize ATS compatibility.
 DO NOT list keywords separately - weave them into achievements and descriptions.
 
+⚠️ CRITICAL ACCURACY REQUIREMENT ⚠️
+NEVER fabricate or estimate metrics, numbers, achievements, or facts.
+ONLY use information explicitly provided in the candidate's profile data.
+If no metrics exist for an achievement, DO NOT add them.
+Honest, accurate content is MORE IMPORTANT than impressive-sounding metrics.
+
 EXAMPLES OF EXCELLENT RESUME BULLETS:
 
-Bad: "Responsible for managing kitchen staff and preparing meals"
-Good: "Led team of 20+ kitchen staff in upscale steakhouse, reducing food waste by 35% and increasing customer satisfaction scores from 4.2 to 4.8/5.0 through menu innovation and staff training"
+If source data has metrics:
+"Managed kitchen operations" → "Led team of 12 kitchen staff, reducing food waste by 25% through inventory optimization"
+
+If source data has NO metrics:
+"Managed kitchen operations" → "Led kitchen staff in daily operations, menu planning, and quality control"
 
 KEY PRINCIPLES FOR RESUME BULLETS:
 - Start with powerful action verbs (Led, Managed, Developed, Increased, Reduced)
-- Include specific, quantifiable metrics (%, $, numbers)
-- Show clear impact and business results
+- Include metrics ONLY if they exist in the source data - NEVER fabricate
+- Show clear impact using the candidate's actual achievements
 - Naturally incorporate keywords from the job description
 - Length: 50-150 characters per bullet
 
 PROFESSIONAL SUMMARY REQUIREMENTS:
 - Length: 100-300 characters
-- Mention total years of experience
+- Mention total years of experience (calculate from work history dates)
 - Include 2-3 most relevant skills/keywords from job description
-- Highlight 1-2 key achievements with numbers
+- Highlight 1-2 key achievements ONLY if they exist in source data with metrics
 - Use industry terminology from the job posting
+- DO NOT fabricate achievement numbers
 
 COVER LETTER REQUIREMENTS:
 - Length: 500-1500 characters
 - Mention company name at least twice
 - Reference specific job title in opening paragraph
-- Include 2-3 concrete achievements with metrics
+- Include 2-3 concrete achievements from the candidate's actual work history
+- Use metrics ONLY if they exist in the source data - DO NOT fabricate
 - Mirror language and keywords from job description
 
 Return JSON with this EXACT structure:
@@ -451,8 +462,9 @@ TASK:
    - Naturally incorporates keywords and terminology from the job description
    - Maximizes ATS compatibility by mirroring the job posting language
    - Highlights the candidate's most relevant experience using job-specific terminology
-   - Uses metrics and achievements that align with the job requirements
-   - Maintains authenticity while optimizing for keyword matching
+   - Uses ONLY the actual metrics and achievements provided in the candidate's work history
+   - NEVER fabricates, estimates, or invents numbers, percentages, or achievements
+   - Maintains complete accuracy and authenticity while optimizing for keyword matching
 
 3. EXPLAIN your keyword strategy in the aiRationale field, documenting which keywords you extracted and how you incorporated them.`;
 }
