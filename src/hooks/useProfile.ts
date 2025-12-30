@@ -143,8 +143,9 @@ export function useProfile() {
 
 /**
  * Map database user to app User type
- * Maps actual schema fields: first_name, last_name, phone, location, photo_url,
- * current_title, professional_summary, years_of_experience, linkedin_url
+ * Maps actual schema fields: first_name, last_name, phone, location, street_address,
+ * city, state, postal_code, country, photo_url, current_title, professional_summary,
+ * years_of_experience, linkedin_url
  */
 function mapDbUserToUser(dbUser: DbUser): User {
   return {
@@ -154,6 +155,11 @@ function mapDbUserToUser(dbUser: DbUser): User {
     lastName: dbUser.last_name || '',
     phone: dbUser.phone || '',
     location: dbUser.location || '',
+    streetAddress: (dbUser as { street_address?: string }).street_address || '',
+    city: (dbUser as { city?: string }).city || '',
+    state: (dbUser as { state?: string }).state || '',
+    postalCode: (dbUser as { postal_code?: string }).postal_code || '',
+    country: (dbUser as { country?: string }).country || '',
     linkedInUrl: (dbUser as { linkedin_url?: string }).linkedin_url || '',
     profileImageUrl: dbUser.photo_url || null,
     headline: dbUser.current_title || '',
@@ -166,15 +172,22 @@ function mapDbUserToUser(dbUser: DbUser): User {
  * Only maps fields that exist in our schema
  */
 function mapUserToDbUser(user: Partial<Omit<User, 'id'>>): Partial<Database['public']['Tables']['users']['Update']> {
-  return {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const dbUser: any = {
     first_name: user.firstName,
     last_name: user.lastName,
     phone: user.phone,
     location: user.location,
+    street_address: user.streetAddress,
+    city: user.city,
+    state: user.state,
+    postal_code: user.postalCode,
+    country: user.country,
     photo_url: user.profileImageUrl || undefined,
     current_title: user.headline,
     professional_summary: user.summary,
     linkedin_url: user.linkedInUrl,
     // Note: jobPreferences, searchSettings not in database schema
-  }
+  };
+  return dbUser;
 }
