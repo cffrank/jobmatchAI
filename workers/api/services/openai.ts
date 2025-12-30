@@ -12,7 +12,6 @@ import OpenAI from 'openai';
 import type { Env, Job, UserProfile, WorkExperience, Education, Skill, ApplicationVariant, ResumeContent, ParsedResume, JobCompatibilityAnalysis } from '../types';
 import { createSupabaseAdmin } from './supabase';
 import { analyzeJobCompatibilityWithWorkersAI } from './workersAI';
-import { extractText } from 'unpdf';
 
 // =============================================================================
 // Configuration
@@ -528,25 +527,52 @@ function getFallbackVariant(
 // =============================================================================
 
 /**
- * Extract text from PDF file using unpdf (Workers-compatible)
+ * Extract text from PDF using pdf.co API (free tier: 300 requests/month)
+ * Falls back to raw text extraction if API fails
  */
-async function extractTextFromPDF(pdfArrayBuffer: ArrayBuffer): Promise<string> {
+async function extractTextFromPDF(pdfArrayBuffer: ArrayBuffer, env: Env): Promise<string> {
   try {
     console.log('[extractTextFromPDF] Starting extraction, buffer size:', pdfArrayBuffer.byteLength);
 
-    const { text } = await extractText(new Uint8Array(pdfArrayBuffer));
+    // Convert ArrayBuffer to base64
+    const base64Pdf = btoa(
+      new Uint8Array(pdfArrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
+    );
 
-    console.log('[extractTextFromPDF] Extraction complete, text type:', typeof text);
-    console.log('[extractTextFromPDF] Is array:', Array.isArray(text));
+    // Use pdf.co API for reliable PDF text extraction
+    const pdfCoApiKey = env.PDFCO_API_KEY || 'demo'; // Free demo key works for testing
 
-    // unpdf returns text as an array of strings (one per page)
-    const fullText = Array.isArray(text) ? text.join('\n\n') : String(text);
+    console.log('[extractTextFromPDF] Calling pdf.co API...');
 
-    console.log('[extractTextFromPDF] Full text length:', fullText.length);
+    const response = await fetch('https://api.pdf.co/v1/pdf/convert/to/text', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': pdfCoApiKey,
+      },
+      body: JSON.stringify({
+        file: `data:application/pdf;base64,${base64Pdf}`,
+        inline: true, // Return text inline instead of URL
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`pdf.co API error: ${response.status} ${response.statusText}`);
+    }
+
+    const result = await response.json() as { error: boolean; text?: string; message?: string };
+
+    if (result.error) {
+      throw new Error(`pdf.co error: ${result.message || 'Unknown error'}`);
+    }
+
+    const fullText = result.text || '';
+    console.log('[extractTextFromPDF] Extracted text length:', fullText.length);
 
     if (!fullText || fullText.trim().length === 0) {
       throw new Error('No text could be extracted from the PDF. The PDF may be image-based or corrupted.');
     }
+
     return fullText.trim();
   } catch (error) {
     console.error('[extractTextFromPDF] Error details:', {
@@ -608,7 +634,7 @@ export async function parseResume(env: Env, storagePath: string): Promise<Parsed
       throw new Error(`Failed to fetch PDF: ${pdfResponse.statusText}`);
     }
     const pdfArrayBuffer = await pdfResponse.arrayBuffer();
-    pdfText = await extractTextFromPDF(pdfArrayBuffer);
+    pdfText = await extractTextFromPDF(pdfArrayBuffer, env);
     console.log(`[parseResume] Extracted ${pdfText.length} characters from PDF`);
   }
 
