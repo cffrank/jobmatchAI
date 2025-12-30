@@ -75,10 +75,21 @@ export function createOpenAI(env: Env): OpenAI {
 
     console.log(`[OpenAI] Using Cloudflare AI Gateway: ${env.AI_GATEWAY_SLUG}`);
 
-    return new OpenAI({
+    // Build OpenAI client configuration
+    const config: ConstructorParameters<typeof OpenAI>[0] = {
       apiKey: env.OPENAI_API_KEY,
       baseURL: gatewayBaseURL,
-    });
+    };
+
+    // Add authentication token if configured
+    if (env.CF_AIG_TOKEN) {
+      console.log('[OpenAI] Using AI Gateway authentication token');
+      config.defaultHeaders = {
+        'cf-aig-authorization': `Bearer ${env.CF_AIG_TOKEN}`,
+      };
+    }
+
+    return new OpenAI(config);
   }
 
   // Fallback to direct OpenAI API

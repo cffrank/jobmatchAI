@@ -46,6 +46,7 @@ export interface Env {
   // Cloudflare AI Gateway configuration (optional)
   CLOUDFLARE_ACCOUNT_ID?: string;
   AI_GATEWAY_SLUG?: string;
+  CF_AIG_TOKEN?: string; // AI Gateway authentication token
 
   // Rate Limiting (future KV namespace)
   // RATE_LIMITS?: KVNamespace;
