@@ -19,13 +19,21 @@ export function JobDetail({
   const handleAnalyzeCompatibility = async () => {
     setIsAnalyzing(true)
     try {
-      const token = localStorage.getItem('jobmatch-auth-token')
-      if (!token) {
+      const sessionJson = localStorage.getItem('jobmatch-auth-token')
+      if (!sessionJson) {
         toast.error('Please log in to analyze job compatibility')
         return
       }
 
-      const analysis = await analyzeJobWithAI(localJob.id, token)
+      // Parse the session object and extract the access token
+      const session = JSON.parse(sessionJson)
+      const accessToken = session?.access_token
+      if (!accessToken) {
+        toast.error('Authentication session invalid. Please log in again.')
+        return
+      }
+
+      const analysis = await analyzeJobWithAI(localJob.id, accessToken)
 
       // Update local job with new analysis
       setLocalJob({
