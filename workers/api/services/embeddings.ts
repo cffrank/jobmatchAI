@@ -300,6 +300,7 @@ export async function generateResumeEmbedding(
  */
 export async function updateUserResumeEmbedding(
   env: Env,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any, // SupabaseClient type - avoid circular dependency
   userId: string
 ): Promise<void> {

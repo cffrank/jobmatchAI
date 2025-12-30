@@ -20,7 +20,6 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
-import type { Database } from '../../src/types/supabase';
 
 // =============================================================================
 // Configuration
@@ -238,7 +237,8 @@ async function main() {
         if (!DRY_RUN) {
           const { error: updateError } = await supabase
             .from('users')
-            .update({ resume_embedding: embedding as any })
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            .update({ resume_embedding: embedding as any }) // Supabase type mismatch with Workers AI embeddings
             .eq('id', user.id);
 
           if (updateError) {

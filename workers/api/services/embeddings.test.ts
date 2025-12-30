@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Unit Tests for Embedding Service
  *
@@ -280,7 +281,7 @@ describe('generateEmbedding', () => {
     vi.mocked(mockEnv.AI.run).mockResolvedValue({
       // Missing 'data' field - will retry 3 times
       shape: [1, 768],
-    } as any);
+    } as unknown as AiTextEmbeddingsOutput);
 
     const promise = generateEmbedding(mockEnv, 'test text');
 
@@ -736,10 +737,10 @@ describe('updateUserResumeEmbedding', () => {
 
     // Mock from() to return different chains based on table name
     vi.mocked(mockSupabase.from)
-      .mockReturnValueOnce(profileChain as any)
-      .mockReturnValueOnce(workChain as any)
-      .mockReturnValueOnce(skillsChain as any)
-      .mockReturnValueOnce(updateChain as any);
+      .mockReturnValueOnce(profileChain as unknown as ReturnType<typeof mockSupabase.from>)
+      .mockReturnValueOnce(workChain as unknown as ReturnType<typeof mockSupabase.from>)
+      .mockReturnValueOnce(skillsChain as unknown as ReturnType<typeof mockSupabase.from>)
+      .mockReturnValueOnce(updateChain as unknown as ReturnType<typeof mockSupabase.from>);
 
     // Mock AI generation
     vi.mocked(mockEnv.AI.run).mockResolvedValueOnce({

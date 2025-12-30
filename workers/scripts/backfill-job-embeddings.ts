@@ -215,7 +215,8 @@ export async function main() {
           if (!DRY_RUN) {
             const { error: updateError } = await supabase
               .from('jobs')
-              .update({ embedding: embedding as any })
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              .update({ embedding: embedding as any }) // Supabase type mismatch with Workers AI embeddings
               .eq('id', job.id);
 
             if (updateError) {

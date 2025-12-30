@@ -26,9 +26,11 @@ const app = new Hono<{ Bindings: Env; Variables: Variables }>();
  * Runs asynchronously in background to avoid blocking the response
  */
 function triggerProfileChangeBackgroundUpdates(
-  c: any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  c: any, // Hono Context - using any to avoid circular dependency with full Context type
   env: Env,
-  supabase: any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any, // SupabaseClient - using any to avoid @supabase/supabase-js dependency in types
   userId: string
 ): void {
   c.executionCtx.waitUntil(

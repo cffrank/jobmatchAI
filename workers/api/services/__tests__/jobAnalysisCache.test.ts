@@ -4,7 +4,7 @@
  * Tests the hybrid caching strategy (KV + Database)
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import type { JobCompatibilityAnalysis, Env } from '../../types';
 import {
   getCachedAnalysis,
@@ -57,7 +57,7 @@ function createMockEnv(withKV = true): Env {
     APP_URL: 'http://localhost:3000',
     ENVIRONMENT: 'development',
     JOB_ANALYSIS_CACHE: withKV ? (mockKV as unknown as KVNamespace) : undefined,
-    AI: {} as any,
+    AI: {} as unknown as Ai,
   } as Env;
 }
 
@@ -75,7 +75,7 @@ describe('Job Analysis Cache', () => {
       const mockKV = env.JOB_ANALYSIS_CACHE!;
 
       // Mock KV get to return cached data
-      vi.mocked(mockKV.get).mockResolvedValue(mockAnalysis as any);
+      vi.mocked(mockKV.get).mockResolvedValue(JSON.stringify(mockAnalysis));
 
       const result = await getCachedAnalysis(env, 'user-123', 'job-456');
 

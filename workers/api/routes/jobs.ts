@@ -85,7 +85,8 @@ const updateJobSchema = z.object({
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function generateAndSaveJobEmbedding(
   env: Env,
-  supabase: any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any, // SupabaseClient - using any to avoid @supabase/supabase-js dependency in types
   job: Job
 ): Promise<void> {
   try {
