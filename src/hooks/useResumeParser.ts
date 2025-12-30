@@ -267,9 +267,12 @@ export function useResumeParser() {
       }
       setProgress(80)
 
-      // Step 5: Add skills
-      console.log(`[applyParsedData] Adding ${data.skills.length} skills...`)
-      for (const skill of data.skills) {
+      // Step 5: Add skills (deduplicate first)
+      const uniqueSkills = Array.from(
+        new Map(data.skills.map(skill => [skill.name.toLowerCase(), skill])).values()
+      )
+      console.log(`[applyParsedData] Adding ${uniqueSkills.length} unique skills (${data.skills.length} total)...`)
+      for (const skill of uniqueSkills) {
         try {
           await addSkill({
             name: skill.name,
