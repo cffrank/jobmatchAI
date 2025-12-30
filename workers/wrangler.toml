@@ -23,15 +23,27 @@ binding = "AI"
 name = "jobmatch-ai-dev"
 vars = { ENVIRONMENT = "development" }
 
+# Workers AI binding for development
+[env.development.ai]
+binding = "AI"
+
 # Staging
 [env.staging]
 name = "jobmatch-ai-staging"
 vars = { ENVIRONMENT = "staging" }
 
+# Workers AI binding for staging
+[env.staging.ai]
+binding = "AI"
+
 # Production
 [env.production]
 name = "jobmatch-ai-prod"
 vars = { ENVIRONMENT = "production" }
+
+# Workers AI binding for production
+[env.production.ai]
+binding = "AI"
 
 # Scheduled Jobs (Cron Triggers) - DISABLED due to account limit
 # https://developers.cloudflare.com/workers/configuration/cron-triggers/
@@ -46,22 +58,28 @@ vars = { ENVIRONMENT = "production" }
 # ]
 
 # KV Namespaces
-# Note: Create namespace with: wrangler kv:namespace create JOB_ANALYSIS_CACHE
-# For production: wrangler kv:namespace create JOB_ANALYSIS_CACHE --env production
+# Note: Create namespace with: wrangler kv namespace create JOB_ANALYSIS_CACHE
+# For production: wrangler kv namespace create JOB_ANALYSIS_CACHE --env production
 
 # Job Compatibility Analysis Cache
 # - Stores expensive AI-generated compatibility analyses
 # - 7-day TTL to balance freshness vs. cost savings
 # - Key format: job-analysis:{userId}:{jobId}
-[[kv_namespaces]]
+
+# Development environment KV namespace
+[[env.development.kv_namespaces]]
 binding = "JOB_ANALYSIS_CACHE"
-id = "placeholder-id-run-wrangler-kv-namespace-create"
-preview_id = "placeholder-preview-id"
+id = "fce1eb2547c14cd0811521246fec5c76"
+
+# Staging environment KV namespace
+[[env.staging.kv_namespaces]]
+binding = "JOB_ANALYSIS_CACHE"
+id = "60895c2026b64aeba70df8e10418304c"
 
 # Production environment uses separate namespace
-[env.production.kv_namespaces]
+[[env.production.kv_namespaces]]
 binding = "JOB_ANALYSIS_CACHE"
-id = "placeholder-production-id"
+id = "ddf67274fee544da85ccbf61b1ff8253"
 
 # D1 Database (if migrating to D1 in future)
 # [[d1_databases]]
