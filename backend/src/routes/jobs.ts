@@ -19,7 +19,21 @@ import { rateLimiter } from '../middleware/rateLimiter';
 import { asyncHandler, createNotFoundError, createValidationError } from '../middleware/errorHandler';
 import { scrapeJobs, isApifyConfigured } from '../services/jobScraper.service';
 import { analyzeJobCompatibility } from '../services/openai.service';
-import type { ListJobsResponse, ScrapeJobsResponse } from '../types';
+import { analyzeNewJobs } from '../services/spamDetection.service';
+import {
+  deduplicateJobsForUser,
+  getDuplicatesForJob,
+  manuallyMergeDuplicates,
+  removeDuplicateRelationship,
+} from '../services/jobDeduplication.service';
+import type {
+  ListJobsResponse,
+  ScrapeJobsResponse,
+  GetDuplicatesResponse,
+  MergeDuplicatesResponse,
+  DeduplicationResult,
+  JobDuplicate,
+} from '../types';
 
 // =============================================================================
 // Router Setup
@@ -40,6 +54,7 @@ const listJobsSchema = z.object({
   minMatchScore: z.coerce.number().int().min(0).max(100).optional(),
   search: z.string().max(200).optional(),
   workArrangement: z.enum(['Remote', 'Hybrid', 'On-site']).optional(),
+  excludeDuplicates: z.coerce.boolean().default(false), // Hide duplicate jobs
 });
 
 const scrapeJobsSchema = z.object({
@@ -110,7 +125,7 @@ router.get(
       );
     }
 
-    const { page, limit, archived, saved, source, minMatchScore, search, workArrangement } =
+    const { page, limit, archived, saved, source, minMatchScore, search, workArrangement, excludeDuplicates } =
       parseResult.data;
     const offset = (page - 1) * limit;
 
@@ -152,8 +167,30 @@ router.get(
       throw new Error('Failed to fetch jobs');
     }
 
+    let filteredJobs = jobs || [];
+
+    // Apply deduplication filter if requested
+    if (excludeDuplicates && filteredJobs.length > 0) {
+      // Fetch all duplicate job IDs for this user
+      const jobIds = filteredJobs.map(job => job.id);
+
+      const { data: duplicateRecords, error: dupError } = await supabaseAdmin
+        .from('job_duplicates')
+        .select('duplicate_job_id')
+        .in('duplicate_job_id', jobIds);
+
+      if (!dupError && duplicateRecords && duplicateRecords.length > 0) {
+        const duplicateIds = new Set(duplicateRecords.map(record => record.duplicate_job_id));
+
+        // Filter out duplicate jobs
+        filteredJobs = filteredJobs.filter(job => !duplicateIds.has(job.id));
+
+        console.log(`[Deduplication] Filtered out ${duplicateIds.size} duplicate jobs from results`);
+      }
+    }
+
     const response: ListJobsResponse = {
-      jobs: jobs || [],
+      jobs: filteredJobs,
       total: count || 0,
       page,
       limit,
@@ -343,6 +380,15 @@ router.post(
 
     console.log(`Scraped ${result.jobCount} jobs for user ${userId}`);
 
+    // Trigger spam detection asynchronously (don't block response)
+    // This runs in the background to analyze newly scraped jobs
+    if (result.jobCount > 0 && result.searchId) {
+      analyzeNewJobs(userId, result.searchId).catch((error) => {
+        console.error('[Job Scraping] Spam detection failed:', error);
+        // Don't fail the scraping request if spam detection fails
+      });
+    }
+
     const response: ScrapeJobsResponse = {
       success: result.success,
       searchId: result.searchId,
@@ -447,6 +493,172 @@ router.delete(
       console.error('Failed to delete job:', error);
       throw new Error('Failed to delete job');
     }
+
+    res.status(204).send();
+  })
+);
+
+/**
+ * POST /api/jobs/deduplicate
+ * Run deduplication for user's jobs
+ *
+ * Analyzes all non-archived jobs for the user and identifies duplicates
+ * using fuzzy matching on title, company, location, and description.
+ *
+ * Rate limited: 5 per hour (resource intensive)
+ */
+router.post(
+  '/deduplicate',
+  authenticateUser,
+  rateLimiter({ maxRequests: 5, windowMs: 60 * 60 * 1000 }), // 5 per hour
+  asyncHandler(async (req: Request, res: Response) => {
+    const userId = getUserId(req);
+
+    console.log(`[Deduplication] Manual trigger by user ${userId}`);
+
+    const result: DeduplicationResult = await deduplicateJobsForUser(userId);
+
+    res.json({
+      success: true,
+      ...result,
+    });
+  })
+);
+
+/**
+ * GET /api/jobs/:id/duplicates
+ * Get all duplicates for a specific job
+ *
+ * Returns the canonical job and all detected duplicates with similarity scores
+ */
+router.get(
+  '/:id/duplicates',
+  authenticateUser,
+  asyncHandler(async (req: Request, res: Response) => {
+    const userId = getUserId(req);
+    const { id } = req.params;
+
+    // Verify ownership
+    const { data: job, error: jobError } = await supabaseAdmin
+      .from(TABLES.JOBS)
+      .select('*')
+      .eq('id', id)
+      .eq('user_id', userId)
+      .single();
+
+    if (jobError || !job) {
+      throw createNotFoundError('Job', id);
+    }
+
+    // Get duplicates
+    const duplicates = await getDuplicatesForJob(id);
+
+    // Get duplicate metadata with similarity scores
+    const { data: duplicateMetadata, error: metadataError } = await supabaseAdmin
+      .from('job_duplicates')
+      .select('*')
+      .eq('canonical_job_id', id);
+
+    if (metadataError) {
+      console.error('[Deduplication] Failed to fetch metadata:', metadataError);
+      throw new Error('Failed to fetch duplicate metadata');
+    }
+
+    const response: GetDuplicatesResponse = {
+      job,
+      duplicates,
+      duplicateMetadata: (duplicateMetadata || []).map((record: Record<string, unknown>) => ({
+        id: record.id as string,
+        canonicalJobId: record.canonical_job_id as string,
+        duplicateJobId: record.duplicate_job_id as string,
+        titleSimilarity: record.title_similarity as number,
+        companySimilarity: record.company_similarity as number,
+        locationSimilarity: record.location_similarity as number,
+        descriptionSimilarity: record.description_similarity as number,
+        overallSimilarity: record.overall_similarity as number,
+        confidenceLevel: record.confidence_level as 'high' | 'medium' | 'low',
+        detectionMethod: record.detection_method as 'fuzzy_match' | 'url_match' | 'manual',
+        detectionDate: record.detection_date as string,
+        manuallyConfirmed: record.manually_confirmed as boolean,
+        confirmedBy: record.confirmed_by as string | undefined,
+        confirmedAt: record.confirmed_at as string | undefined,
+        createdAt: record.created_at as string,
+        updatedAt: record.updated_at as string,
+      })),
+      totalDuplicates: duplicates.length,
+    };
+
+    res.json(response);
+  })
+);
+
+/**
+ * POST /api/jobs/merge
+ * Manually merge two jobs as duplicates
+ *
+ * Allows user to override automatic detection and mark jobs as duplicates
+ *
+ * Request body:
+ * {
+ *   "canonicalJobId": "uuid",
+ *   "duplicateJobId": "uuid"
+ * }
+ */
+router.post(
+  '/merge',
+  authenticateUser,
+  asyncHandler(async (req: Request, res: Response) => {
+    const userId = getUserId(req);
+
+    // Validate request body
+    const schema = z.object({
+      canonicalJobId: z.string().uuid(),
+      duplicateJobId: z.string().uuid(),
+    });
+
+    const parseResult = schema.safeParse(req.body);
+    if (!parseResult.success) {
+      throw createValidationError(
+        'Invalid request body',
+        Object.fromEntries(
+          parseResult.error.errors.map((e) => [e.path.join('.'), e.message])
+        )
+      );
+    }
+
+    const { canonicalJobId, duplicateJobId } = parseResult.data;
+
+    console.log(`[Deduplication] Manual merge: ${canonicalJobId} <- ${duplicateJobId}`);
+
+    await manuallyMergeDuplicates(canonicalJobId, duplicateJobId, userId);
+
+    const response: MergeDuplicatesResponse = {
+      success: true,
+      canonicalJobId,
+      duplicateJobId,
+      message: 'Jobs successfully merged as duplicates',
+    };
+
+    res.json(response);
+  })
+);
+
+/**
+ * DELETE /api/jobs/:id/duplicates/:duplicateId
+ * Remove duplicate relationship between two jobs
+ *
+ * Used when user disagrees with automatic duplicate detection
+ */
+router.delete(
+  '/:id/duplicates/:duplicateId',
+  authenticateUser,
+  asyncHandler(async (req: Request, res: Response) => {
+    const userId = getUserId(req);
+    const { id: canonicalJobId, duplicateId } = req.params;
+
+    console.log(`[Deduplication] Removing duplicate: ${canonicalJobId} <-> ${duplicateId}`);
+
+    await removeDuplicateRelationship(canonicalJobId, duplicateId, userId);
 
     res.status(204).send();
   })

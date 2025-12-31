@@ -417,6 +417,72 @@ export class HttpError extends Error {
 }
 
 // =============================================================================
+// Job Deduplication Types
+// =============================================================================
+
+export interface JobDuplicate {
+  id: string;
+  canonicalJobId: string;
+  duplicateJobId: string;
+  titleSimilarity: number;
+  companySimilarity: number;
+  locationSimilarity: number;
+  descriptionSimilarity: number;
+  overallSimilarity: number;
+  confidenceLevel: 'high' | 'medium' | 'low';
+  detectionMethod: 'fuzzy_match' | 'url_match' | 'manual';
+  detectionDate: string;
+  manuallyConfirmed: boolean;
+  confirmedBy?: string;
+  confirmedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CanonicalJobMetadata {
+  jobId: string;
+  completenessScore: number;
+  sourceReliabilityScore: number;
+  freshnessScore: number;
+  overallQualityScore: number;
+  fieldCount: number;
+  descriptionLength: number;
+  hasSalaryRange: boolean;
+  hasUrl: boolean;
+  sourceType: string;
+  isCanonical: boolean;
+  duplicateCount: number;
+  calculatedAt: string;
+  updatedAt: string;
+}
+
+export interface DeduplicationResult {
+  totalJobsProcessed: number;
+  duplicatesFound: number;
+  canonicalJobsIdentified: number;
+  processingTimeMs: number;
+}
+
+export interface MergeDuplicatesRequest {
+  canonicalJobId: string;
+  duplicateJobId: string;
+}
+
+export interface MergeDuplicatesResponse {
+  success: boolean;
+  canonicalJobId: string;
+  duplicateJobId: string;
+  message: string;
+}
+
+export interface GetDuplicatesResponse {
+  job: Job;
+  duplicates: Job[];
+  duplicateMetadata: JobDuplicate[];
+  totalDuplicates: number;
+}
+
+// =============================================================================
 // Validation Schema Types (for Zod)
 // =============================================================================
 

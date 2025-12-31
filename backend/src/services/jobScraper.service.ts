@@ -17,6 +17,7 @@ import { ApifyClient } from 'apify-client';
 import { supabaseAdmin, TABLES } from '../config/supabase';
 import type { Job, ScrapedJob, ScrapeJobsRequest, ScrapeJobsResponse } from '../types';
 import { v4 as uuidv4 } from 'uuid';
+import { deduplicateJobsForUser } from './jobDeduplication.service';
 
 // =============================================================================
 // Configuration
@@ -115,6 +116,15 @@ export async function scrapeJobs(
   const searchId = uuidv4();
 
   await saveJobsToDatabase(userId, searchId, normalizedJobs);
+
+  // Run deduplication in background (don't block response)
+  // This identifies and marks duplicate jobs after scraping
+  console.log(`[Scraper] Triggering background deduplication for user ${userId}`);
+  setImmediate(() => {
+    deduplicateJobsForUser(userId).catch((error) => {
+      console.error('[Scraper] Background deduplication failed:', error);
+    });
+  });
 
   return {
     success: true,

@@ -26,6 +26,7 @@ import authRouter from './routes/auth';
 import jobsRouter from './routes/jobs';
 import exportsRouter from './routes/exports';
 import resumeRouter from './routes/resume';
+import spamDetectionRouter from './routes/spamDetection';
 
 // Middleware imports
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
@@ -197,6 +198,7 @@ app.use('/api/applications', applicationsRouter);
 app.use('/api/emails', emailsRouter);
 app.use('/api/auth', authRouter);
 app.use('/api/jobs', jobsRouter);
+app.use('/api/spam-detection', spamDetectionRouter);
 app.use('/api/exports', exportsRouter);
 app.use('/api/resume', resumeRouter);
 

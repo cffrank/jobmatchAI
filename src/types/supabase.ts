@@ -49,42 +49,33 @@ export type Database = {
       }
       applications: {
         Row: {
-          company: string | null
           cover_letter: string | null
           created_at: string
           custom_resume: string | null
           id: string
           job_id: string | null
-          job_title: string | null
-          selected_variant_id: string | null
           status: Database["public"]["Enums"]["application_status"] | null
           updated_at: string
           user_id: string
           variants: Json | null
         }
         Insert: {
-          company?: string | null
           cover_letter?: string | null
           created_at?: string
           custom_resume?: string | null
           id?: string
           job_id?: string | null
-          job_title?: string | null
-          selected_variant_id?: string | null
           status?: Database["public"]["Enums"]["application_status"] | null
           updated_at?: string
           user_id: string
           variants?: Json | null
         }
         Update: {
-          company?: string | null
           cover_letter?: string | null
           created_at?: string
           custom_resume?: string | null
           id?: string
           job_id?: string | null
-          job_title?: string | null
-          selected_variant_id?: string | null
           status?: Database["public"]["Enums"]["application_status"] | null
           updated_at?: string
           user_id?: string
@@ -103,6 +94,65 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      canonical_job_metadata: {
+        Row: {
+          calculated_at: string
+          completeness_score: number
+          description_length: number | null
+          duplicate_count: number | null
+          field_count: number | null
+          freshness_score: number
+          has_salary_range: boolean | null
+          has_url: boolean | null
+          is_canonical: boolean | null
+          job_id: string
+          overall_quality_score: number
+          source_reliability_score: number
+          source_type: string | null
+          updated_at: string
+        }
+        Insert: {
+          calculated_at?: string
+          completeness_score?: number
+          description_length?: number | null
+          duplicate_count?: number | null
+          field_count?: number | null
+          freshness_score?: number
+          has_salary_range?: boolean | null
+          has_url?: boolean | null
+          is_canonical?: boolean | null
+          job_id: string
+          overall_quality_score?: number
+          source_reliability_score?: number
+          source_type?: string | null
+          updated_at?: string
+        }
+        Update: {
+          calculated_at?: string
+          completeness_score?: number
+          description_length?: number | null
+          duplicate_count?: number | null
+          field_count?: number | null
+          freshness_score?: number
+          has_salary_range?: boolean | null
+          has_url?: boolean | null
+          is_canonical?: boolean | null
+          job_id?: string
+          overall_quality_score?: number
+          source_reliability_score?: number
+          source_type?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "canonical_job_metadata_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: true
+            referencedRelation: "jobs"
             referencedColumns: ["id"]
           },
         ]
@@ -238,155 +288,6 @@ export type Database = {
         }
         Relationships: []
       }
-      gap_analyses: {
-        Row: {
-          created_at: string
-          gap_count: number
-          id: string
-          identified_gaps_and_flags: Json
-          next_steps: Json
-          overall_assessment: string
-          red_flag_count: number
-          updated_at: string
-          urgency: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          gap_count?: number
-          id?: string
-          identified_gaps_and_flags?: Json
-          next_steps?: Json
-          overall_assessment: string
-          red_flag_count?: number
-          updated_at?: string
-          urgency: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          gap_count?: number
-          id?: string
-          identified_gaps_and_flags?: Json
-          next_steps?: Json
-          overall_assessment?: string
-          red_flag_count?: number
-          updated_at?: string
-          urgency?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "gap_analyses_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      gap_analysis_answers: {
-        Row: {
-          answer: string | null
-          context: string
-          created_at: string
-          expected_outcome: string
-          gap_addressed: string
-          gap_analysis_id: string
-          id: string
-          priority: string
-          question: string
-          question_id: number
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          answer?: string | null
-          context: string
-          created_at?: string
-          expected_outcome: string
-          gap_addressed: string
-          gap_analysis_id: string
-          id?: string
-          priority: string
-          question: string
-          question_id: number
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          answer?: string | null
-          context?: string
-          created_at?: string
-          expected_outcome?: string
-          gap_addressed?: string
-          gap_analysis_id?: string
-          id?: string
-          priority?: string
-          question?: string
-          question_id?: number
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "gap_analysis_answers_gap_analysis_id_fkey"
-            columns: ["gap_analysis_id"]
-            isOneToOne: false
-            referencedRelation: "gap_analyses"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "gap_analysis_answers_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      work_experience_narratives: {
-        Row: {
-          created_at: string
-          id: string
-          narrative: string
-          updated_at: string
-          user_id: string
-          work_experience_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          narrative: string
-          updated_at?: string
-          user_id: string
-          work_experience_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          narrative?: string
-          updated_at?: string
-          user_id?: string
-          work_experience_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "work_experience_narratives_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "work_experience_narratives_work_experience_id_fkey"
-            columns: ["work_experience_id"]
-            isOneToOne: true
-            referencedRelation: "work_experience"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       invoices: {
         Row: {
           amount_due: number
@@ -445,6 +346,202 @@ export type Database = {
             columns: ["subscription_id"]
             isOneToOne: false
             referencedRelation: "subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      job_compatibility_analyses: {
+        Row: {
+          analysis: Json
+          created_at: string | null
+          id: string
+          job_id: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          analysis: Json
+          created_at?: string | null
+          id?: string
+          job_id: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          analysis?: Json
+          created_at?: string | null
+          id?: string
+          job_id?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_compatibility_analyses_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_compatibility_analyses_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      job_duplicates: {
+        Row: {
+          canonical_job_id: string
+          company_similarity: number
+          confidence_level: string
+          confidence_score: number | null
+          confirmed_at: string | null
+          confirmed_by: string | null
+          created_at: string
+          description_similarity: number
+          detected_at: string | null
+          detection_date: string
+          detection_method: string
+          duplicate_job_id: string
+          id: string
+          location_similarity: number
+          manually_confirmed: boolean | null
+          matched_fields: string[] | null
+          merged_at: string | null
+          merged_by: string | null
+          overall_similarity: number
+          title_similarity: number
+          updated_at: string
+        }
+        Insert: {
+          canonical_job_id: string
+          company_similarity: number
+          confidence_level: string
+          confidence_score?: number | null
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          description_similarity: number
+          detected_at?: string | null
+          detection_date?: string
+          detection_method: string
+          duplicate_job_id: string
+          id?: string
+          location_similarity: number
+          manually_confirmed?: boolean | null
+          matched_fields?: string[] | null
+          merged_at?: string | null
+          merged_by?: string | null
+          overall_similarity: number
+          title_similarity: number
+          updated_at?: string
+        }
+        Update: {
+          canonical_job_id?: string
+          company_similarity?: number
+          confidence_level?: string
+          confidence_score?: number | null
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          description_similarity?: number
+          detected_at?: string | null
+          detection_date?: string
+          detection_method?: string
+          duplicate_job_id?: string
+          id?: string
+          location_similarity?: number
+          manually_confirmed?: boolean | null
+          matched_fields?: string[] | null
+          merged_at?: string | null
+          merged_by?: string | null
+          overall_similarity?: number
+          title_similarity?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_duplicates_canonical_job_id_fkey"
+            columns: ["canonical_job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_duplicates_confirmed_by_fkey"
+            columns: ["confirmed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_duplicates_duplicate_job_id_fkey"
+            columns: ["duplicate_job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      job_feedback: {
+        Row: {
+          comment: string | null
+          context: Json | null
+          created_at: string
+          feedback_type: Database["public"]["Enums"]["job_feedback_type"]
+          id: string
+          job_id: string
+          rating: number | null
+          reasons: string[] | null
+          training_batch_id: string | null
+          updated_at: string
+          used_for_training: boolean | null
+          user_id: string
+        }
+        Insert: {
+          comment?: string | null
+          context?: Json | null
+          created_at?: string
+          feedback_type: Database["public"]["Enums"]["job_feedback_type"]
+          id?: string
+          job_id: string
+          rating?: number | null
+          reasons?: string[] | null
+          training_batch_id?: string | null
+          updated_at?: string
+          used_for_training?: boolean | null
+          user_id: string
+        }
+        Update: {
+          comment?: string | null
+          context?: Json | null
+          created_at?: string
+          feedback_type?: Database["public"]["Enums"]["job_feedback_type"]
+          id?: string
+          job_id?: string
+          rating?: number | null
+          reasons?: string[] | null
+          training_batch_id?: string | null
+          updated_at?: string
+          used_for_training?: boolean | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_feedback_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_feedback_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]
@@ -515,91 +612,235 @@ export type Database = {
       jobs: {
         Row: {
           added_at: string
+          all_sources: Json | null
           archived: boolean | null
+          canonical_hash: string | null
+          canonical_job_id: string | null
           company: string
-          company_logo: string | null
-          compatibility_breakdown: Json | null
+          company_tsv: unknown
           created_at: string
+          dedup_confidence: number | null
+          dedup_status: Database["public"]["Enums"]["dedup_status"] | null
           description: string | null
+          description_tsv: unknown
+          embedding: Json | null
           experience_level:
             | Database["public"]["Enums"]["experience_level"]
             | null
+          expires_at: string | null
           id: string
+          is_closed: boolean | null
           job_type: Database["public"]["Enums"]["job_type"] | null
+          last_seen_at: string | null
           location: string | null
+          match_algorithm_version: string | null
+          match_computed_at: string | null
+          match_explanation: Json | null
           match_score: number | null
-          missing_skills: string[] | null
-          recommendations: string[] | null
-          required_skills: string[] | null
+          posted_at: string | null
+          quality_score: number | null
           salary_max: number | null
           salary_min: number | null
           saved: boolean | null
           source: string | null
+          spam_analyzed_at: string | null
+          spam_categories: string[] | null
+          spam_detected: boolean | null
+          spam_flags: Json | null
+          spam_metadata: Json | null
+          spam_probability: number | null
+          spam_score: number | null
+          spam_status: Database["public"]["Enums"]["spam_status"] | null
           title: string
+          title_tsv: unknown
           updated_at: string
           url: string | null
           user_id: string
-          work_arrangement: string | null
         }
         Insert: {
           added_at?: string
+          all_sources?: Json | null
           archived?: boolean | null
+          canonical_hash?: string | null
+          canonical_job_id?: string | null
           company: string
-          company_logo?: string | null
-          compatibility_breakdown?: Json | null
+          company_tsv?: unknown
           created_at?: string
+          dedup_confidence?: number | null
+          dedup_status?: Database["public"]["Enums"]["dedup_status"] | null
           description?: string | null
+          description_tsv?: unknown
+          embedding?: Json | null
           experience_level?:
             | Database["public"]["Enums"]["experience_level"]
             | null
+          expires_at?: string | null
           id?: string
+          is_closed?: boolean | null
           job_type?: Database["public"]["Enums"]["job_type"] | null
+          last_seen_at?: string | null
           location?: string | null
+          match_algorithm_version?: string | null
+          match_computed_at?: string | null
+          match_explanation?: Json | null
           match_score?: number | null
-          missing_skills?: string[] | null
-          recommendations?: string[] | null
-          required_skills?: string[] | null
+          posted_at?: string | null
+          quality_score?: number | null
           salary_max?: number | null
           salary_min?: number | null
           saved?: boolean | null
           source?: string | null
+          spam_analyzed_at?: string | null
+          spam_categories?: string[] | null
+          spam_detected?: boolean | null
+          spam_flags?: Json | null
+          spam_metadata?: Json | null
+          spam_probability?: number | null
+          spam_score?: number | null
+          spam_status?: Database["public"]["Enums"]["spam_status"] | null
           title: string
+          title_tsv?: unknown
           updated_at?: string
           url?: string | null
           user_id: string
-          work_arrangement?: string | null
         }
         Update: {
           added_at?: string
+          all_sources?: Json | null
           archived?: boolean | null
+          canonical_hash?: string | null
+          canonical_job_id?: string | null
           company?: string
-          company_logo?: string | null
-          compatibility_breakdown?: Json | null
+          company_tsv?: unknown
           created_at?: string
+          dedup_confidence?: number | null
+          dedup_status?: Database["public"]["Enums"]["dedup_status"] | null
           description?: string | null
+          description_tsv?: unknown
+          embedding?: Json | null
           experience_level?:
             | Database["public"]["Enums"]["experience_level"]
             | null
+          expires_at?: string | null
           id?: string
+          is_closed?: boolean | null
           job_type?: Database["public"]["Enums"]["job_type"] | null
+          last_seen_at?: string | null
           location?: string | null
+          match_algorithm_version?: string | null
+          match_computed_at?: string | null
+          match_explanation?: Json | null
           match_score?: number | null
-          missing_skills?: string[] | null
-          recommendations?: string[] | null
-          required_skills?: string[] | null
+          posted_at?: string | null
+          quality_score?: number | null
           salary_max?: number | null
           salary_min?: number | null
           saved?: boolean | null
           source?: string | null
+          spam_analyzed_at?: string | null
+          spam_categories?: string[] | null
+          spam_detected?: boolean | null
+          spam_flags?: Json | null
+          spam_metadata?: Json | null
+          spam_probability?: number | null
+          spam_score?: number | null
+          spam_status?: Database["public"]["Enums"]["spam_status"] | null
           title?: string
+          title_tsv?: unknown
           updated_at?: string
           url?: string | null
           user_id?: string
-          work_arrangement?: string | null
         }
         Relationships: [
           {
+            foreignKeyName: "jobs_canonical_job_id_fkey"
+            columns: ["canonical_job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "jobs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      match_quality_metrics: {
+        Row: {
+          algorithm_version: string
+          apply_rate: number | null
+          avg_match_score_applied: number | null
+          avg_match_score_clicked: number | null
+          avg_match_score_hidden: number | null
+          click_through_rate: number | null
+          created_at: string
+          id: string
+          jobs_applied: number | null
+          jobs_clicked: number | null
+          jobs_hidden: number | null
+          jobs_saved: number | null
+          period_end: string
+          period_start: string
+          positive_feedback_rate: number | null
+          save_rate: number | null
+          thumbs_down_count: number | null
+          thumbs_up_count: number | null
+          total_jobs_shown: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          algorithm_version: string
+          apply_rate?: number | null
+          avg_match_score_applied?: number | null
+          avg_match_score_clicked?: number | null
+          avg_match_score_hidden?: number | null
+          click_through_rate?: number | null
+          created_at?: string
+          id?: string
+          jobs_applied?: number | null
+          jobs_clicked?: number | null
+          jobs_hidden?: number | null
+          jobs_saved?: number | null
+          period_end: string
+          period_start: string
+          positive_feedback_rate?: number | null
+          save_rate?: number | null
+          thumbs_down_count?: number | null
+          thumbs_up_count?: number | null
+          total_jobs_shown?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          algorithm_version?: string
+          apply_rate?: number | null
+          avg_match_score_applied?: number | null
+          avg_match_score_clicked?: number | null
+          avg_match_score_hidden?: number | null
+          click_through_rate?: number | null
+          created_at?: string
+          id?: string
+          jobs_applied?: number | null
+          jobs_clicked?: number | null
+          jobs_hidden?: number | null
+          jobs_saved?: number | null
+          period_end?: string
+          period_start?: string
+          positive_feedback_rate?: number | null
+          save_rate?: number | null
+          thumbs_down_count?: number | null
+          thumbs_up_count?: number | null
+          total_jobs_shown?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "match_quality_metrics_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "users"
@@ -939,6 +1180,69 @@ export type Database = {
           },
         ]
       }
+      spam_reports: {
+        Row: {
+          action_taken: string | null
+          created_at: string
+          details: Json | null
+          id: string
+          job_id: string
+          reason: string | null
+          report_type: string
+          reporter_user_id: string | null
+          review_notes: string | null
+          review_status: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          updated_at: string
+        }
+        Insert: {
+          action_taken?: string | null
+          created_at?: string
+          details?: Json | null
+          id?: string
+          job_id: string
+          reason?: string | null
+          report_type: string
+          reporter_user_id?: string | null
+          review_notes?: string | null
+          review_status?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          updated_at?: string
+        }
+        Update: {
+          action_taken?: string | null
+          created_at?: string
+          details?: Json | null
+          id?: string
+          job_id?: string
+          reason?: string | null
+          report_type?: string
+          reporter_user_id?: string | null
+          review_notes?: string | null
+          review_status?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "spam_reports_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "spam_reports_reporter_user_id_fkey"
+            columns: ["reporter_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subscriptions: {
         Row: {
           cancel_at_period_end: boolean | null
@@ -1148,6 +1452,7 @@ export type Database = {
           phone: string | null
           photo_url: string | null
           professional_summary: string | null
+          resume_embedding: Json | null
           two_factor_enabled: boolean | null
           updated_at: string
           years_of_experience: number | null
@@ -1164,6 +1469,7 @@ export type Database = {
           phone?: string | null
           photo_url?: string | null
           professional_summary?: string | null
+          resume_embedding?: Json | null
           two_factor_enabled?: boolean | null
           updated_at?: string
           years_of_experience?: number | null
@@ -1180,6 +1486,7 @@ export type Database = {
           phone?: string | null
           photo_url?: string | null
           professional_summary?: string | null
+          resume_embedding?: Json | null
           two_factor_enabled?: boolean | null
           updated_at?: string
           years_of_experience?: number | null
@@ -1247,6 +1554,20 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      calculate_job_canonical_hash: {
+        Args: {
+          p_company: string
+          p_location: string
+          p_salary_max: number
+          p_salary_min: number
+          p_title: string
+        }
+        Returns: string
+      }
+      calculate_job_quality_score: {
+        Args: { p_job_id: string }
+        Returns: number
+      }
       cleanup_expired_lockouts: { Args: never; Returns: number }
       cleanup_expired_sessions: { Args: never; Returns: number }
       cleanup_old_failed_logins: { Args: never; Returns: number }
@@ -1254,12 +1575,46 @@ export type Database = {
         Args: { user_email: string }
         Returns: undefined
       }
+      find_job_duplicates: {
+        Args: { p_job_id: string; p_min_confidence?: number }
+        Returns: {
+          confidence_score: number
+          duplicate_job_id: string
+          matched_fields: string[]
+        }[]
+      }
       get_active_session_count: { Args: { p_user_id: string }; Returns: number }
+      get_canonical_jobs_only: {
+        Args: { p_limit?: number; p_offset?: number; p_user_id: string }
+        Returns: {
+          added_at: string
+          archived: boolean
+          company: string
+          created_at: string
+          description: string
+          duplicate_count: number
+          experience_level: Database["public"]["Enums"]["experience_level"]
+          id: string
+          job_type: Database["public"]["Enums"]["job_type"]
+          location: string
+          match_score: number
+          salary_max: number
+          salary_min: number
+          saved: boolean
+          source: string
+          title: string
+          updated_at: string
+          url: string
+          user_id: string
+        }[]
+      }
+      get_job_feedback_summary: { Args: { p_job_id: string }; Returns: Json }
       initialize_user_limits: {
         Args: { p_plan: string; p_user_id: string }
         Returns: undefined
       }
       is_account_locked: { Args: { user_email: string }; Returns: boolean }
+      mark_as_canonical: { Args: { p_job_id: string }; Returns: undefined }
       record_failed_login: {
         Args: {
           client_ip: unknown
@@ -1283,9 +1638,20 @@ export type Database = {
         | "accepted"
         | "rejected"
         | "withdrawn"
+      dedup_status: "canonical" | "duplicate" | "merged" | "unique" | "pending"
       device_type: "desktop" | "mobile" | "tablet" | "unknown"
       email_status: "pending" | "sent" | "delivered" | "failed" | "bounced"
       experience_level: "entry" | "mid" | "senior" | "lead" | "executive"
+      job_feedback_type:
+        | "thumbs_up"
+        | "thumbs_down"
+        | "not_interested"
+        | "applied"
+        | "saved"
+        | "hidden"
+        | "reported_spam"
+        | "reported_scam"
+        | "reported_expired"
       job_type:
         | "full-time"
         | "part-time"
@@ -1296,6 +1662,15 @@ export type Database = {
       resume_type: "master" | "tailored"
       security_event_status: "success" | "failed"
       skill_proficiency: "beginner" | "intermediate" | "advanced" | "expert"
+      spam_status:
+        | "clean"
+        | "suspicious"
+        | "spam"
+        | "scam"
+        | "expired"
+        | "pending_review"
+        | "manually_approved"
+        | "manually_rejected"
       tracked_application_status:
         | "applied"
         | "screening"
@@ -1442,9 +1817,21 @@ export const Constants = {
         "rejected",
         "withdrawn",
       ],
+      dedup_status: ["canonical", "duplicate", "merged", "unique", "pending"],
       device_type: ["desktop", "mobile", "tablet", "unknown"],
       email_status: ["pending", "sent", "delivered", "failed", "bounced"],
       experience_level: ["entry", "mid", "senior", "lead", "executive"],
+      job_feedback_type: [
+        "thumbs_up",
+        "thumbs_down",
+        "not_interested",
+        "applied",
+        "saved",
+        "hidden",
+        "reported_spam",
+        "reported_scam",
+        "reported_expired",
+      ],
       job_type: [
         "full-time",
         "part-time",
@@ -1456,6 +1843,16 @@ export const Constants = {
       resume_type: ["master", "tailored"],
       security_event_status: ["success", "failed"],
       skill_proficiency: ["beginner", "intermediate", "advanced", "expert"],
+      spam_status: [
+        "clean",
+        "suspicious",
+        "spam",
+        "scam",
+        "expired",
+        "pending_review",
+        "manually_approved",
+        "manually_rejected",
+      ],
       tracked_application_status: [
         "applied",
         "screening",
