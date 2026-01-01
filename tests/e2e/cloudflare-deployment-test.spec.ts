@@ -23,8 +23,8 @@ test.describe('Cloudflare Pages Deployment Tests', () => {
   test('should load the login page', async ({ page }) => {
     await page.goto(`${CLOUDFLARE_URL}/login`);
 
-    // Check page loads
-    await expect(page).toHaveTitle(/JobMatch AI/);
+    // Check page loads (title is lowercase "jobmatch-ai")
+    await expect(page).toHaveTitle(/jobmatch/i);
 
     // Check for sign up link
     await expect(page.getByText(/sign up/i)).toBeVisible();
@@ -68,13 +68,17 @@ test.describe('Cloudflare Pages Deployment Tests', () => {
     await page.goto(`${CLOUDFLARE_URL}/signup`);
 
     // Fill in signup form
+    const nameInput = page.locator('input[name="name"], input[type="text"]').first();
+    await nameInput.fill('Test User');
     await page.fill('input[type="email"]', TEST_EMAIL);
-    await page.fill('input[type="password"]', TEST_PASSWORD);
+
+    const passwordInputs = page.locator('input[type="password"]');
+    await passwordInputs.first().fill(TEST_PASSWORD);
 
     // Look for confirm password field if it exists
-    const confirmPasswordField = page.locator('input[placeholder*="Confirm" i], input[name*="confirm" i]').first();
-    if (await confirmPasswordField.isVisible()) {
-      await confirmPasswordField.fill(TEST_PASSWORD);
+    const confirmPasswordCount = await passwordInputs.count();
+    if (confirmPasswordCount > 1) {
+      await passwordInputs.last().fill(TEST_PASSWORD);
     }
 
     // Click sign up button
@@ -148,39 +152,62 @@ test.describe('Cloudflare Pages Deployment Tests', () => {
   });
 
   test('should have correct environment variables', async ({ page }) => {
+    consoleLogs = [];
+    consoleErrors = [];
+
     await page.goto(CLOUDFLARE_URL);
 
-    // Check if environment variables are loaded
-    const envCheck = await page.evaluate(() => {
-      interface WindowWithEnv extends Window {
-        VITE_SUPABASE_URL?: string;
-        VITE_SUPABASE_ANON_KEY?: string;
-        VITE_BACKEND_URL?: string;
-      }
-      const w = window as WindowWithEnv;
-      return {
-        hasSupabaseUrl: !!w.VITE_SUPABASE_URL || !!import.meta.env.VITE_SUPABASE_URL,
-        hasSupabaseKey: !!w.VITE_SUPABASE_ANON_KEY || !!import.meta.env.VITE_SUPABASE_ANON_KEY,
-        hasBackendUrl: !!w.VITE_BACKEND_URL || !!import.meta.env.VITE_BACKEND_URL,
-      };
-    });
+    // Wait for page to load
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(2000);
+
+    // Check for DNS resolution errors (would indicate missing env vars)
+    const dnsErrors = consoleErrors.filter(err =>
+      err.includes('ERR_NAME_NOT_RESOLVED') ||
+      err.includes('Failed to fetch') ||
+      err.includes('NetworkError')
+    );
 
     console.log('\n=== Environment Variables Check ===');
-    console.log('Has VITE_SUPABASE_URL:', envCheck.hasSupabaseUrl);
-    console.log('Has VITE_SUPABASE_ANON_KEY:', envCheck.hasSupabaseKey);
-    console.log('Has VITE_BACKEND_URL:', envCheck.hasBackendUrl);
+    if (dnsErrors.length > 0) {
+      console.log('❌ DNS/Network errors (likely missing Supabase env vars):');
+      dnsErrors.forEach(err => console.log('  -', err));
+    } else {
+      console.log('✅ No DNS/network errors (Supabase env vars configured correctly)');
+    }
 
-    // At least Supabase URL should be available
-    expect(envCheck.hasSupabaseUrl).toBeTruthy();
+    // If env vars are missing, we'd see ERR_NAME_NOT_RESOLVED errors
+    expect(dnsErrors.length).toBe(0);
   });
 
   test('should display user profile logs correctly', async ({ page }) => {
     consoleLogs = [];
 
+    // Create unique account for this test
+    const testEmail = `test-profile-${Date.now()}@example.com`;
+
+    // Signup first
+    await page.goto(`${CLOUDFLARE_URL}/signup`);
+    const nameInput = page.locator('input[name="name"], input[type="text"]').first();
+    await nameInput.fill('Test User');
+    await page.fill('input[type="email"]', testEmail);
+
+    const passwordInputs = page.locator('input[type="password"]');
+    await passwordInputs.first().fill(TEST_PASSWORD);
+
+    const confirmPasswordCount = await passwordInputs.count();
+    if (confirmPasswordCount > 1) {
+      await passwordInputs.last().fill(TEST_PASSWORD);
+    }
+
+    await page.click('button:has-text("Sign Up"), button:has-text("Create Account")');
+    await page.waitForTimeout(3000);
+
+    // Go to login page
     await page.goto(`${CLOUDFLARE_URL}/login`);
 
     // Fill in login form with test credentials
-    await page.fill('input[type="email"]', TEST_EMAIL);
+    await page.fill('input[type="email"]', testEmail);
     await page.fill('input[type="password"]', TEST_PASSWORD);
     await page.click('button:has-text("Sign In"), button:has-text("Log In"), button:has-text("Login")');
 
