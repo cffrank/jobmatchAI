@@ -156,8 +156,8 @@ export function ResumeUploadDialog({ isOpen, onClose, onSuccess }: ResumeUploadD
           gap_count: gapAnalysis.resume_analysis.gap_count,
           red_flag_count: gapAnalysis.resume_analysis.red_flag_count,
           urgency: gapAnalysis.resume_analysis.urgency,
-          identified_gaps_and_flags: gapAnalysis.identified_gaps_and_flags as unknown,
-          next_steps: gapAnalysis.next_steps as unknown,
+          identified_gaps_and_flags: gapAnalysis.identified_gaps_and_flags,
+          next_steps: gapAnalysis.next_steps,
         })
         .select()
         .single()
