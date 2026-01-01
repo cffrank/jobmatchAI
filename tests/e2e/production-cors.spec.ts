@@ -11,8 +11,9 @@
 
 import { test, expect, type Request, type Response } from '@playwright/test';
 
-const PRODUCTION_URL = 'https://jobmatchai-production.up.railway.app';
-const BACKEND_URL = 'https://intelligent-celebration-production-57e4.up.railway.app';
+// Cloudflare deployment URLs (not Railway)
+const PRODUCTION_URL = process.env.FRONTEND_URL || 'https://jobmatch-ai-dev.pages.dev';
+const BACKEND_URL = process.env.BACKEND_URL || 'https://jobmatch-ai-dev.carl-f-frank.workers.dev';
 
 test.describe('Production CORS Validation', () => {
   test.beforeEach(async ({ page }) => {

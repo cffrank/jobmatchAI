@@ -6,9 +6,10 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: 1,
-  reporter: 'list',
+  reporter: 'html',
   use: {
-    baseURL: 'https://jobmatchai-production.up.railway.app',
+    // Use Cloudflare Pages (not Railway)
+    baseURL: process.env.FRONTEND_URL || 'https://jobmatch-ai-dev.pages.dev',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',

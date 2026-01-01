@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 
-const CLOUDFLARE_URL = 'https://f19550db.jobmatch-ai-dev.pages.dev';
+// Use current deployment URL from environment or fallback to dev
+const CLOUDFLARE_URL = process.env.FRONTEND_URL || 'https://jobmatch-ai-dev.pages.dev';
 const TEST_EMAIL = `test-${Date.now()}@example.com`;
 const TEST_PASSWORD = 'TestPassword123!';
 
