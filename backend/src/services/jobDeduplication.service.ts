@@ -111,21 +111,21 @@ function levenshteinDistance(str1: string, str2: string): number {
     .map(() => Array(n + 1).fill(0));
 
   // Initialize base cases
-  for (let i = 0; i <= m; i++) dp[i][0] = i;
-  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 0; i <= m; i++) dp[i]![0] = i;
+  for (let j = 0; j <= n; j++) dp[0]![j] = j;
 
   // Fill matrix using dynamic programming
   for (let i = 1; i <= m; i++) {
     for (let j = 1; j <= n; j++) {
       if (str1[i - 1] === str2[j - 1]) {
-        dp[i][j] = dp[i - 1][j - 1];
+        dp[i]![j] = dp[i - 1]![j - 1]!;
       } else {
-        dp[i][j] = 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+        dp[i]![j] = 1 + Math.min(dp[i - 1]![j]!, dp[i]![j - 1]!, dp[i - 1]![j - 1]!);
       }
     }
   }
 
-  return dp[m][n];
+  return dp[m]![n]!;
 }
 
 /**
@@ -466,7 +466,7 @@ async function detectDuplicatesForUser(
         let detectionMethod: 'fuzzy_match' | 'url_match' = 'fuzzy_match';
         let similarity: SimilarityScore;
 
-        if (checkUrlMatch(job1, job2)) {
+        if (checkUrlMatch(job1!, job2!)) {
           // Exact URL match = 100% similarity
           similarity = {
             titleSimilarity: 100,
@@ -479,13 +479,13 @@ async function detectDuplicatesForUser(
           detectionMethod = 'url_match';
         } else {
           // Fuzzy match
-          similarity = calculateSimilarity(job1, job2);
+          similarity = calculateSimilarity(job1!, job2!);
         }
 
         // Record if above threshold
         if (similarity.overallSimilarity >= minSimilarity) {
-          const canonicalJobId = await selectCanonicalJob(job1, job2);
-          const duplicateJobId = canonicalJobId === job1.id ? job2.id : job1.id;
+          const canonicalJobId = await selectCanonicalJob(job1!, job2!);
+          const duplicateJobId = canonicalJobId === job1!.id ? job2!.id : job1!.id;
 
           duplicatePairs.push({
             canonicalJobId,
@@ -495,7 +495,7 @@ async function detectDuplicatesForUser(
           });
 
           console.log(
-            `[Deduplication] Found duplicate: ${job1.title} (${job1.company}) ~ ${job2.title} (${job2.company}) [${similarity.overallSimilarity}%]`
+            `[Deduplication] Found duplicate: ${job1!.title} (${job1!.company}) ~ ${job2!.title} (${job2!.company}) [${similarity.overallSimilarity}%]`
           );
         }
       }

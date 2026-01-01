@@ -550,7 +550,7 @@ router.get(
     }
 
     // Get duplicates
-    const duplicates = await getDuplicatesForJob(id);
+    const duplicates = await getDuplicatesForJob(id as string);
 
     // Get duplicate metadata with similarity scores
     const { data: duplicateMetadata, error: metadataError } = await supabaseAdmin
@@ -657,7 +657,7 @@ router.delete(
 
     console.log(`[Deduplication] Removing duplicate: ${canonicalJobId} <-> ${duplicateId}`);
 
-    await removeDuplicateRelationship(canonicalJobId, duplicateId, userId);
+    await removeDuplicateRelationship(canonicalJobId as string, duplicateId as string, userId);
 
     res.status(204).send();
   })

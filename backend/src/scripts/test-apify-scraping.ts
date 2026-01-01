@@ -166,7 +166,7 @@ async function testSingleScrape(
 
     // Display sample job data
     if (result.jobs && result.jobs.length > 0) {
-      const sampleJob = result.jobs[0];
+      const sampleJob = result.jobs[0]!;
       logInfo('\nSample job:');
       console.log({
         title: sampleJob.title,
@@ -448,7 +448,7 @@ async function runTests(): Promise<void> {
 
   // Test 3: Single scrape (LinkedIn)
   results.total++;
-  const linkedInResult = await testSingleScrape(TEST_QUERIES[0]);
+  const linkedInResult = await testSingleScrape(TEST_QUERIES[0]!);
   if (linkedInResult.success) {
     results.passed++;
 
