@@ -47,8 +47,8 @@ test.describe('Login Flow', () => {
     console.log('✅ Test account created');
 
     // STEP 2: Logout (if auto-logged in)
-    const currentUrl = page.url();
-    if (!currentUrl.includes('/login')) {
+    const signupUrl = page.url();
+    if (!signupUrl.includes('/login')) {
       // Navigate to login page (may trigger logout or already logged out)
       await page.goto(BASE_URL + '/login', { waitUntil: 'networkidle' });
     }
