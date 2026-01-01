@@ -69,24 +69,49 @@ app.use('*', async (c, next) => {
   const appUrl = c.env.APP_URL || 'http://localhost:5173';
   const isDev = c.env.ENVIRONMENT === 'development';
 
-  // Build allowed origins
-  const allowedOrigins: string[] = [appUrl];
+  /**
+   * Check if origin is allowed
+   *
+   * Security considerations:
+   * 1. Exact match for configured APP_URL
+   * 2. Localhost origins (dev mode only)
+   * 3. Cloudflare Pages preview deployments (*.jobmatch-ai-dev.pages.dev)
+   * 4. Blocks malicious lookalike domains (e.g., jobmatch-ai-dev.pages.dev.evil.com)
+   */
+  const isAllowedOrigin = (origin: string | undefined): boolean => {
+    if (!origin) return true; // Allow requests without Origin header
 
-  if (isDev) {
-    // Allow common development ports
-    allowedOrigins.push(
-      'http://localhost:5173',
-      'http://localhost:3000',
-      'http://localhost:4173',
-      'http://127.0.0.1:5173',
-      'http://127.0.0.1:3000'
-    );
-  }
+    // Exact match for configured APP_URL
+    if (origin === appUrl) return true;
 
-  // Check if origin is allowed
-  const isAllowed = !origin || allowedOrigins.includes(origin);
+    // Development: Allow localhost
+    if (isDev) {
+      const devOrigins = [
+        'http://localhost:5173',
+        'http://localhost:3000',
+        'http://localhost:4173',
+        'http://127.0.0.1:5173',
+        'http://127.0.0.1:3000'
+      ];
+      if (devOrigins.includes(origin)) return true;
+    }
 
-  if (!isAllowed) {
+    // Cloudflare Pages preview deployments
+    // Pattern: https://{preview-id}.jobmatch-ai-dev.pages.dev
+    // This supports dynamic preview URLs while blocking malicious domains
+    const cloudflarePagesPreviews = /^https:\/\/[a-z0-9-]+\.jobmatch-ai-dev\.pages\.dev$/i;
+    if (cloudflarePagesPreviews.test(origin)) return true;
+
+    // Production Cloudflare Pages
+    if (origin === 'https://jobmatch-ai-dev.pages.dev') return true;
+    if (origin === 'https://jobmatch-ai.pages.dev') return true;
+
+    return false;
+  };
+
+  const isAllowed = isAllowedOrigin(origin);
+
+  if (!isAllowed && origin) {
     console.warn(`CORS blocked origin: ${origin}`);
   }
 

@@ -333,7 +333,12 @@ test.describe('Backend Direct Testing (via Playwright)', () => {
     console.log('Response:', data);
 
     expect(data.status).toBe('healthy');
-    expect(data.environment).toBe('production');
+
+    // Environment should match the backend URL being tested
+    const expectedEnvironment = BACKEND_URL.includes('-dev.') ? 'development' :
+                                 BACKEND_URL.includes('-staging.') ? 'staging' :
+                                 'production';
+    expect(data.environment).toBe(expectedEnvironment);
   });
 
   test('should test GET request with CORS headers', async ({ request }) => {
