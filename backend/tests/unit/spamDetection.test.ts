@@ -23,9 +23,9 @@ vi.mock('../../src/config/openai', () => ({
   getOpenAI: () => ({
     chat: {
       completions: {
-        create: vi.fn(async (options: any) => {
+        create: vi.fn(async (options: { messages: Array<{ role: string; content: string }> }) => {
           // Mock different responses based on job content
-          const userMessage = options.messages.find((m: any) => m.role === 'user')?.content || '';
+          const userMessage = options.messages.find((m) => m.role === 'user')?.content || '';
 
           // Extract the actual job description from the prompt
           // The prompt has format: "**JOB POSTING:**\nTitle: ...\nDescription:\n{actual description}\n\n---"
@@ -61,7 +61,7 @@ vi.mock('../../src/config/openai', () => ({
           let spamProbability = 0;
           let categories: string[] = [];
           let reasons: string[] = [];
-          let flags: any[] = [];
+          let flags: Array<{ type: string; severity: string; description: string }> = [];
 
           if (isMLM) {
             spamProbability = 0.95;
