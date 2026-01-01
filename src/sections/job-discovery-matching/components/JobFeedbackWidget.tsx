@@ -35,7 +35,7 @@ export function JobFeedbackWidget({
         description: 'We\'ll show you more jobs like this.',
         duration: 3000,
       });
-    } catch (error) {
+    } catch {
       toast.error('Failed to submit feedback');
     } finally {
       setIsSubmitting(false);
@@ -60,7 +60,7 @@ export function JobFeedbackWidget({
       setShowReasonSelector(false);
       setSelectedReason(null);
       setCustomReason('');
-    } catch (error) {
+    } catch {
       toast.error('Failed to submit feedback');
     } finally {
       setIsSubmitting(false);
@@ -77,7 +77,7 @@ export function JobFeedbackWidget({
         description: 'Thank you for helping us maintain quality listings.',
         duration: 3000,
       });
-    } catch (error) {
+    } catch {
       toast.error('Failed to report spam');
     } finally {
       setIsSubmitting(false);

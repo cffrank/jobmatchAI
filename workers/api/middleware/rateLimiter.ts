@@ -282,7 +282,7 @@ export function ipRateLimiter(
  *
  * @deprecated KV handles expiry automatically via TTL
  */
-export async function cleanupExpiredRateLimits(_env: Env): Promise<number> {
+export async function cleanupExpiredRateLimits(): Promise<number> {
   console.log('[RateLimit] Cleanup skipped - KV handles expiry automatically via TTL');
   return 0;
 }

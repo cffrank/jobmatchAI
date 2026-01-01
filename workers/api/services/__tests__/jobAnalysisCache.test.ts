@@ -67,20 +67,20 @@ function createMockEnv(withKV = true): Env {
     AI_GATEWAY_CACHE: mockKV as unknown as KVNamespace,
 
     // D1 Database
-    DB: {} as any,
+    DB: {} as unknown as D1Database,
 
     // Vectorize
-    VECTORIZE: {} as any,
+    VECTORIZE: {} as unknown as Vectorize,
 
     // R2 Buckets
-    AVATARS: {} as any,
-    RESUMES: {} as any,
-    EXPORTS: {} as any,
+    AVATARS: {} as unknown as R2Bucket,
+    RESUMES: {} as unknown as R2Bucket,
+    EXPORTS: {} as unknown as R2Bucket,
 
     // AI binding
     AI: {
       run: vi.fn(),
-    } as any,
+    } as unknown as Ai,
   };
 }
 
@@ -98,7 +98,7 @@ describe('Job Analysis Cache', () => {
       const mockKV = env.JOB_ANALYSIS_CACHE!;
 
       // Mock KV get to return cached data (cast to avoid overload ambiguity)
-      vi.mocked(mockKV.get).mockResolvedValue(JSON.stringify(mockAnalysis) as any);
+      vi.mocked(mockKV.get).mockResolvedValue(JSON.stringify(mockAnalysis) as unknown as string | null);
 
       const result = await getCachedAnalysis(env, 'user-123', 'job-456');
 

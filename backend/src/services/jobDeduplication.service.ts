@@ -454,7 +454,7 @@ async function detectDuplicatesForUser(
   console.log(`[Deduplication] Created ${blockMap.size} blocks for comparison`);
 
   // Within each block, perform pairwise comparisons
-  for (const [blockKey, blockJobs] of blockMap) {
+  for (const blockJobs of blockMap.values()) {
     if (blockJobs.length < 2) continue; // Skip single-job blocks
 
     for (let i = 0; i < blockJobs.length; i++) {

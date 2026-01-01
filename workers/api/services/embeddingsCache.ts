@@ -213,10 +213,9 @@ export async function generateCachedEmbedding(env: Env, text: string): Promise<n
  * Note: KV doesn't provide built-in hit rate metrics.
  * This is a placeholder for future implementation using separate metrics storage.
  *
- * @param _env - Environment bindings
  * @returns Cache statistics (placeholder)
  */
-export async function getCacheStatistics(_env: Env): Promise<{
+export async function getCacheStatistics(): Promise<{
   layer1HitRate: number | null;
   layer2HitRate: number | null;
   totalHitRate: number | null;

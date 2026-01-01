@@ -167,12 +167,12 @@ export interface JobSearchParams {
 }
 
 /**
- * Rate limit tracking record
+ * Rate limit tracking record (for reference, not currently used)
  */
-interface RateLimitRecord {
-  timestamp: number;
-  requestCount: number;
-}
+// interface RateLimitRecord {
+//   timestamp: number;
+//   requestCount: number;
+// }
 
 // =============================================================================
 // Rate Limiting (In-Memory)
@@ -541,7 +541,7 @@ function normalizeJSearchJob(job: JSearchJob, userId: string): Job {
     postedDate: normalizePostedDate(job),
     description: stripHtml(job.job_description || ''),
     url: job.job_apply_link || job.job_url || '',
-    source: 'jsearch' as any, // Will need to add 'jsearch' to Job.source type union
+    source: 'jsearch' as unknown as Job['source'], // Will need to add 'jsearch' to Job.source type union
     requiredSkills: extractSkills(job),
     experienceLevel: extractExperienceLevel(job),
     isSaved: false,

@@ -334,8 +334,9 @@ export async function generateApplicationPDF(
     yPosition -= lineHeight * 2;
 
     // Signature
-    yPosition = drawText('Sincerely,', margin, yPosition, fontSize);
-    yPosition = drawText(appData.resume.fullName, margin, yPosition, fontSize);
+    drawText('Sincerely,', margin, yPosition, fontSize);
+    yPosition -= lineHeight;
+    drawText(appData.resume.fullName, margin, yPosition, fontSize);
 
     // Page 2+: Resume (simplified - just call the resume generator and merge)
     // For simplicity, we'll just add a text-based resume on subsequent pages

@@ -130,7 +130,7 @@ async function testSearch(params: JobSearchParams): Promise<void> {
       }
 
       if (job.metadata) {
-        const meta = job.metadata as any;
+        const meta = job.metadata as unknown as { publisher?: string; employmentType?: string };
         console.log(`   Publisher: ${meta.publisher || 'N/A'}`);
         console.log(`   Employment Type: ${meta.employmentType || 'N/A'}`);
       }

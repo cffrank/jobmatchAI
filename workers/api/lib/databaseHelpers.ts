@@ -12,62 +12,62 @@ import type { UserProfile, WorkExperience, Education } from '../types';
 /**
  * Maps database user record to UserProfile type
  */
-export function mapUserProfile(dbRecord: any): UserProfile {
+export function mapUserProfile(dbRecord: Record<string, unknown>): UserProfile {
   return {
-    id: dbRecord.id,
-    email: dbRecord.email,
-    firstName: dbRecord.first_name,
-    lastName: dbRecord.last_name,
-    phone: dbRecord.phone_number,
-    location: dbRecord.city && dbRecord.state ? `${dbRecord.city}, ${dbRecord.state}` : undefined,
-    summary: dbRecord.professional_summary,
-    headline: dbRecord.headline,
-    profileImageUrl: dbRecord.profile_image_url,
-    linkedInUrl: dbRecord.linkedin_url,
-    linkedInImported: dbRecord.linkedin_imported,
-    linkedInImportedAt: dbRecord.linkedin_imported_at,
-    createdAt: dbRecord.created_at,
-    updatedAt: dbRecord.updated_at,
+    id: dbRecord.id as string,
+    email: dbRecord.email as string,
+    firstName: dbRecord.first_name as string | undefined,
+    lastName: dbRecord.last_name as string | undefined,
+    phone: dbRecord.phone_number as string | undefined,
+    location: dbRecord.city && dbRecord.state ? `${dbRecord.city as string}, ${dbRecord.state as string}` : undefined,
+    summary: dbRecord.professional_summary as string | undefined,
+    headline: dbRecord.headline as string | undefined,
+    profileImageUrl: dbRecord.profile_image_url as string | undefined,
+    linkedInUrl: dbRecord.linkedin_url as string | undefined,
+    linkedInImported: dbRecord.linkedin_imported as boolean | undefined,
+    linkedInImportedAt: dbRecord.linkedin_imported_at as string | undefined,
+    createdAt: dbRecord.created_at as string,
+    updatedAt: dbRecord.updated_at as string,
   };
 }
 
 /**
  * Maps database work experience record to WorkExperience type
  */
-export function mapWorkExperience(dbRecord: any): WorkExperience {
+export function mapWorkExperience(dbRecord: Record<string, unknown>): WorkExperience {
   return {
-    id: dbRecord.id,
-    userId: dbRecord.user_id,
-    position: dbRecord.job_title,
-    company: dbRecord.company,
-    location: dbRecord.location,
-    startDate: dbRecord.start_date,
-    endDate: dbRecord.end_date,
-    current: dbRecord.is_current,
-    description: dbRecord.description,
-    accomplishments: dbRecord.accomplishments || [],
-    createdAt: dbRecord.created_at,
-    updatedAt: dbRecord.updated_at,
+    id: dbRecord.id as string,
+    userId: dbRecord.user_id as string,
+    position: dbRecord.job_title as string,
+    company: dbRecord.company as string,
+    location: dbRecord.location as string | undefined,
+    startDate: dbRecord.start_date as string,
+    endDate: dbRecord.end_date as string | undefined,
+    current: dbRecord.is_current as boolean,
+    description: dbRecord.description as string | undefined,
+    accomplishments: (dbRecord.accomplishments as string[]) || [],
+    createdAt: dbRecord.created_at as string,
+    updatedAt: dbRecord.updated_at as string,
   };
 }
 
 /**
  * Maps database education record to Education type
  */
-export function mapEducation(dbRecord: any): Education {
+export function mapEducation(dbRecord: Record<string, unknown>): Education {
   return {
-    id: dbRecord.id,
-    userId: dbRecord.user_id,
-    degree: dbRecord.degree,
-    field: dbRecord.field_of_study,
-    school: dbRecord.institution,
-    location: dbRecord.location,
-    startDate: dbRecord.start_date,
-    endDate: dbRecord.end_date,
-    graduationYear: dbRecord.graduation_year,
-    gpa: dbRecord.grade,
-    honors: dbRecord.honors || [],
-    createdAt: dbRecord.created_at,
+    id: dbRecord.id as string,
+    userId: dbRecord.user_id as string,
+    degree: dbRecord.degree as string,
+    field: dbRecord.field_of_study as string,
+    school: dbRecord.institution as string,
+    location: dbRecord.location as string | undefined,
+    startDate: dbRecord.start_date as string | undefined,
+    endDate: dbRecord.end_date as string | undefined,
+    graduationYear: dbRecord.graduation_year as number | undefined,
+    gpa: dbRecord.grade as number | undefined,
+    honors: (dbRecord.honors as string[]) || [],
+    createdAt: dbRecord.created_at as string,
     updatedAt: dbRecord.updated_at,
   };
 }

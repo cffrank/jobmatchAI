@@ -625,7 +625,7 @@ router.post(
 router.get(
   '/search-templates/:id',
   authenticateUser,
-  asyncHandler(async (req: Request, _res: Response) => {
+  asyncHandler(async (req: Request) => {
     const userId = getUserId(req);
     const { id } = req.params;
 
@@ -643,7 +643,7 @@ router.get(
 router.put(
   '/search-templates/:id',
   authenticateUser,
-  asyncHandler(async (req: Request, _res: Response) => {
+  asyncHandler(async (req: Request) => {
     const userId = getUserId(req);
     const { id } = req.params;
 
@@ -673,7 +673,7 @@ router.put(
 router.delete(
   '/search-templates/:id',
   authenticateUser,
-  asyncHandler(async (req: Request, _res: Response) => {
+  asyncHandler(async (req: Request) => {
     const userId = getUserId(req);
     const { id } = req.params;
 
@@ -692,7 +692,7 @@ router.post(
   '/search-templates/:id/use',
   authenticateUser,
   rateLimiter({ maxRequests: 10, windowMs: 60 * 60 * 1000 }), // 10 per hour
-  asyncHandler(async (req: Request, _res: Response) => {
+  asyncHandler(async (req: Request) => {
     const userId = getUserId(req);
     const { id } = req.params;
 

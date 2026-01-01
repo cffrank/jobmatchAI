@@ -32,7 +32,6 @@ import type {
   GetDuplicatesResponse,
   MergeDuplicatesResponse,
   DeduplicationResult,
-  JobDuplicate,
 } from '../types';
 
 // =============================================================================

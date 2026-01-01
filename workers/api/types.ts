@@ -100,7 +100,7 @@ export interface Env {
     ): Promise<{ response: string }>;
 
     // Fallback overload for any other model
-    run(model: string, inputs: any): Promise<any>;
+    run(model: string, inputs: Record<string, unknown>): Promise<Record<string, unknown>>;
   };
 
   // PDF Parser Service (Railway deployment for PDF text extraction)

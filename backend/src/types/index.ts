@@ -569,9 +569,11 @@ export interface CreatePreferencesData {
   matchScoreThreshold?: number;
 }
 
-export interface UpdatePreferencesData extends Partial<CreatePreferencesData> {
-  // All fields are optional for updates
-}
+/**
+ * Update preferences data - extends creation data with all optional fields
+ * Represents a partial update to existing search preferences
+ */
+export type UpdatePreferencesData = Partial<CreatePreferencesData>;
 
 export interface RecordSearchData {
   searchType: 'automated' | 'manual' | 'template';

@@ -188,14 +188,14 @@ describe('Job Deduplication Service', () => {
         location: 'Menlo Park, CA',
       });
 
-      const job2 = await createTestJob({
+      await createTestJob({
         title: 'Backend Engineer',
         company: 'Amazon',
         location: 'Seattle, WA',
         url: 'https://example.com/job/different3',
       });
 
-      const result = await deduplicateJobsForUser(TEST_USER_ID);
+      await deduplicateJobsForUser(TEST_USER_ID);
 
       // Should not find duplicates (different companies, different titles)
       const { data: duplicates } = await supabaseAdmin
@@ -357,14 +357,14 @@ describe('Job Deduplication Service', () => {
       });
 
       // Create multiple duplicates
-      const dup1 = await createTestJob({
+      await createTestJob({
         title: 'Sr Software Engineer',
         company: 'Uber Technologies',
         location: 'San Francisco, CA',
         url: 'https://example.com/job/uber-dup1',
       });
 
-      const dup2 = await createTestJob({
+      await createTestJob({
         title: 'Software Engineer',
         company: 'Uber',
         location: 'SF, CA',

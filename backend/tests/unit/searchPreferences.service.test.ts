@@ -103,34 +103,6 @@ function mockSelectQuery(data: unknown, error: unknown = null) {
 }
 
 /**
- * Create a mock Supabase query chain for INSERT operations
- */
-function mockInsertQuery(data: unknown, error: unknown = null) {
-  mockSupabaseFrom.mockReturnValue({
-    insert: vi.fn().mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        single: vi.fn().mockResolvedValue({ data, error }),
-      }),
-    }),
-  });
-}
-
-/**
- * Create a mock Supabase query chain for UPDATE operations
- */
-function mockUpdateQuery(data: unknown, error: unknown = null) {
-  mockSupabaseFrom.mockReturnValue({
-    update: vi.fn().mockReturnValue({
-      eq: vi.fn().mockReturnValue({
-        select: vi.fn().mockReturnValue({
-          single: vi.fn().mockResolvedValue({ data, error }),
-        }),
-      }),
-    }),
-  });
-}
-
-/**
  * Create a mock Supabase query chain for DELETE operations
  */
 function mockDeleteQuery(error: unknown = null) {

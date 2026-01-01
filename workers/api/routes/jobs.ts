@@ -91,7 +91,7 @@ const searchJobsSchema = z.object({
  * @param job - Job object with all fields
  */
 // TODO: Re-enable when background tasks are supported in Workers
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+ 
 export async function generateAndSaveJobEmbedding(
   env: Env,
   job: Job
