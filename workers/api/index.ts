@@ -65,7 +65,6 @@ app.use('*', secureHeaders({
 
 // CORS configuration
 app.use('*', async (c, next) => {
-  const origin = c.req.header('Origin');
   const appUrl = c.env.APP_URL || 'http://localhost:5173';
   const isDev = c.env.ENVIRONMENT === 'development';
 
@@ -109,14 +108,28 @@ app.use('*', async (c, next) => {
     return false;
   };
 
-  const isAllowed = isAllowedOrigin(origin);
-
-  if (!isAllowed && origin) {
-    console.warn(`CORS blocked origin: ${origin}`);
-  }
-
+  // Use a function for origin to ensure CORS headers are always set
+  // This is critical for OPTIONS preflight requests
   return cors({
-    origin: isAllowed ? origin || '*' : '',
+    origin: (origin) => {
+      const isAllowed = isAllowedOrigin(origin);
+
+      if (!isAllowed && origin) {
+        console.warn(`CORS blocked origin: ${origin}`);
+      }
+
+      // If origin is allowed, reflect it back
+      if (isAllowed && origin) {
+        return origin;
+      }
+      // If no origin header, allow (non-browser requests)
+      if (!origin) {
+        return '*';
+      }
+      // For blocked origins, don't set Access-Control-Allow-Origin
+      // Returning null means the header won't be set, which blocks the request
+      return null;
+    },
     credentials: true,
     allowMethods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
     allowHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
