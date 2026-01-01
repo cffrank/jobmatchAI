@@ -88,7 +88,26 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 
-      - name: Run E2E tests against deployed site
+      - name: Run critical auth test (fail fast)
+        id: critical_auth_test
+        run: npx playwright test tests/e2e/post-deployment-auth.spec.ts --reporter=list
+        env:
+          # Test the actual Cloudflare Pages deployment
+          FRONTEND_URL: ${{ needs.wait-for-deployment.outputs.deployment_url }}
+          BACKEND_URL: https://jobmatch-ai-dev.carl-f-frank.workers.dev
+          # Cloudflare Pages development environment
+          TEST_ENVIRONMENT: development
+
+      - name: Alert on critical auth test failure
+        if: failure() && steps.critical_auth_test.conclusion == 'failure'
+        run: |
+          echo "::error::🚨 CRITICAL: Authentication test failed!"
+          echo "::error::Users CANNOT sign up or log in to the deployed site"
+          echo "::error::Deployment URL: ${{ needs.wait-for-deployment.outputs.deployment_url }}"
+          echo "::error::This is a blocking issue - authentication is broken!"
+
+      - name: Run full E2E test suite
+        if: success()
         run: npm run test:e2e
         env:
           # Test the actual Cloudflare Pages deployment
