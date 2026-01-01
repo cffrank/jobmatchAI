@@ -123,7 +123,7 @@ export interface Job {
   postedDate: string;
   description: string;
   url: string;
-  source: 'linkedin' | 'indeed' | 'manual';
+  source: 'linkedin' | 'indeed' | 'manual' | 'jsearch' | 'remoteok';
   requiredSkills?: string[];
   preferredSkills?: string[];
   experienceLevel?: string;
@@ -139,6 +139,7 @@ export interface Job {
   scrapedAt?: string;
   createdAt: string;
   updatedAt: string;
+  metadata?: Record<string, unknown>;
 }
 
 export interface MatchBreakdown {
@@ -283,7 +284,7 @@ export interface ScrapeJobsRequest {
   salaryMin?: number;
   salaryMax?: number;
   maxResults?: number;
-  sources?: ('linkedin' | 'indeed')[];
+  sources?: ('linkedin' | 'indeed' | 'remoteok')[];
 }
 
 export interface ScrapeJobsResponse {
@@ -378,7 +379,7 @@ export interface ScrapedJob {
   salary?: string;
   postedDate?: string;
   url: string;
-  source: 'linkedin' | 'indeed';
+  source: 'linkedin' | 'indeed' | 'jsearch' | 'remoteok';
   jobType?: string;
   experienceLevel?: string;
   workArrangement?: string;
@@ -480,6 +481,121 @@ export interface GetDuplicatesResponse {
   duplicates: Job[];
   duplicateMetadata: JobDuplicate[];
   totalDuplicates: number;
+}
+
+// =============================================================================
+// Automated Search Types (Phase 1)
+// =============================================================================
+
+export interface SearchPreferences {
+  id: string;
+  userId: string;
+  desiredRoles: string[];
+  locations: string[];
+  salaryMin?: number;
+  salaryMax?: number;
+  remotePreference: 'remote' | 'hybrid' | 'on-site' | 'any';
+  employmentTypes: string[];
+  experienceLevel?: 'entry' | 'mid' | 'senior' | 'executive';
+  industries?: string[];
+  companySizes?: ('startup' | 'small' | 'medium' | 'large' | 'enterprise')[];
+  companyBlacklist: string[];
+  keywordBlacklist: string[];
+  enabledSources: Record<string, boolean>;
+  searchFrequency: 'daily' | 'weekly' | 'manual';
+  autoSearchEnabled: boolean;
+  notificationEmail: boolean;
+  notificationInApp: boolean;
+  matchScoreThreshold: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SearchHistory {
+  id: string;
+  userId: string;
+  searchType: 'automated' | 'manual' | 'template';
+  templateId?: string;
+  criteria: Record<string, unknown>;
+  jobsFound: number;
+  jobsSaved: number;
+  highMatches: number;
+  sourcesUsed: string[];
+  searchFingerprint?: string;
+  durationMs?: number;
+  errors?: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface SearchTemplate {
+  id: string;
+  userId: string;
+  name: string;
+  description?: string;
+  criteria: Record<string, unknown>;
+  useCount: number;
+  lastUsedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SearchHistoryStats {
+  totalSearches: number;
+  totalJobsFound: number;
+  totalJobsSaved: number;
+  averageMatchesPerSearch: number;
+  mostUsedSources: string[];
+  periodStart: string;
+  periodEnd: string;
+}
+
+export interface CreatePreferencesData {
+  desiredRoles?: string[];
+  locations?: string[];
+  salaryMin?: number;
+  salaryMax?: number;
+  remotePreference?: 'remote' | 'hybrid' | 'on-site' | 'any';
+  employmentTypes?: string[];
+  experienceLevel?: 'entry' | 'mid' | 'senior' | 'executive';
+  industries?: string[];
+  companySizes?: ('startup' | 'small' | 'medium' | 'large' | 'enterprise')[];
+  companyBlacklist?: string[];
+  keywordBlacklist?: string[];
+  enabledSources?: Record<string, boolean>;
+  searchFrequency?: 'daily' | 'weekly' | 'manual';
+  autoSearchEnabled?: boolean;
+  notificationEmail?: boolean;
+  notificationInApp?: boolean;
+  matchScoreThreshold?: number;
+}
+
+export interface UpdatePreferencesData extends Partial<CreatePreferencesData> {
+  // All fields are optional for updates
+}
+
+export interface RecordSearchData {
+  searchType: 'automated' | 'manual' | 'template';
+  templateId?: string;
+  criteria: Record<string, unknown>;
+  jobsFound: number;
+  jobsSaved?: number;
+  highMatches?: number;
+  sourcesUsed: string[];
+  searchFingerprint?: string;
+  durationMs?: number;
+  errors?: Record<string, unknown>;
+}
+
+export interface CreateTemplateData {
+  name: string;
+  description?: string;
+  criteria: Record<string, unknown>;
+}
+
+export interface UpdateTemplateData {
+  name?: string;
+  description?: string;
+  criteria?: Record<string, unknown>;
 }
 
 // =============================================================================

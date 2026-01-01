@@ -17,6 +17,7 @@
     "test:integration": "vitest run tests/integration",
     "test:production": "vitest run tests/api/production.test.ts",
     "test:cors": "vitest run tests/integration/cors.test.ts",
+    "test:apify": "node -r dotenv/config node_modules/.bin/tsx src/scripts/test-apify-scraping.ts",
     "audit": "npm audit --audit-level=moderate",
     "audit:fix": "npm audit fix"
   },

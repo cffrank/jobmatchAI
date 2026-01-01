@@ -27,6 +27,7 @@ import jobsRouter from './routes/jobs';
 import exportsRouter from './routes/exports';
 import resumeRouter from './routes/resume';
 import spamDetectionRouter from './routes/spamDetection';
+import searchPreferencesRouter from './routes/searchPreferences';
 
 // Middleware imports
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
@@ -202,6 +203,10 @@ app.use('/api/spam-detection', spamDetectionRouter);
 app.use('/api/exports', exportsRouter);
 app.use('/api/resume', resumeRouter);
 
+// Search preferences, history, templates, and manual trigger
+// All routes are defined in searchPreferencesRouter with their full paths
+app.use('/api', searchPreferencesRouter);
+
 // =============================================================================
 // API Documentation (development only)
 // =============================================================================
@@ -242,6 +247,30 @@ if (NODE_ENV === 'development') {
         resume: {
           'POST /api/resume/parse': 'Parse resume file using AI',
         },
+        searchPreferences: {
+          'GET /api/search-preferences': 'Get user search preferences',
+          'POST /api/search-preferences': 'Create/update search preferences',
+          'DELETE /api/search-preferences': 'Delete search preferences',
+          'POST /api/search-preferences/blacklist': 'Add to blacklist',
+          'DELETE /api/search-preferences/blacklist/:type/:value': 'Remove from blacklist',
+          'PATCH /api/search-preferences/sources': 'Enable/disable sources',
+        },
+        searchHistory: {
+          'GET /api/search-history': 'Get search history (paginated)',
+          'GET /api/search-history/stats': 'Get search statistics',
+          'GET /api/search-history/last': 'Get last search details',
+        },
+        searchTemplates: {
+          'GET /api/search-templates': 'List templates',
+          'POST /api/search-templates': 'Create template',
+          'GET /api/search-templates/:id': 'Get template',
+          'PUT /api/search-templates/:id': 'Update template',
+          'DELETE /api/search-templates/:id': 'Delete template',
+          'POST /api/search-templates/:id/use': 'Use template (trigger search)',
+        },
+        manualSearch: {
+          'POST /api/jobs/trigger-search': 'Manually trigger job search',
+        },
       },
       authentication: 'Bearer token in Authorization header',
       rateLimit: {
@@ -249,6 +278,7 @@ if (NODE_ENV === 'development') {
         emails: '10 emails/hour per user',
         applications: '20 generations/hour per user',
         scraping: '10 scrapes/hour per user',
+        manualSearch: '10 searches/hour per user',
       },
     });
   });
