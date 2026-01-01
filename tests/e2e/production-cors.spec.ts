@@ -304,7 +304,7 @@ test.describe('Backend Direct Testing (via Playwright)', () => {
     console.log('\n=== Direct OPTIONS Test ===');
     console.log('Status:', response.status(), response.statusText());
 
-    const headers = await response.allHeaders();
+    const headers = response.headers();
     console.log('\n--- All Response Headers ---');
     Object.entries(headers).forEach(([key, value]) => {
       console.log(`${key}: ${value}`);
@@ -345,7 +345,7 @@ test.describe('Backend Direct Testing (via Playwright)', () => {
     console.log('\n=== GET with Origin ===');
     console.log('Status:', response.status());
 
-    const headers = await response.allHeaders();
+    const headers = response.headers();
     console.log('CORS Header:', headers['access-control-allow-origin']);
 
     expect(headers['access-control-allow-origin']).toBe(PRODUCTION_URL);
@@ -370,7 +370,7 @@ test.describe('Backend Direct Testing (via Playwright)', () => {
         },
       });
 
-      const headers = await response.allHeaders();
+      const headers = response.headers();
       const corsOrigin = headers['access-control-allow-origin'];
 
       console.log(`${endpoint}:`);
