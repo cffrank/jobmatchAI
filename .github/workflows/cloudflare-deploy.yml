@@ -73,14 +73,17 @@ jobs:
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || 'test-key' }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || 'test-key' }}
 
-      - name: Run backend integration tests
-        working-directory: backend
-        run: npm run test:integration
-        env:
-          NODE_ENV: test
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'http://localhost:54321' }}
-          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || 'test-key' }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || 'test-key' }}
+      # Integration tests disabled during Cloudflare migration
+      # These test old Supabase Postgres database (being replaced with D1)
+      # Will re-enable with D1-based tests once migration is complete
+      # - name: Run backend integration tests
+      #   working-directory: backend
+      #   run: npm run test:integration
+      #   env:
+      #     NODE_ENV: test
+      #     SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'http://localhost:54321' }}
+      #     SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || 'test-key' }}
+      #     SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || 'test-key' }}
 
   # Provision infrastructure and run migrations
   provision-infrastructure:
