@@ -1,21 +1,25 @@
-import { defineConfig } from 'vitest/config';
+import { defineWorkersConfig } from '@cloudflare/vitest-pool-workers/config';
 
-export default defineConfig({
+export default defineWorkersConfig({
   test: {
+    poolOptions: {
+      workers: {
+        wrangler: {
+          configPath: './wrangler.toml',
+          environment: 'development',
+        },
+      },
+    },
     globals: true,
-    environment: 'node',
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
       exclude: [
         'node_modules/**',
         'dist/**',
-        '**/*.config.ts',
-        '**/*.d.ts',
-        'e2e-tests/**', // E2E tests run separately via Cloudflare Workers
+        '**/*.config.*',
+        '**/tests/**',
       ],
     },
-    include: ['**/__tests__/**/*.test.ts', '**/*.test.ts'],
-    exclude: ['node_modules', 'dist', 'e2e-tests'],
   },
 });

@@ -15,7 +15,7 @@
 
 import { Hono } from 'hono';
 import { z } from 'zod';
-import type { Env, Variables, ApplicationVariant, UserProfile, ExportResponse } from '../types';
+import type { Env, Variables, ApplicationVariant, UserProfile } from '../types';
 import { TABLES, BUCKETS } from '../types';
 import { authenticateUser, getUserId } from '../middleware/auth';
 import { rateLimiter } from '../middleware/rateLimiter';
@@ -47,12 +47,11 @@ const exportSchema = z.object({
  * POST /api/exports/pdf
  * Export application as PDF
  *
- * NOTE: Full PDF generation with pdfkit is not available in Workers.
- * This returns a text-based response that can be used for client-side PDF generation.
- * For production, consider:
- * - Using Cloudflare Browser Rendering API (paid feature)
- * - Client-side PDF generation with jsPDF
- * - External PDF generation service
+ * Phase 3.4: Full PDF Generation with pdf-lib
+ * - Uses pdf-lib (Workers-compatible pure JavaScript library)
+ * - Generates actual PDF files (not just text)
+ * - Stores in R2 EXPORTS bucket
+ * - Returns presigned download URL
  */
 app.post('/pdf', authenticateUser, rateLimiter({ maxRequests: 30, windowMs: 60 * 60 * 1000 }), async (c) => {
   const userId = getUserId(c);
@@ -69,70 +68,60 @@ app.post('/pdf', authenticateUser, rateLimiter({ maxRequests: 30, windowMs: 60 *
   }
 
   const { applicationId } = parseResult.data;
-  console.log(`Exporting PDF for user ${userId}, application ${applicationId}`);
+  console.log(`[Exports] Generating PDF for user ${userId}, application ${applicationId}`);
 
-  // Fetch application data
-  const { application, variant, profile } = await fetchApplicationData(c.env, userId, applicationId);
+  try {
+    // Fetch application data
+    const { application, variant, profile } = await fetchApplicationData(c.env, userId, applicationId);
 
-  // Generate text content for PDF
-  const textContent = generateTextContent(application, variant, profile);
+    // Import document generation service
+    const { generateApplicationPDF } = await import('../services/documentGeneration');
 
-  // For Workers, we store the text content and return a URL
-  // The client can then use this to generate a PDF
-  const supabase = createSupabaseAdmin(c.env);
-  const fileName = sanitizeFilename(`${application.job_title}_${new Date().toISOString().split('T')[0]}.txt`);
-  const filePath = `exports/${userId}/${applicationId}/${crypto.randomUUID()}_${fileName}`;
-
-  const { error: uploadError } = await supabase.storage
-    .from(BUCKETS.EXPORTS)
-    .upload(filePath, textContent, {
-      contentType: 'text/plain',
-      cacheControl: '3600',
-    });
-
-  if (uploadError) {
-    console.error('Failed to upload content:', uploadError);
-    throw new Error('Failed to upload content');
-  }
-
-  // Generate signed URL (valid for 24 hours)
-  const { data: signedData } = await supabase.storage
-    .from(BUCKETS.EXPORTS)
-    .createSignedUrl(filePath, 24 * 60 * 60);
-
-  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
-
-  // Return the data needed for client-side PDF generation
-  const response: ExportResponse & { note: string; data: { resume: unknown; coverLetter: string; profile: Partial<UserProfile> } } = {
-    downloadUrl: signedData?.signedUrl || '',
-    fileName: fileName.replace('.txt', '.pdf'),
-    expiresAt: expiresAt.toISOString(),
-    format: 'pdf',
-    fileSize: new TextEncoder().encode(textContent).length,
-    note: 'PDF generation is performed client-side. Use the provided data to generate the PDF.',
-    data: {
-      resume: variant.resume,
-      coverLetter: variant.coverLetter,
-      profile: {
-        firstName: profile.firstName,
-        lastName: profile.lastName,
+    // Prepare application data
+    const appData = {
+      resume: {
+        fullName: `${profile.firstName} ${profile.lastName}`,
         email: profile.email,
         phone: profile.phone,
         location: profile.location,
         linkedInUrl: profile.linkedInUrl,
+        summary: variant.resume.summary,
+        experience: variant.resume.experience,
+        education: variant.resume.education,
+        skills: variant.resume.skills,
       },
-    },
-  };
+      coverLetter: variant.coverLetter,
+      jobTitle: application.job_title,
+      company: application.company,
+    };
 
-  return c.json(response);
+    // Generate PDF and upload to R2
+    const result = await generateApplicationPDF(c.env, userId, appData);
+
+    console.log(`[Exports] PDF generated successfully: ${result.filename}`);
+
+    return c.json({
+      downloadUrl: result.downloadUrl,
+      fileName: result.filename,
+      expiresAt: result.expiresAt,
+      format: 'pdf',
+      fileSize: result.size,
+    });
+  } catch (error) {
+    console.error('[Exports] PDF generation failed:', error);
+    throw error;
+  }
 });
 
 /**
  * POST /api/exports/docx
  * Export application as DOCX
  *
- * NOTE: Similar to PDF, full DOCX generation requires the 'docx' library
- * which may have compatibility issues with Workers.
+ * Phase 3.4: Full DOCX Generation with docx library
+ * - Uses docx (Workers-compatible pure JavaScript library)
+ * - Generates actual DOCX files
+ * - Stores in R2 EXPORTS bucket
+ * - Returns presigned download URL
  */
 app.post('/docx', authenticateUser, rateLimiter({ maxRequests: 30, windowMs: 60 * 60 * 1000 }), async (c) => {
   const userId = getUserId(c);
@@ -149,60 +138,49 @@ app.post('/docx', authenticateUser, rateLimiter({ maxRequests: 30, windowMs: 60 
   }
 
   const { applicationId } = parseResult.data;
-  console.log(`Exporting DOCX for user ${userId}, application ${applicationId}`);
+  console.log(`[Exports] Generating DOCX for user ${userId}, application ${applicationId}`);
 
-  // Fetch application data
-  const { application, variant, profile } = await fetchApplicationData(c.env, userId, applicationId);
+  try {
+    // Fetch application data
+    const { application, variant, profile } = await fetchApplicationData(c.env, userId, applicationId);
 
-  // Generate text content
-  const textContent = generateTextContent(application, variant, profile);
+    // Import document generation service
+    const { generateApplicationDOCX } = await import('../services/documentGeneration');
 
-  // Store text content
-  const supabase = createSupabaseAdmin(c.env);
-  const fileName = sanitizeFilename(`${application.job_title}_${new Date().toISOString().split('T')[0]}.txt`);
-  const filePath = `exports/${userId}/${applicationId}/${crypto.randomUUID()}_${fileName}`;
-
-  const { error: uploadError } = await supabase.storage
-    .from(BUCKETS.EXPORTS)
-    .upload(filePath, textContent, {
-      contentType: 'text/plain',
-      cacheControl: '3600',
-    });
-
-  if (uploadError) {
-    console.error('Failed to upload content:', uploadError);
-    throw new Error('Failed to upload content');
-  }
-
-  // Generate signed URL
-  const { data: signedData } = await supabase.storage
-    .from(BUCKETS.EXPORTS)
-    .createSignedUrl(filePath, 24 * 60 * 60);
-
-  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
-
-  const response: ExportResponse & { note: string; data: { resume: unknown; coverLetter: string; profile: Partial<UserProfile> } } = {
-    downloadUrl: signedData?.signedUrl || '',
-    fileName: fileName.replace('.txt', '.docx'),
-    expiresAt: expiresAt.toISOString(),
-    format: 'docx',
-    fileSize: new TextEncoder().encode(textContent).length,
-    note: 'DOCX generation is performed client-side. Use the provided data to generate the DOCX.',
-    data: {
-      resume: variant.resume,
-      coverLetter: variant.coverLetter,
-      profile: {
-        firstName: profile.firstName,
-        lastName: profile.lastName,
+    // Prepare application data
+    const appData = {
+      resume: {
+        fullName: `${profile.firstName} ${profile.lastName}`,
         email: profile.email,
         phone: profile.phone,
         location: profile.location,
         linkedInUrl: profile.linkedInUrl,
+        summary: variant.resume.summary,
+        experience: variant.resume.experience,
+        education: variant.resume.education,
+        skills: variant.resume.skills,
       },
-    },
-  };
+      coverLetter: variant.coverLetter,
+      jobTitle: application.job_title,
+      company: application.company,
+    };
 
-  return c.json(response);
+    // Generate DOCX and upload to R2
+    const result = await generateApplicationDOCX(c.env, userId, appData);
+
+    console.log(`[Exports] DOCX generated successfully: ${result.filename}`);
+
+    return c.json({
+      downloadUrl: result.downloadUrl,
+      fileName: result.filename,
+      expiresAt: result.expiresAt,
+      format: 'docx',
+      fileSize: result.size,
+    });
+  } catch (error) {
+    console.error('[Exports] DOCX generation failed:', error);
+    throw error;
+  }
 });
 
 /**

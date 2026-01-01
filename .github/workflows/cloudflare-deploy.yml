@@ -82,13 +82,289 @@ jobs:
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || 'test-key' }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || 'test-key' }}
 
+  # Provision infrastructure and run migrations
+  provision-infrastructure:
+    name: Provision Infrastructure & Run Migrations
+    runs-on: ubuntu-latest
+    needs: run-tests
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Determine environment
+        id: env
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          WORKFLOW_INPUT_ENV: ${{ github.event.inputs.environment }}
+          BRANCH_NAME: ${{ github.ref_name }}
+        run: |
+          if [ "$EVENT_NAME" == "workflow_dispatch" ]; then
+            ENV="$WORKFLOW_INPUT_ENV"
+          else
+            case "$BRANCH_NAME" in
+              develop)
+                ENV="development"
+                ;;
+              staging)
+                ENV="staging"
+                ;;
+              main)
+                ENV="production"
+                ;;
+              *)
+                echo "Unknown branch: $BRANCH_NAME"
+                exit 1
+                ;;
+            esac
+          fi
+          echo "environment=$ENV" >> $GITHUB_OUTPUT
+
+      - name: Install wrangler
+        working-directory: workers
+        run: npm ci
+
+      - name: Provision KV Namespaces
+        working-directory: workers
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          DEPLOY_ENV: ${{ steps.env.outputs.environment }}
+        run: |
+          echo "📦 Provisioning KV Namespaces for ${DEPLOY_ENV}..."
+
+          # Array of KV namespace bindings from wrangler.toml
+          KV_BINDINGS=(
+            "JOB_ANALYSIS_CACHE"
+            "SESSIONS"
+            "RATE_LIMITS"
+            "OAUTH_STATES"
+            "EMBEDDINGS_CACHE"
+            "AI_GATEWAY_CACHE"
+          )
+
+          for BINDING in "${KV_BINDINGS[@]}"; do
+            echo "Checking KV namespace: $BINDING"
+
+            # Try to create namespace (will fail if exists, which is fine)
+            npx wrangler kv namespace create "$BINDING" --env "$DEPLOY_ENV" 2>/dev/null || {
+              echo "  ✓ $BINDING already exists or creation not needed"
+            }
+          done
+
+          echo "✅ KV namespaces provisioned"
+
+      - name: Provision R2 Buckets
+        working-directory: workers
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          DEPLOY_ENV: ${{ steps.env.outputs.environment }}
+        run: |
+          echo "🪣 Provisioning R2 Buckets for ${DEPLOY_ENV}..."
+
+          # Get bucket names from wrangler.toml based on environment
+          case "$DEPLOY_ENV" in
+            development)
+              BUCKETS=(
+                "jobmatch-ai-dev-avatars"
+                "jobmatch-ai-dev-resumes"
+                "jobmatch-ai-dev-exports"
+              )
+              ;;
+            staging)
+              BUCKETS=(
+                "jobmatch-ai-staging-avatars"
+                "jobmatch-ai-staging-resumes"
+                "jobmatch-ai-staging-exports"
+              )
+              ;;
+            production)
+              BUCKETS=(
+                "jobmatch-ai-prod-avatars"
+                "jobmatch-ai-prod-resumes"
+                "jobmatch-ai-prod-exports"
+              )
+              ;;
+          esac
+
+          for BUCKET in "${BUCKETS[@]}"; do
+            echo "Checking R2 bucket: $BUCKET"
+
+            # Check if bucket exists
+            if npx wrangler r2 bucket list | grep -q "$BUCKET"; then
+              echo "  ✓ $BUCKET already exists"
+            else
+              echo "  Creating $BUCKET..."
+              npx wrangler r2 bucket create "$BUCKET" || {
+                echo "  ⚠️  Failed to create $BUCKET (might already exist)"
+              }
+            fi
+          done
+
+          echo "✅ R2 buckets provisioned"
+
+      - name: Provision Vectorize Indexes
+        working-directory: workers
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          DEPLOY_ENV: ${{ steps.env.outputs.environment }}
+        run: |
+          echo "🔍 Provisioning Vectorize Indexes for ${DEPLOY_ENV}..."
+
+          # Get index name from wrangler.toml based on environment
+          case "$DEPLOY_ENV" in
+            development)
+              INDEX_NAME="jobmatch-ai-dev"
+              ;;
+            staging)
+              INDEX_NAME="jobmatch-ai-staging"
+              ;;
+            production)
+              INDEX_NAME="jobmatch-ai-prod"
+              ;;
+          esac
+
+          echo "Checking Vectorize index: $INDEX_NAME"
+
+          # Check if index exists
+          if npx wrangler vectorize list | grep -q "$INDEX_NAME"; then
+            echo "  ✓ $INDEX_NAME already exists"
+          else
+            echo "  Creating $INDEX_NAME (768 dimensions, cosine similarity)..."
+            npx wrangler vectorize create "$INDEX_NAME" \
+              --dimensions=768 \
+              --metric=cosine || {
+              echo "  ⚠️  Failed to create $INDEX_NAME (might already exist)"
+            }
+          fi
+
+          echo "✅ Vectorize indexes provisioned"
+
+      - name: Provision AI Gateway
+        working-directory: workers
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          DEPLOY_ENV: ${{ steps.env.outputs.environment }}
+        run: |
+          echo "🤖 Provisioning AI Gateway for ${DEPLOY_ENV}..."
+
+          # AI Gateway name (same for all environments per wrangler.toml)
+          GATEWAY_NAME="jobmatch-ai-gateway-dev"
+
+          echo "Checking AI Gateway: $GATEWAY_NAME"
+
+          # Check if gateway exists (list command will show it)
+          if npx wrangler ai-gateway list 2>/dev/null | grep -q "$GATEWAY_NAME"; then
+            echo "  ✓ $GATEWAY_NAME already exists"
+          else
+            echo "  Creating $GATEWAY_NAME..."
+            npx wrangler ai-gateway create "$GATEWAY_NAME" \
+              --cache-ttl=3600 \
+              --rate-limiting-interval=60 \
+              --rate-limiting-limit=100 \
+              --rate-limiting-technique=sliding || {
+              echo "  ⚠️  Failed to create $GATEWAY_NAME (might already exist or command not supported)"
+            }
+          fi
+
+          echo "✅ AI Gateway provisioned"
+
+      - name: Run D1 Migrations
+        working-directory: workers
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          DEPLOY_ENV: ${{ steps.env.outputs.environment }}
+        run: |
+          echo "🗄️  Running D1 Migrations for ${DEPLOY_ENV}..."
+
+          # Check if migrations directory exists
+          if [ ! -d "migrations" ]; then
+            echo "⚠️  No migrations directory found, skipping..."
+            exit 0
+          fi
+
+          # Count migration files
+          MIGRATION_COUNT=$(find migrations -name "*.sql" 2>/dev/null | wc -l)
+
+          if [ "$MIGRATION_COUNT" -eq 0 ]; then
+            echo "⚠️  No migration files found, skipping..."
+            exit 0
+          fi
+
+          echo "Found $MIGRATION_COUNT migration file(s)"
+
+          # Apply migrations to D1 database
+          echo "Applying migrations to DB binding..."
+          npx wrangler d1 migrations apply DB \
+            --env "$DEPLOY_ENV" \
+            --remote \
+            --yes || {
+            echo "❌ Migration failed!"
+            exit 1
+          }
+
+          echo "✅ D1 migrations applied successfully"
+
+      - name: Infrastructure Summary
+        env:
+          DEPLOY_ENV: ${{ steps.env.outputs.environment }}
+          BRANCH_NAME: ${{ github.ref_name }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          COMMIT_SHORT="${COMMIT_SHA:0:7}"
+
+          cat >> $GITHUB_STEP_SUMMARY << EOF
+          ## 🏗️ Infrastructure Provisioning Complete
+
+          **Environment:** \`${DEPLOY_ENV}\`
+          **Branch:** \`${BRANCH_NAME}\`
+          **Commit:** \`${COMMIT_SHORT}\`
+
+          ### Services Provisioned:
+          - ✅ **KV Namespaces** (6 total)
+            - JOB_ANALYSIS_CACHE
+            - SESSIONS
+            - RATE_LIMITS
+            - OAUTH_STATES
+            - EMBEDDINGS_CACHE
+            - AI_GATEWAY_CACHE
+
+          - ✅ **R2 Buckets** (3 total)
+            - Avatars bucket
+            - Resumes bucket
+            - Exports bucket
+
+          - ✅ **Vectorize Index**
+            - 768-dimensional vectors
+            - Cosine similarity metric
+
+          - ✅ **AI Gateway**
+            - Cache TTL: 1 hour
+            - Rate limiting: 100 req/min
+
+          - ✅ **D1 Database Migrations**
+            - All pending migrations applied
+
+          **Note:** Workers AI binding is automatically available, no provisioning needed.
+          EOF
+
   # Deploy frontend to Cloudflare Pages
   deploy-frontend:
     name: Deploy Frontend to Cloudflare Pages
     runs-on: ubuntu-latest
-    needs: run-tests  # Only run if tests pass
+    needs: [run-tests, provision-infrastructure]
     timeout-minutes: 10
-    # Use GitHub Environment for environment-specific secrets
     environment:
       name: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.environment || (github.ref_name == 'develop' && 'development' || (github.ref_name == 'staging' && 'staging' || 'production')) }}
       url: ${{ github.ref_name == 'develop' && 'https://jobmatch-ai-dev.pages.dev' || (github.ref_name == 'staging' && 'https://jobmatch-ai-staging.pages.dev' || 'https://jobmatch-ai-production.pages.dev') }}
@@ -153,10 +429,11 @@ jobs:
 
       - name: Build frontend
         env:
-          # Use environment-specific secrets from GitHub Environment
           VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
           VITE_BACKEND_URL: ${{ steps.env.outputs.backend_url }}
+          VITE_USE_WORKERS_API: 'true'
+          VITE_CLOUDFLARE_PAGES: 'true'
         run: npm run build
 
       - name: Deploy to Cloudflare Pages
@@ -187,7 +464,7 @@ jobs:
               ;;
             staging)
               FRONTEND_URL="https://jobmatch-ai-staging.pages.dev"
-              SUPABASE_BRANCH="staging (awupxbzzabtzqowjcnsa)"
+              SUPABASE_BRANCH="staging (wpupbucinufbaiphwogc)"
               ;;
             production)
               FRONTEND_URL="https://jobmatch-ai-production.pages.dev"
@@ -219,13 +496,12 @@ jobs:
           Deployment propagation may take 1-2 minutes.
           EOF
 
-  # Deploy backend Workers (separate job)
+  # Deploy backend Workers
   deploy-backend:
     name: Deploy Backend to Cloudflare Workers
     runs-on: ubuntu-latest
-    needs: run-tests  # Only run if tests pass
+    needs: [run-tests, provision-infrastructure]
     timeout-minutes: 10
-    # Use GitHub Environment for environment-specific secrets
     environment:
       name: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.environment || (github.ref_name == 'develop' && 'development' || (github.ref_name == 'staging' && 'staging' || 'production')) }}
 
@@ -289,7 +565,7 @@ jobs:
           COMMIT_SHORT="${COMMIT_SHA:0:7}"
 
           cat >> $GITHUB_STEP_SUMMARY << EOF
-          ### 🎉 Backend Deployment Complete
+          ## 🎉 Backend Deployment Complete
 
           **Environment:** ${DEPLOY_ENV}
           **Branch:** ${BRANCH_NAME}

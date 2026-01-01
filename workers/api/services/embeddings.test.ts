@@ -36,6 +36,14 @@ function createMockEmbedding(dimensions = 768): number[] {
  * Create mock environment with Workers AI binding
  */
 function createMockEnv(): Env {
+  // Create mock KV namespace
+  const mockKV = {
+    get: vi.fn(),
+    put: vi.fn(),
+    delete: vi.fn(),
+    list: vi.fn(),
+  };
+
   return {
     SUPABASE_URL: 'https://test.supabase.co',
     SUPABASE_ANON_KEY: 'test-anon-key',
@@ -43,10 +51,31 @@ function createMockEnv(): Env {
     OPENAI_API_KEY: 'test-openai-key',
     APP_URL: 'http://localhost:3000',
     ENVIRONMENT: 'development',
+
+    // KV Namespaces
+    JOB_ANALYSIS_CACHE: mockKV as any,
+    SESSIONS: mockKV as any,
+    RATE_LIMITS: mockKV as any,
+    OAUTH_STATES: mockKV as any,
+    EMBEDDINGS_CACHE: mockKV as any,
+    AI_GATEWAY_CACHE: mockKV as any,
+
+    // D1 Database
+    DB: {} as any,
+
+    // Vectorize
+    VECTORIZE: {} as any,
+
+    // R2 Buckets
+    AVATARS: {} as any,
+    RESUMES: {} as any,
+    EXPORTS: {} as any,
+
+    // AI binding
     AI: {
       run: vi.fn(),
-    },
-  } as unknown as Env;
+    } as any,
+  } as Env;
 }
 
 /**
@@ -126,7 +155,7 @@ function createMockWorkExperience(overrides?: Partial<WorkExperience>): WorkExpe
     company: 'Tech Company',
     location: 'San Francisco, CA',
     startDate: '2020-01-01',
-    endDate: null,
+    endDate: undefined,
     current: true,
     description: 'Led development of microservices architecture using Node.js and TypeScript.',
     accomplishments: ['Built scalable API', 'Improved performance by 40%'],

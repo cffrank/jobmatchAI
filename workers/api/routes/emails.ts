@@ -173,10 +173,43 @@ app.post('/send', authenticateUser, rateLimiter({ maxRequests: 10, windowMs: 60 
     updatedAt: profileRecord.updated_at,
   };
 
-  // Send email using SendGrid API directly
-  const result = await sendApplicationEmail(c.env, userId, application, variant, profile, recipientEmail, supabase);
+  // Send email using SendGrid service (Phase 3.6)
+  const { sendEmail, generateApplicationEmail } = await import('../services/email');
 
-  console.log(`Email sent successfully: ${result.emailId}`);
+  // Generate email content
+  const resumeText = buildResumeText(variant, profile);
+  const emailContent = generateApplicationEmail(
+    `${profile.firstName} ${profile.lastName}`,
+    profile.email,
+    application.jobTitle,
+    application.company,
+    variant.coverLetter,
+    resumeText
+  );
+
+  // Send email
+  const result = await sendEmail(c.env, c.env.DB, {
+    to: { email: recipientEmail },
+    from: {
+      email: c.env.SENDGRID_FROM_EMAIL || 'noreply@jobmatch-ai.com',
+      name: `${profile.firstName} ${profile.lastName}`,
+    },
+    replyTo: {
+      email: profile.email,
+      name: `${profile.firstName} ${profile.lastName}`,
+    },
+    subject: emailContent.subject,
+    htmlBody: emailContent.htmlBody,
+    textBody: emailContent.textBody,
+    metadata: {
+      userId,
+      applicationId: application.id,
+      jobTitle: application.jobTitle,
+      company: application.company,
+    },
+  });
+
+  console.log(`[Emails] Email sent successfully: ${result.emailId}`);
 
   const response: SendEmailResponse = {
     success: result.success,
@@ -280,7 +313,7 @@ interface SendEmailResult {
   message: string;
 }
 
-async function sendApplicationEmail(
+export async function sendApplicationEmail(
   env: Env,
   userId: string,
   application: Application,
@@ -506,6 +539,56 @@ ${profile.linkedInUrl || ''}
 function isValidEmail(email: string): boolean {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return emailRegex.test(email);
+}
+
+// =============================================================================
+// Helper Functions
+// =============================================================================
+
+/**
+ * Build resume text from variant data (Phase 3.6)
+ */
+function buildResumeText(variant: ApplicationVariant, profile: UserProfile): string {
+  const fullName = `${profile.firstName} ${profile.lastName}`;
+  const { resume } = variant;
+
+  const contactParts = [
+    profile.email,
+    profile.phone,
+    profile.location,
+    profile.linkedInUrl,
+  ].filter(Boolean);
+  const contactInfo = contactParts.join(' | ');
+
+  const experienceText = resume.experience
+    ?.map((exp) => `
+${exp.title}
+${exp.company} | ${exp.location || ''}
+${exp.startDate} - ${exp.endDate}
+${exp.bullets.map((b) => `  • ${b}`).join('\n')}
+`)
+    .join('\n') || '';
+
+  const educationText = resume.education
+    ?.map((edu) => `${edu.degree} - ${edu.school}, ${edu.location || ''} (${edu.graduation})`)
+    .join('\n') || '';
+
+  return `
+${fullName}
+${contactInfo}
+
+PROFESSIONAL SUMMARY
+${resume.summary || 'No summary provided.'}
+
+PROFESSIONAL EXPERIENCE
+${experienceText}
+
+SKILLS
+${resume.skills?.join(' | ') || 'No skills listed.'}
+
+EDUCATION
+${educationText}
+  `.trim();
 }
 
 export default app;

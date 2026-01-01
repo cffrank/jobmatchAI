@@ -265,13 +265,12 @@ function buildResumeText(
 
   // Profile section
   sections.push('=== PROFILE ===');
-  sections.push(`Name: ${profile.full_name || 'Not provided'}`);
+  sections.push(`Name: ${profile.firstName || ''} ${profile.lastName || ''}`);
   sections.push(`Email: ${profile.email}`);
-  sections.push(`Phone: ${profile.phone_number || 'Not provided'}`);
-  sections.push(`Location: ${formatLocation(profile)}`);
-  sections.push(`LinkedIn: ${profile.linkedin_url || 'Not provided'}`);
-  sections.push(`Portfolio: ${profile.portfolio_url || 'Not provided'}`);
-  sections.push(`Professional Summary: ${profile.professional_summary || 'Not provided'}`);
+  sections.push(`Phone: ${profile.phone || 'Not provided'}`);
+  sections.push(`Location: ${profile.location || 'Not provided'}`);
+  sections.push(`LinkedIn: ${profile.linkedInUrl || 'Not provided'}`);
+  sections.push(`Professional Summary: ${profile.summary || 'Not provided'}`);
   sections.push('');
 
   // Work Experience section
@@ -281,13 +280,13 @@ function buildResumeText(
   } else {
     workExperiences
       .sort((a, b) => {
-        const aDate = a.start_date ? new Date(a.start_date).getTime() : 0;
-        const bDate = b.start_date ? new Date(b.start_date).getTime() : 0;
+        const aDate = a.startDate ? new Date(a.startDate).getTime() : 0;
+        const bDate = b.startDate ? new Date(b.startDate).getTime() : 0;
         return bDate - aDate; // Most recent first
       })
       .forEach((exp) => {
-        sections.push(`\n${exp.job_title} at ${exp.company}`);
-        sections.push(`${formatDate(exp.start_date)} - ${exp.is_current ? 'Present' : formatDate(exp.end_date)}`);
+        sections.push(`\n${exp.position} at ${exp.company}`);
+        sections.push(`${formatDate(exp.startDate)} - ${exp.current ? 'Present' : formatDate(exp.endDate || null)}`);
         sections.push(`Location: ${exp.location || 'Not specified'}`);
         if (exp.description) {
           sections.push(`Description: ${exp.description}`);
@@ -302,11 +301,11 @@ function buildResumeText(
     sections.push('No education listed');
   } else {
     education.forEach((edu) => {
-      sections.push(`\n${edu.degree || 'Degree not specified'} in ${edu.field_of_study || 'Field not specified'}`);
-      sections.push(`${edu.institution}`);
-      sections.push(`${formatDate(edu.start_date)} - ${edu.is_current ? 'Present' : formatDate(edu.end_date)}`);
-      if (edu.grade) {
-        sections.push(`Grade: ${edu.grade}`);
+      sections.push(`\n${edu.degree || 'Degree not specified'} in ${edu.field || 'Field not specified'}`);
+      sections.push(`${edu.school}`);
+      sections.push(`${formatDate(edu.startDate || null)} - ${formatDate(edu.endDate || null)}`);
+      if (edu.gpa) {
+        sections.push(`GPA: ${edu.gpa}`);
       }
     });
   }
@@ -327,14 +326,14 @@ function buildResumeText(
 /**
  * Format location from profile
  */
-function formatLocation(profile: UserProfile): string {
-  const parts: string[] = [];
-  if (profile.city) parts.push(profile.city);
-  if (profile.state) parts.push(profile.state);
-  if (profile.country) parts.push(profile.country);
-  return parts.length > 0 ? parts.join(', ') : 'Not provided';
-}
-
+// function formatLocation(profile: UserProfile): string {
+//   const parts: string[] = [];
+//   if (profile.city) parts.push(profile.city);
+//   if (profile.state) parts.push(profile.state);
+//   if (profile.country) parts.push(profile.country);
+//   return parts.length > 0 ? parts.join(', ') : 'Not provided';
+// }
+// 
 /**
  * Format date string
  */

@@ -172,6 +172,7 @@ async function example5_ErrorHandling() {
     const vec1 = [1, 2, 3];
     const vec2 = [1, 2]; // Wrong dimension
     const similarity = cosineSimilarity(vec1, vec2);
+    console.log('This should not be reached:', similarity);
   } catch (error) {
     console.error('Error:', error instanceof Error ? error.message : error);
     // Output: "Vector dimensions must match. Got 3 and 2"
@@ -180,6 +181,7 @@ async function example5_ErrorHandling() {
   try {
     // Invalid: semantic score out of range
     const score = hybridScore(1.5, 50); // Semantic score must be 0-1
+    console.log('This should not be reached:', score);
   } catch (error) {
     console.error('Error:', error instanceof Error ? error.message : error);
     // Output: "Semantic score must be between 0 and 1"
@@ -195,6 +197,7 @@ async function example5_ErrorHandling() {
       },
     ];
     const ranked = rankJobsBySimilarity(userEmbedding, jobs);
+    console.log('This should not be reached:', ranked);
   } catch (error) {
     console.error('Error:', error instanceof Error ? error.message : error);
     // Output: "Job 'Job 1' (index 0) has invalid embedding"

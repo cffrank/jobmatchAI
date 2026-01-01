@@ -15,7 +15,7 @@
 
 import { Hono } from 'hono';
 import { z } from 'zod';
-import type { Env, Variables, ListJobsResponse, ScrapeJobsResponse, Job, UserProfile, WorkExperience, Education, Skill } from '../types';
+import type { Env, Variables, ListJobsResponse, Job, UserProfile, WorkExperience, Education, Skill } from '../types';
 import { TABLES } from '../types';
 import { authenticateUser, requireAdmin, getUserId } from '../middleware/auth';
 import { rateLimiter } from '../middleware/rateLimiter';
@@ -24,6 +24,7 @@ import { createSupabaseAdmin } from '../services/supabase';
 import { analyzeJobCompatibility } from '../services/openai';
 import { generateJobEmbedding } from '../services/embeddings';
 import { getCachedAnalysis, cacheAnalysis } from '../services/jobAnalysisCache';
+import { storeJobEmbedding, semanticSearchJobs, hybridSearchJobs } from '../services/vectorize';
 
 // =============================================================================
 // Router Setup
@@ -65,6 +66,12 @@ const updateJobSchema = z.object({
   isArchived: z.boolean().optional(),
 });
 
+const searchJobsSchema = z.object({
+  query: z.string().min(1, 'Search query is required').max(500),
+  limit: z.coerce.number().int().positive().max(50).default(20),
+  searchType: z.enum(['semantic', 'hybrid']).default('hybrid'),
+});
+
 // =============================================================================
 // Helper Functions
 // =============================================================================
@@ -72,41 +79,47 @@ const updateJobSchema = z.object({
 /**
  * Generate and save embedding for a job (non-blocking)
  *
- * This helper is called after a job is created in the database.
- * It generates the embedding asynchronously and updates the job record.
+ * Phase 3.1: Migrated to Vectorize
+ * - Generates embedding using Workers AI (with dual-layer caching)
+ * - Stores in Vectorize index for semantic search
+ * - No longer stores in Supabase (embedding column removed from D1)
  *
  * Usage in routes:
- *   c.executionCtx.waitUntil(generateAndSaveJobEmbedding(c.env, supabase, job));
+ *   c.executionCtx.waitUntil(generateAndSaveJobEmbedding(c.env, job));
  *
- * @param env - Environment bindings (for AI API)
- * @param supabase - Supabase admin client
+ * @param env - Environment bindings (for AI API and Vectorize)
  * @param job - Job object with all fields
  */
+// TODO: Re-enable when background tasks are supported in Workers
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-async function generateAndSaveJobEmbedding(
+export async function generateAndSaveJobEmbedding(
   env: Env,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  supabase: any, // SupabaseClient - using any to avoid @supabase/supabase-js dependency in types
   job: Job
 ): Promise<void> {
   try {
     console.log(`[Embeddings] Starting embedding generation for job ${job.id}`);
-    const embedding = await generateJobEmbedding(env, job);
 
-    const { error } = await supabase
-      .from(TABLES.JOBS)
-      .update({ embedding: embedding })
-      .eq('id', job.id);
-
-    if (error) {
-      console.error(`[Embeddings] Failed to save embedding for job ${job.id}:`, error);
-      throw error;
+    if (!job.userId) {
+      console.warn(`[Embeddings] Skipping embedding for job ${job.id}: missing userId`);
+      return;
     }
 
-    console.log(`[Embeddings] Successfully generated and saved embedding for job ${job.id}`);
+    const embedding = await generateJobEmbedding(env, job);
+
+    // Store in Vectorize instead of Supabase
+    await storeJobEmbedding(
+      env,
+      job.id,
+      job.userId,
+      job.title,
+      job.company,
+      embedding
+    );
+
+    console.log(`[Embeddings] Successfully generated and stored embedding in Vectorize for job ${job.id}`);
   } catch (error) {
     console.error(
-      `[Embeddings] Failed to generate embedding for job ${job.id}:`,
+      `[Embeddings] Failed to generate/store embedding for job ${job.id}:`,
       error instanceof Error ? error.message : String(error)
     );
     // Don't throw - embedding generation is optional and shouldn't fail the request
@@ -221,6 +234,127 @@ app.get('/:id', authenticateUser, async (c) => {
 });
 
 /**
+ * POST /api/jobs/search
+ * Semantic and hybrid job search using Vectorize
+ *
+ * Phase 3.1: Vectorize Integration
+ * - Semantic search: Pure vector similarity search
+ * - Hybrid search: Combines FTS5 (keyword) + Vectorize (semantic)
+ *
+ * Returns job IDs ranked by relevance, client fetches full job details
+ */
+app.post('/search', authenticateUser, rateLimiter(), async (c) => {
+  const userId = getUserId(c);
+  const body = await c.req.json();
+
+  // Validate input
+  const parseResult = searchJobsSchema.safeParse(body);
+  if (!parseResult.success) {
+    throw createValidationError(
+      'Invalid request body',
+      Object.fromEntries(
+        parseResult.error.errors.map((e) => [e.path.join('.'), e.message])
+      )
+    );
+  }
+
+  const { query, limit, searchType } = parseResult.data;
+
+  console.log(`[JobSearch] ${searchType} search for user ${userId}: "${query}"`);
+
+  try {
+    if (searchType === 'semantic') {
+      // Pure semantic search using Vectorize
+      const results = await semanticSearchJobs(c.env, query, userId, limit);
+
+      // Fetch full job details from Supabase
+      const supabase = createSupabaseAdmin(c.env);
+      const jobIds = results.map((r) => r.metadata.jobId);
+
+      if (jobIds.length === 0) {
+        return c.json({
+          jobs: [],
+          searchType: 'semantic',
+          resultCount: 0,
+        });
+      }
+
+      const { data: jobs, error } = await supabase
+        .from(TABLES.JOBS)
+        .select('*')
+        .in('id', jobIds)
+        .eq('user_id', userId); // Security: ensure user owns these jobs
+
+      if (error) {
+        console.error('[JobSearch] Failed to fetch job details:', error);
+        throw new Error('Failed to fetch job details');
+      }
+
+      // Sort jobs by semantic score (maintain Vectorize ranking)
+      const jobsMap = new Map(jobs?.map((j) => [j.id, j]) || []);
+      const sortedJobs = results
+        .map((r) => jobsMap.get(r.metadata.jobId))
+        .filter(Boolean);
+
+      return c.json({
+        jobs: sortedJobs,
+        searchType: 'semantic',
+        resultCount: sortedJobs.length,
+      });
+    } else {
+      // Hybrid search using FTS5 + Vectorize
+      const results = await hybridSearchJobs(c.env, c.env.DB, query, userId, {
+        topK: limit,
+      });
+
+      // Fetch full job details from Supabase
+      const supabase = createSupabaseAdmin(c.env);
+      const jobIds = results.map((r) => r.jobId);
+
+      if (jobIds.length === 0) {
+        return c.json({
+          jobs: [],
+          searchType: 'hybrid',
+          resultCount: 0,
+        });
+      }
+
+      const { data: jobs, error } = await supabase
+        .from(TABLES.JOBS)
+        .select('*')
+        .in('id', jobIds)
+        .eq('user_id', userId); // Security: ensure user owns these jobs
+
+      if (error) {
+        console.error('[JobSearch] Failed to fetch job details:', error);
+        throw new Error('Failed to fetch job details');
+      }
+
+      // Sort jobs by combined score (maintain hybrid ranking)
+      const jobsMap = new Map(jobs?.map((j) => [j.id, j]) || []);
+      const sortedJobs = results
+        .map((r) => jobsMap.get(r.jobId))
+        .filter(Boolean);
+
+      return c.json({
+        jobs: sortedJobs,
+        searchType: 'hybrid',
+        resultCount: sortedJobs.length,
+        scores: results.map((r) => ({
+          jobId: r.jobId,
+          keywordScore: r.keywordScore,
+          semanticScore: r.semanticScore,
+          combinedScore: r.combinedScore,
+        })),
+      });
+    }
+  } catch (error) {
+    console.error('[JobSearch] Search failed:', error);
+    throw error;
+  }
+});
+
+/**
  * POST /api/jobs/scrape
  * Scrape jobs from LinkedIn and Indeed
  *
@@ -249,46 +383,24 @@ app.post('/scrape', authenticateUser, rateLimiter(), async (c) => {
     );
   }
 
-  console.log(`Scraping jobs for user ${userId}:`, parseResult.data);
+  console.log(`[Jobs] Scraping jobs for user ${userId}:`, parseResult.data);
 
-  // TODO: Implement Apify integration for Cloudflare Workers
-  // The existing jobScraper.service.ts uses Apify client which works in Workers
-  // For now, return a placeholder response
-  //
-  // When jobs are scraped and saved to the database, embeddings will be
-  // generated asynchronously using the pattern below:
-  //
-  // const supabase = createSupabaseAdmin(c.env);
-  // const createdJobs = []; // Array of jobs created from scraping
-  //
-  // // Generate embeddings asynchronously (non-blocking)
-  // c.executionCtx.waitUntil(
-  //   (async () => {
-  //     for (const job of createdJobs) {
-  //       try {
-  //         const embedding = await generateJobEmbedding(c.env, job);
-  //         await supabase
-  //           .from('jobs')
-  //           .update({ embedding: embedding })
-  //           .eq('id', job.id);
-  //         console.log(`[Embeddings] Generated embedding for job ${job.id}`);
-  //       } catch (error) {
-  //         console.error(`[Embeddings] Failed for job ${job.id}:`, error);
-  //         // Continue processing other jobs
-  //       }
-  //     }
-  //   })()
-  // );
+  try {
+    // Import and use the job scraper service (Phase 3.5)
+    const { scrapeJobs } = await import('../services/jobScraper');
 
-  const response: ScrapeJobsResponse = {
-    success: false,
-    searchId: '',
-    jobCount: 0,
-    jobs: [],
-    errors: ['Job scraping is not yet implemented for Cloudflare Workers. Coming soon!'],
-  };
+    // Scrape jobs (stores in D1 with deduplication and embeddings)
+    const result = await scrapeJobs(c.env, c.env.DB, userId, parseResult.data);
 
-  return c.json(response, 201);
+    console.log(
+      `[Jobs] Successfully scraped ${result.jobCount} jobs for user ${userId}`
+    );
+
+    return c.json(result, 201);
+  } catch (error) {
+    console.error('[Jobs] Scraping failed:', error);
+    throw error;
+  }
 });
 
 /**

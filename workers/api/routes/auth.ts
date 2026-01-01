@@ -24,7 +24,9 @@ import { createSupabaseAdmin } from '../services/supabase';
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 // OAuth state expiration (10 minutes)
+// KV TTL handles automatic cleanup (Phase 2.3)
 const STATE_EXPIRATION_MS = 10 * 60 * 1000;
+const STATE_TTL_SECONDS = 600; // 10 minutes in seconds for KV TTL
 
 // =============================================================================
 // Validation Schemas
@@ -45,25 +47,32 @@ const callbackSchema = z.object({
  * GET /api/auth/linkedin/initiate
  * Start LinkedIn OAuth flow - returns authorization URL
  * Requires authentication to link LinkedIn to existing account
+ *
+ * OAuth state storage migrated to KV (Phase 2.3):
+ * - Key: oauth:{state}
+ * - Value: JSON { userId, provider, createdAt }
+ * - TTL: 10 minutes (automatic expiry via KV)
  */
 app.get('/linkedin/initiate', authenticateUser, rateLimiter({ maxRequests: 5, windowMs: 15 * 60 * 1000 }), async (c) => {
   const userId = getUserId(c);
-  const supabase = createSupabaseAdmin(c.env);
 
   if (!c.env.LINKEDIN_CLIENT_ID) {
     throw new HttpError(503, 'LinkedIn integration is not configured', 'LINKEDIN_NOT_CONFIGURED');
   }
 
-  // Generate and store state token for CSRF protection
+  // Generate state token for CSRF protection
   const state = crypto.randomUUID() + '-' + Date.now().toString(36);
   const expiresAt = new Date(Date.now() + STATE_EXPIRATION_MS);
 
-  await supabase.from(TABLES.OAUTH_STATES).insert({
-    user_id: userId,
+  // Store state in KV with automatic 10-minute expiry
+  const stateData = {
+    userId,
     provider: 'linkedin',
-    state,
-    expires_at: expiresAt.toISOString(),
-    created_at: new Date().toISOString(),
+    createdAt: new Date().toISOString(),
+  };
+
+  await c.env.OAUTH_STATES.put(`oauth:${state}`, JSON.stringify(stateData), {
+    expirationTtl: STATE_TTL_SECONDS, // 10 minutes
   });
 
   // Build LinkedIn authorization URL
@@ -74,7 +83,7 @@ app.get('/linkedin/initiate', authenticateUser, rateLimiter({ maxRequests: 5, wi
   authUrl.searchParams.set('state', state);
   authUrl.searchParams.set('scope', 'openid profile email');
 
-  console.log(`LinkedIn auth initiated for user ${userId}`);
+  console.log(`[OAuth] LinkedIn auth initiated for user ${userId}, state stored in KV`);
 
   return c.json({
     authUrl: authUrl.toString(),
@@ -89,8 +98,6 @@ app.get('/linkedin/initiate', authenticateUser, rateLimiter({ maxRequests: 5, wi
  * Exchanges code for access token and imports profile data
  */
 app.get('/linkedin/callback', ipRateLimiter(10, 15 * 60 * 1000), async (c) => {
-  const supabase = createSupabaseAdmin(c.env);
-
   // Handle OAuth errors from LinkedIn
   if (c.req.query('error')) {
     console.warn('LinkedIn OAuth error:', c.req.query('error'), c.req.query('error_description'));
@@ -112,47 +119,46 @@ app.get('/linkedin/callback', ipRateLimiter(10, 15 * 60 * 1000), async (c) => {
 
   const { code, state } = parseResult.data;
 
-  // Verify state token
-  const { data: stateRecord, error: stateError } = await supabase
-    .from(TABLES.OAUTH_STATES)
-    .select('*')
-    .eq('state', state)
-    .eq('provider', 'linkedin')
-    .single();
+  // Verify state token from KV (Phase 2.3)
+  const stateKey = `oauth:${state}`;
+  const stateJson = await c.env.OAUTH_STATES.get(stateKey);
 
-  if (stateError || !stateRecord) {
-    console.warn('Invalid state token:', state.substring(0, 20));
+  if (!stateJson) {
+    console.warn('[OAuth] Invalid or expired state token:', state.substring(0, 20));
     return redirectWithError(c, 'invalid_state');
   }
 
-  // Check if state is expired
-  if (new Date(stateRecord.expires_at) < new Date()) {
-    console.warn('Expired state token');
-    await supabase.from(TABLES.OAUTH_STATES).delete().eq('id', stateRecord.id);
-    return redirectWithError(c, 'expired_state');
+  const stateData = JSON.parse(stateJson) as { userId: string; provider: string; createdAt: string };
+
+  // Verify provider matches
+  if (stateData.provider !== 'linkedin') {
+    console.warn('[OAuth] State token provider mismatch');
+    return redirectWithError(c, 'invalid_state');
   }
 
-  const userId = stateRecord.user_id;
+  const userId = stateData.userId;
 
-  // Delete used state token
-  await supabase.from(TABLES.OAUTH_STATES).delete().eq('id', stateRecord.id);
+  // Delete used state token from KV
+  await c.env.OAUTH_STATES.delete(stateKey);
+  console.log(`[OAuth] State token verified and deleted for user ${userId}`);
 
   try {
     // Exchange code for access token
     const tokenData = await exchangeCodeForToken(c.env, code);
     if (!tokenData?.access_token) {
-      console.error('Token exchange failed');
+      console.error('[OAuth] Token exchange failed');
       return redirectWithError(c, 'token_exchange_failed');
     }
 
     // Fetch LinkedIn profile
     const profileData = await fetchLinkedInProfile(tokenData.access_token);
     if (!profileData) {
-      console.error('Profile fetch failed');
+      console.error('[OAuth] Profile fetch failed');
       return redirectWithError(c, 'profile_fetch_failed');
     }
 
-    // Import profile to database
+    // Import profile to database (still uses Supabase for user data)
+    const supabase = createSupabaseAdmin(c.env);
     await importProfileToDatabase(supabase, userId, profileData);
 
     console.log(`Successfully imported LinkedIn data for user ${userId}`);

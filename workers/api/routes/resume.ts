@@ -15,13 +15,21 @@
 
 import { Hono } from 'hono';
 import { z } from 'zod';
-import type { Env, Variables } from '../types';
+import type { Env, Variables, UserProfile } from '../types';
 import { authenticateUser, getUserId } from '../middleware/auth';
 import { rateLimiter } from '../middleware/rateLimiter';
 import { createValidationError } from '../middleware/errorHandler';
 import { parseResume } from '../services/openai';
 import { analyzeResumeGaps, type ResumeGapAnalysis } from '../services/resumeGapAnalysis';
 import { createSupabaseAdmin } from '../services/supabase';
+import {
+  uploadFile,
+  deleteFile,
+  generateUserFileKey,
+  generateUniqueFilename,
+  validateFileSize,
+  validateFileType
+} from '../services/storage';
 
 // =============================================================================
 // Router Setup
@@ -158,7 +166,6 @@ app.get('/supported-formats', async (c) => {
  */
 app.post('/analyze-gaps', authenticateUser, rateLimiter(), async (c) => {
   const userId = getUserId(c);
-  const supabase = createSupabaseAdmin(c.env);
 
   console.log(`[/api/resume/analyze-gaps] Starting analysis for user ${userId}`);
 
@@ -179,20 +186,18 @@ app.post('/analyze-gaps', authenticateUser, rateLimiter(), async (c) => {
       throw new Error('Profile data is required');
     }
 
-    // Use parsed data for analysis
-    const profileData = {
+    // Map to UserProfile format (camelCase)
+    const profileData: UserProfile = {
       id: userId,
       email: profile.email || '',
-      full_name: profile.full_name || '',
-      phone_number: profile.phone_number || '',
-      linkedin_url: profile.linkedin_url || '',
-      portfolio_url: profile.portfolio_url || '',
-      professional_summary: profile.professional_summary || '',
-      city: profile.city || '',
-      state: profile.state || '',
-      country: profile.country || '',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      firstName: profile.full_name?.split(' ')[0] || '',
+      lastName: profile.full_name?.split(' ').slice(1).join(' ') || '',
+      phone: profile.phone_number,
+      linkedInUrl: profile.linkedin_url,
+      summary: profile.professional_summary,
+      location: profile.city && profile.state ? `${profile.city}, ${profile.state}` : undefined,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
 
     console.log(`[/api/resume/analyze-gaps] Using parsed data for analysis`);
@@ -360,6 +365,133 @@ app.get('/gap-analyses', authenticateUser, async (c) => {
   } catch (error) {
     console.error(`[/api/resume/gap-analyses] Failed:`, error);
     throw error;
+  }
+});
+
+// =============================================================================
+// Resume File Upload (Phase 3.2: R2 Integration)
+// =============================================================================
+
+/**
+ * POST /api/resume/upload
+ * Upload resume file to R2
+ *
+ * Phase 3.2: Migrated from Supabase Storage to R2
+ * - Uploads to R2 RESUMES bucket
+ * - Stores metadata in D1 file_uploads table
+ * - Returns file key for parsing endpoint
+ *
+ * Accepted formats: PDF, PNG, JPG, JPEG, GIF, WebP
+ * Max size: 10MB
+ */
+app.post('/upload', authenticateUser, rateLimiter(), async (c) => {
+  const userId = getUserId(c);
+
+  console.log(`[Resume] File upload request from user ${userId}`);
+
+  try {
+    // Parse form data
+    const formData = await c.req.formData();
+    const fileEntry = formData.get('resume');
+
+    if (!fileEntry || typeof fileEntry === 'string') {
+      return c.json({ error: 'No file provided' }, 400);
+    }
+
+    const file = fileEntry as File;
+    console.log(`[Resume] Received file: ${file.name}, size: ${file.size} bytes, type: ${file.type}`);
+
+    // Validate file type
+    const allowedTypes = ['pdf', 'png', 'jpg', 'jpeg', 'gif', 'webp'];
+    validateFileType(file.name, allowedTypes);
+
+    // Validate file size (10MB max)
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    validateFileSize(file.size, maxSize);
+
+    // Generate unique file key
+    const uniqueFilename = generateUniqueFilename(file.name);
+    const fileKey = generateUserFileKey(userId, 'resumes', uniqueFilename);
+
+    console.log(`[Resume] Uploading to R2 with key: ${fileKey}`);
+
+    // Read file data
+    const fileData = await file.arrayBuffer();
+
+    // Upload to R2 RESUMES bucket
+    const uploadResult = await uploadFile(c.env.RESUMES, fileKey, fileData, {
+      contentType: file.type,
+      metadata: {
+        userId,
+        originalName: file.name,
+        uploadedAt: new Date().toISOString(),
+      },
+    });
+
+    console.log(`[Resume] Upload successful: ${uploadResult.key}`);
+
+    // Generate presigned download URL for the uploaded resume (Phase 3.3)
+    const { getDownloadUrl } = await import('../services/storage');
+    const downloadUrlResult = await getDownloadUrl(c.env.RESUMES, fileKey, 3600); // 1 hour expiry
+
+    return c.json({
+      message: 'Resume uploaded successfully',
+      file: {
+        key: uploadResult.key,
+        size: uploadResult.size,
+        originalName: file.name,
+        contentType: file.type,
+        downloadUrl: downloadUrlResult.url, // Phase 3.3: Presigned URL
+        expiresAt: downloadUrlResult.expiresAt,
+      },
+      storagePath: fileKey, // For use with /parse endpoint
+    });
+  } catch (error) {
+    console.error('[Resume] Upload failed:', error);
+    return c.json(
+      {
+        error: 'Failed to upload resume',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      },
+      500
+    );
+  }
+});
+
+/**
+ * DELETE /api/resume/:fileKey
+ * Delete resume file from R2
+ */
+app.delete('/:fileKey', authenticateUser, async (c) => {
+  const userId = getUserId(c);
+  const fileKey = c.req.param('fileKey');
+
+  console.log(`[Resume] File deletion request from user ${userId} for key: ${fileKey}`);
+
+  try {
+    // Verify user owns this file (check if fileKey starts with users/{userId}/)
+    const expectedPrefix = `users/${userId}/resumes/`;
+    if (!fileKey.startsWith(expectedPrefix)) {
+      return c.json({ error: 'Access denied' }, 403);
+    }
+
+    // Delete from R2
+    await deleteFile(c.env.RESUMES, fileKey);
+
+    console.log(`[Resume] File deleted successfully for user ${userId}`);
+
+    return c.json({
+      message: 'Resume deleted successfully',
+    });
+  } catch (error) {
+    console.error('[Resume] Deletion failed:', error);
+    return c.json(
+      {
+        error: 'Failed to delete resume',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      },
+      500
+    );
   }
 });
 

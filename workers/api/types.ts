@@ -9,6 +9,10 @@
  */
 
 import type { Context } from 'hono';
+import type {
+  R2Bucket,
+  D1Database,
+} from '@cloudflare/workers-types';
 
 // =============================================================================
 // Cloudflare Workers Environment Bindings
@@ -48,38 +52,153 @@ export interface Env {
   AI_GATEWAY_SLUG?: string;
   CF_AIG_TOKEN?: string; // AI Gateway authentication token
 
-  // Cloudflare KV Namespaces
-  JOB_ANALYSIS_CACHE?: KVNamespace; // Job compatibility analysis cache (7-day TTL)
+  // Cloudflare KV Namespaces (6 total per environment)
+  JOB_ANALYSIS_CACHE: KVNamespace; // Job compatibility analysis cache (7-day TTL)
+  SESSIONS: KVNamespace; // Active user sessions with device info
+  RATE_LIMITS: KVNamespace; // Rate limiting tracking (IP-based + user-based)
+  OAUTH_STATES: KVNamespace; // OAuth state/nonce storage for CSRF protection
+  EMBEDDINGS_CACHE: KVNamespace; // Cached job embeddings (768-dim vectors)
+  AI_GATEWAY_CACHE: KVNamespace; // AI Gateway response cache
+
+  // Cloudflare D1 Database (SQLite at the edge)
+  // Configured per environment: jobmatch-dev, jobmatch-staging, jobmatch-prod
+  DB: D1Database;
+
+  // Cloudflare Vectorize (vector database for semantic search)
+  // 768 dimensions (Workers AI BGE-base-en-v1.5 embeddings)
+  // Cosine similarity metric
+  VECTORIZE: Vectorize;
+
+  // Cloudflare R2 Storage Buckets (object storage)
+  AVATARS: R2Bucket; // User profile photos (public read access)
+  RESUMES: R2Bucket; // Resume files (private, signed URLs)
+  EXPORTS: R2Bucket; // Generated exports (PDF/DOCX, short-lived)
 
   // Cloudflare Workers AI binding
   // Configured in wrangler.toml [ai] binding = "AI"
   // Used for:
   // - Semantic embeddings: @cf/baai/bge-base-en-v1.5 (768-dimensional vectors)
   // - Job compatibility analysis: @cf/meta/llama-3.1-8b-instruct (text generation with JSON mode)
+  // - Resume parsing: @cf/meta/llama-3.3-70b-instruct-fp8-fast (text generation)
   // Type: Ai from @cloudflare/workers-types
   AI: {
+    // Overload for embedding models (returns shape + data)
+    run(
+      model: '@cf/baai/bge-base-en-v1.5',
+      inputs: { text: string[] }
+    ): Promise<{ shape: number[]; data: number[][] }>;
+
+    // Overload for text generation models (returns response)
     run(
       model: string,
-      inputs:
-        | { text: string[] } // For embeddings
-        | { // For text generation with JSON mode
-            messages: { role: string; content: string }[];
-            temperature?: number;
-            max_tokens?: number;
-            response_format?: { type: 'json_object' };
-          }
-    ): Promise<
-      | { shape: number[]; data: number[][] } // Embeddings response
-      | { response: string } // Text generation response
-    >;
+      inputs: {
+        messages: { role: string; content: string }[];
+        temperature?: number;
+        max_tokens?: number;
+        response_format?: { type: 'json_object' };
+      }
+    ): Promise<{ response: string }>;
+
+    // Fallback overload for any other model
+    run(model: string, inputs: any): Promise<any>;
   };
 
-  // Rate Limiting (future KV namespace)
-  // RATE_LIMITS?: KVNamespace;
-
-  // D1 Database (future)
-  // DB?: D1Database;
+  // PDF Parser Service (Railway deployment for PDF text extraction)
+  // External service used by resume parsing: https://jobmatch-pdf-parser.railway.app
+  PDF_PARSER_SERVICE_URL?: string;
 }
+
+// =============================================================================
+// Cloudflare Type Imports (from @cloudflare/workers-types)
+// =============================================================================
+
+/**
+ * KV Namespace for key-value storage
+ * Documentation: https://developers.cloudflare.com/kv/
+ */
+interface KVNamespace {
+  get(key: string, options?: { type: 'text' }): Promise<string | null>;
+  get(key: string, options: { type: 'json' }): Promise<unknown | null>;
+  get(key: string, options: { type: 'arrayBuffer' }): Promise<ArrayBuffer | null>;
+  get(key: string, options: { type: 'stream' }): Promise<ReadableStream | null>;
+  put(key: string, value: string | ArrayBuffer | ReadableStream, options?: KVPutOptions): Promise<void>;
+  delete(key: string): Promise<void>;
+  list(options?: KVListOptions): Promise<KVListResult>;
+}
+
+interface KVPutOptions {
+  expiration?: number;
+  expirationTtl?: number;
+  metadata?: Record<string, unknown>;
+}
+
+interface KVListOptions {
+  prefix?: string;
+  limit?: number;
+  cursor?: string;
+}
+
+interface KVListResult {
+  keys: { name: string; expiration?: number; metadata?: Record<string, unknown> }[];
+  list_complete: boolean;
+  cursor?: string;
+}
+
+// D1 types are now imported from @cloudflare/workers-types (see imports above)
+
+/**
+ * Vectorize Index for vector database operations
+ * Documentation: https://developers.cloudflare.com/vectorize/
+ */
+interface Vectorize {
+  insert(vectors: VectorizeVector[]): Promise<VectorizeInsertResult>;
+  upsert(vectors: VectorizeVector[]): Promise<VectorizeUpsertResult>;
+  query(vector: number[], options?: VectorizeQueryOptions): Promise<VectorizeMatches>;
+  getByIds(ids: string[]): Promise<VectorizeVector[]>;
+  deleteByIds(ids: string[]): Promise<VectorizeDeleteResult>;
+}
+
+interface VectorizeVector {
+  id: string;
+  values: number[];
+  metadata?: Record<string, string | number | boolean>;
+}
+
+interface VectorizeQueryOptions {
+  topK?: number;
+  filter?: Record<string, string | number | boolean>;
+  returnValues?: boolean;
+  returnMetadata?: boolean;
+}
+
+interface VectorizeMatches {
+  matches: VectorizeMatch[];
+  count: number;
+}
+
+interface VectorizeMatch {
+  id: string;
+  score: number;
+  values?: number[];
+  metadata?: Record<string, string | number | boolean>;
+}
+
+interface VectorizeInsertResult {
+  ids: string[];
+  count: number;
+}
+
+interface VectorizeUpsertResult {
+  ids: string[];
+  count: number;
+}
+
+interface VectorizeDeleteResult {
+  ids: string[];
+  count: number;
+}
+
+// R2 types are now imported from @cloudflare/workers-types (see imports above)
 
 /**
  * Hono Context with our environment bindings

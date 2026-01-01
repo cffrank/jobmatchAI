@@ -12,6 +12,14 @@ import { authenticateUser, getUserId } from '../middleware/auth';
 import { createSupabaseAdmin } from '../services/supabase';
 import { updateUserResumeEmbedding } from '../services/embeddings';
 import { invalidateCacheForUser } from '../services/jobAnalysisCache';
+import {
+  uploadFile,
+  deleteFile,
+  generateUserFileKey,
+  generateUniqueFilename,
+  validateFileSize,
+  validateFileType
+} from '../services/storage';
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -458,6 +466,174 @@ app.delete('/skills/:id', authenticateUser, async (c) => {
     return c.json(
       {
         error: 'Failed to delete skill',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      },
+      500
+    );
+  }
+});
+
+// =============================================================================
+// Avatar Upload (Phase 3.2: R2 Integration)
+// =============================================================================
+
+/**
+ * POST /api/profile/avatar
+ * Upload user avatar to R2
+ *
+ * Phase 3.2: Migrated from Supabase Storage to R2
+ * - Uploads to R2 AVATARS bucket
+ * - Stores metadata in D1 file_uploads table
+ * - Returns presigned URL for avatar access (Phase 3.3)
+ *
+ * Accepted formats: JPEG, PNG, WebP, GIF
+ * Max size: 5MB
+ */
+app.post('/avatar', authenticateUser, async (c) => {
+  const userId = getUserId(c);
+
+  console.log(`[Profile] Avatar upload request from user ${userId}`);
+
+  try {
+    // Parse form data
+    const formData = await c.req.formData();
+    const fileEntry = formData.get('avatar');
+
+    if (!fileEntry || typeof fileEntry === 'string') {
+      return c.json({ error: 'No file provided' }, 400);
+    }
+
+    const file = fileEntry as File;
+    console.log(`[Profile] Received file: ${file.name}, size: ${file.size} bytes, type: ${file.type}`);
+
+    // Validate file type
+    const allowedTypes = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
+    validateFileType(file.name, allowedTypes);
+
+    // Validate file size (5MB max)
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    validateFileSize(file.size, maxSize);
+
+    // Generate unique file key
+    const uniqueFilename = generateUniqueFilename(file.name);
+    const fileKey = generateUserFileKey(userId, 'profile', uniqueFilename);
+
+    console.log(`[Profile] Uploading to R2 with key: ${fileKey}`);
+
+    // Read file data
+    const fileData = await file.arrayBuffer();
+
+    // Upload to R2 AVATARS bucket
+    const uploadResult = await uploadFile(c.env.AVATARS, fileKey, fileData, {
+      contentType: file.type,
+      metadata: {
+        userId,
+        originalName: file.name,
+        uploadedAt: new Date().toISOString(),
+      },
+    });
+
+    console.log(`[Profile] Upload successful: ${uploadResult.key}`);
+
+    // Generate presigned download URL for the uploaded avatar
+    const { getDownloadUrl } = await import('../services/storage');
+    const downloadUrlResult = await getDownloadUrl(c.env.AVATARS, fileKey, 86400); // 24 hour expiry for avatars
+
+    // Update user profile with avatar download URL (Phase 3.3: Using presigned URL)
+    const supabase = createSupabaseAdmin(c.env);
+    const { data: updatedProfile, error: updateError } = await supabase
+      .from('users')
+      .update({
+        photo_url: downloadUrlResult.url, // Phase 3.3: Presigned download URL
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', userId)
+      .select()
+      .single();
+
+    if (updateError) {
+      console.error('[Profile] Failed to update profile with avatar URL:', updateError);
+      // Clean up uploaded file
+      await deleteFile(c.env.AVATARS, fileKey);
+      throw new Error('Failed to update profile');
+    }
+
+    console.log(`[Profile] Avatar uploaded successfully for user ${userId}`);
+
+    return c.json({
+      message: 'Avatar uploaded successfully',
+      file: {
+        key: uploadResult.key,
+        size: uploadResult.size,
+        url: downloadUrlResult.url, // Phase 3.3: Presigned URL for secure access
+        expiresAt: downloadUrlResult.expiresAt,
+      },
+      profile: updatedProfile,
+    });
+  } catch (error) {
+    console.error('[Profile] Avatar upload failed:', error);
+    return c.json(
+      {
+        error: 'Failed to upload avatar',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      },
+      500
+    );
+  }
+});
+
+/**
+ * DELETE /api/profile/avatar
+ * Delete user avatar from R2
+ */
+app.delete('/avatar', authenticateUser, async (c) => {
+  const userId = getUserId(c);
+
+  console.log(`[Profile] Avatar deletion request from user ${userId}`);
+
+  try {
+    const supabase = createSupabaseAdmin(c.env);
+
+    // Get current avatar URL
+    const { data: profile, error: fetchError } = await supabase
+      .from('users')
+      .select('photo_url')
+      .eq('id', userId)
+      .single();
+
+    if (fetchError || !profile?.photo_url) {
+      return c.json({ error: 'No avatar found' }, 404);
+    }
+
+    const fileKey = profile.photo_url;
+
+    // Delete from R2
+    await deleteFile(c.env.AVATARS, fileKey);
+
+    // Update profile
+    const { error: updateError } = await supabase
+      .from('users')
+      .update({
+        photo_url: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', userId);
+
+    if (updateError) {
+      console.error('[Profile] Failed to update profile after avatar deletion:', updateError);
+      throw new Error('Failed to update profile');
+    }
+
+    console.log(`[Profile] Avatar deleted successfully for user ${userId}`);
+
+    return c.json({
+      message: 'Avatar deleted successfully',
+    });
+  } catch (error) {
+    console.error('[Profile] Avatar deletion failed:', error);
+    return c.json(
+      {
+        error: 'Failed to delete avatar',
         message: error instanceof Error ? error.message : 'Unknown error',
       },
       500

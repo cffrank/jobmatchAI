@@ -1,385 +1,689 @@
-# JobMatch AI - Cloudflare Workers Backend
+# Cloudflare Workers Backend - Manual Testing Guide
 
-This directory contains the Cloudflare Workers implementation of the JobMatch AI backend, migrated from Express.js/Railway to run on Cloudflare's edge network using the Hono framework.
-
-## Architecture Overview
-
-```
-workers/
-├── api/
-│   ├── index.ts              # Main Hono application & Workers entry point
-│   ├── types.ts              # TypeScript types & environment bindings
-│   ├── middleware/
-│   │   ├── auth.ts           # JWT authentication via Supabase
-│   │   ├── rateLimiter.ts    # PostgreSQL-backed rate limiting
-│   │   └── errorHandler.ts   # Global error handling
-│   ├── routes/
-│   │   ├── applications.ts   # AI-powered resume generation
-│   │   ├── jobs.ts           # Job listing & management
-│   │   ├── emails.ts         # SendGrid email integration
-│   │   ├── auth.ts           # LinkedIn OAuth flow
-│   │   ├── exports.ts        # PDF/DOCX export (client-side assisted)
-│   │   └── resume.ts         # Resume parsing via Vision API
-│   └── services/
-│       ├── openai.ts         # OpenAI GPT-4o & Vision API
-│       └── supabase.ts       # Supabase client factories
-├── scheduled/
-│   └── index.ts              # Cron-triggered background jobs
-├── wrangler.toml             # Cloudflare Workers configuration
-├── .dev.vars.example         # Environment variables template
-├── package.json              # Workers-specific dependencies
-└── README.md                 # This file
-```
+This guide provides step-by-step instructions for testing all Workers functionality.
 
 ## Prerequisites
 
-- Node.js >= 18.0.0
-- Cloudflare account
-- Wrangler CLI (`npm install -g wrangler`)
-- Supabase project with database and storage configured
-- OpenAI API key
-- SendGrid API key (optional, for email features)
-- LinkedIn Developer App (optional, for LinkedIn OAuth)
+1. **Environment Setup:**
+   ```bash
+   cd workers
+   npm install
+   wrangler login
+   ```
 
-## Quick Start
+2. **Environment Variables (.dev.vars.development):**
+   ```bash
+   SUPABASE_URL=https://your-project.supabase.co
+   SUPABASE_ANON_KEY=your-anon-key
+   SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+   OPENAI_API_KEY=your-openai-key
+   SENDGRID_API_KEY=your-sendgrid-key
+   APIFY_API_TOKEN=your-apify-token
+   APP_URL=http://localhost:5173
+   ```
 
-### 1. Install Dependencies
+3. **Start Development Server:**
+   ```bash
+   npm run dev
+   ```
+
+   Server will run on: `http://localhost:8787`
+
+---
+
+## Test 1: Authentication Flow ✓
+
+**Objective:** Verify Supabase Auth + Workers JWT validation + D1 profile storage
+
+### Step 1.1: Create Test User via Supabase Auth
+
+**Method:** Use Supabase Dashboard or CLI
 
 ```bash
-cd workers
-npm install
+# Via Supabase CLI (if available)
+supabase auth users create test@example.com --password Test123456!
+
+# OR use Supabase Dashboard:
+# 1. Go to Authentication > Users
+# 2. Click "Add User"
+# 3. Enter email: test@example.com
+# 4. Enter password: Test123456!
 ```
 
-### 2. Configure Environment Variables
+**Expected:** User created successfully, receives confirmation email
 
-Copy the example environment file and fill in your values:
+### Step 1.2: Get JWT Token
 
-```bash
-cp .dev.vars.example .dev.vars
-```
-
-Required variables:
-- `SUPABASE_URL` - Your Supabase project URL
-- `SUPABASE_ANON_KEY` - Supabase anonymous/public key
-- `SUPABASE_SERVICE_ROLE_KEY` - Supabase service role key (secret)
-- `OPENAI_API_KEY` - Your OpenAI API key
-- `APP_URL` - Frontend application URL (for CORS)
-
-Optional variables:
-- `SENDGRID_API_KEY` - For email sending functionality
-- `SENDGRID_FROM_EMAIL` - Default sender email address
-- `LINKEDIN_CLIENT_ID` - LinkedIn OAuth client ID
-- `LINKEDIN_CLIENT_SECRET` - LinkedIn OAuth client secret
-- `LINKEDIN_REDIRECT_URI` - LinkedIn OAuth callback URL
-- `APIFY_API_TOKEN` - For job scraping (not yet implemented)
-
-### 3. Start Development Server
+**Method:** Login via Supabase Auth
 
 ```bash
-npm run dev
-```
-
-This starts a local development server at `http://localhost:8787`.
-
-### 4. Test the API
-
-```bash
-# Health check
-curl http://localhost:8787/health
-
-# API documentation (development only)
-curl http://localhost:8787/api
-```
-
-## New Features ✨
-
-### Resume Gap Analysis
-Automatically analyzes your resume/profile for gaps and generates targeted questions to help you strengthen it.
-
-**How it works:**
-1. AI analyzes your current profile (work experience, education, skills)
-2. Identifies gaps (missing info) and red flags (concerning patterns)
-3. Generates 5-10 targeted questions to fill those gaps
-4. You answer the questions to improve your profile
-5. Tracks your progress (% of questions answered)
-
-**Powered by:** Workers AI (Llama 3.3 70B) - 100% free, no external API costs
-
-**Example:**
-```bash
-# Analyze your resume
-curl -X POST http://localhost:8787/api/resume/analyze-gaps \
-  -H "Authorization: Bearer YOUR_TOKEN"
-
-# Answer a question
-curl -X PATCH http://localhost:8787/api/resume/gap-analysis/abc123/answer \
-  -H "Authorization: Bearer YOUR_TOKEN" \
+curl -X POST https://your-project.supabase.co/auth/v1/token \
+  -H "apikey: YOUR_ANON_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"question_id": 1, "answer": "I was consulting from 2020-2024 while building my business..."}'
+  -d '{
+    "email": "test@example.com",
+    "password": "Test123456!",
+    "gotrue_meta_security": {}
+  }'
 ```
 
-**Analysis Output:**
-- Overall assessment with urgency level (CRITICAL, HIGH, MEDIUM, LOW)
-- Identified gaps with severity ratings
-- 5-10 questions to strengthen your profile
-- Immediate action recommendations
-- Long-term improvement suggestions
+**Expected Response:**
+```json
+{
+  "access_token": "eyJhbGci...",
+  "token_type": "bearer",
+  "expires_in": 3600,
+  "user": { "id": "uuid-here", "email": "test@example.com" }
+}
+```
 
-### 10-Dimension Job Compatibility Scoring
-Enhanced job matching with comprehensive scoring across 10 dimensions:
+Save the `access_token` for subsequent tests.
 
-1. **Skill Match** (30% weight) - Technical skills alignment
-2. **Industry Match** (15% weight) - Domain experience
-3. **Experience Level** (20% weight) - Years and complexity
-4. **Location Match** (10% weight) - Geographic compatibility
-5. **Seniority Level** (5% weight) - Career level appropriateness
-6. **Education/Certification** (5% weight) - Formal credentials
-7. **Soft Skills & Leadership** (5% weight) - Communication, teamwork
-8. **Employment Stability** (5% weight) - Job tenure patterns
-9. **Growth Potential** (3% weight) - Learning agility
-10. **Company Scale** (2% weight) - Startup vs enterprise fit
+### Step 1.3: Validate JWT via Workers
 
-**Scoring Tiers:**
-- 80-100: **Strong Match** (highly recommend)
-- 65-79: **Good Match** (recommend with minor reservations)
-- 50-64: **Moderate Match** (notable gaps to address)
-- 35-49: **Weak Match** (significant concerns)
-- 0-34: **Poor Match** (not recommended)
-
-**Powered by:** Workers AI (Llama 3.3 70B) - 100% free
-
-## Deployment
-
-### Configure Secrets
-
-Before deploying, add your secrets to Cloudflare:
+**Method:** Call Workers with JWT token
 
 ```bash
-# Required secrets
-wrangler secret put SUPABASE_URL
-wrangler secret put SUPABASE_ANON_KEY
-wrangler secret put SUPABASE_SERVICE_ROLE_KEY
-wrangler secret put OPENAI_API_KEY
-wrangler secret put APP_URL
+export TOKEN="eyJhbGci..." # Use token from Step 1.2
 
-# Optional secrets
-wrangler secret put SENDGRID_API_KEY
-wrangler secret put SENDGRID_FROM_EMAIL
-wrangler secret put LINKEDIN_CLIENT_ID
-wrangler secret put LINKEDIN_CLIENT_SECRET
-wrangler secret put LINKEDIN_REDIRECT_URI
-wrangler secret put APIFY_API_TOKEN
+curl http://localhost:8787/api/profile \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
-### Deploy to Production
+**Expected Response:**
+```json
+{
+  "id": "uuid-here",
+  "email": "test@example.com",
+  "firstName": "Test",
+  "lastName": "User",
+  "createdAt": "2025-01-01T00:00:00Z"
+}
+```
+
+### Step 1.4: Verify Profile in D1
+
+**Method:** Query D1 database
 
 ```bash
-# Deploy to production
-npm run deploy
-
-# Or deploy to specific environment
-npm run deploy:staging
-npm run deploy:production
+wrangler d1 execute jobmatch-dev \
+  --command "SELECT id, email, first_name, last_name FROM users WHERE email='test@example.com'"
 ```
 
-### Environment-Specific Deployments
+**Expected:** User profile exists in D1 with correct data
+
+### Test 1 Results:
+- [ ] User created via Supabase Auth
+- [ ] JWT token issued by Supabase
+- [ ] Workers middleware validates token
+- [ ] User profile stored in D1
+- [ ] Profile endpoint returns user data
+
+---
+
+## Test 2: File Uploads to R2 ✓
+
+**Objective:** Verify R2 storage + metadata in D1 + authenticated downloads
+
+### Step 2.1: Upload Avatar to R2
+
+**Method:** POST multipart/form-data
 
 ```bash
-# Development
-wrangler deploy --env development
-
-# Staging
-wrangler deploy --env staging
-
-# Production
-wrangler deploy --env production
+curl http://localhost:8787/api/profile/avatar \
+  -H "Authorization: Bearer $TOKEN" \
+  -F "avatar=@/path/to/avatar.png"
 ```
 
-## API Endpoints
+**Expected Response:**
+```json
+{
+  "url": "https://r2-url/avatars/user-id/avatar.png",
+  "key": "avatars/user-id/avatar.png"
+}
+```
 
-### Health & Documentation
+### Step 2.2: Verify Avatar in R2
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/health` | GET | Health check |
-| `/api` | GET | API documentation (dev only) |
+```bash
+wrangler r2 object get jobmatch-ai-dev-avatars/avatars/user-id/avatar.png
+```
 
-### Applications
+**Expected:** File downloaded successfully
 
-| Endpoint | Method | Auth | Description |
-|----------|--------|------|-------------|
-| `/api/applications/generate` | POST | Required | Generate AI resume variants |
-| `/api/applications` | GET | Required | List user applications |
-| `/api/applications/:id` | GET | Required | Get single application |
-| `/api/applications/:id` | PATCH | Required | Update application |
-| `/api/applications/:id` | DELETE | Required | Delete application |
+### Step 2.3: Upload Resume to R2
 
-### Jobs
+```bash
+curl http://localhost:8787/api/resume/upload \
+  -H "Authorization: Bearer $TOKEN" \
+  -F "resume=@/path/to/resume.pdf"
+```
 
-| Endpoint | Method | Auth | Description |
-|----------|--------|------|-------------|
-| `/api/jobs` | GET | Required | List jobs with filters |
-| `/api/jobs/:id` | GET | Required | Get single job |
-| `/api/jobs/:id` | PATCH | Required | Update job (save/archive) |
-| `/api/jobs/:id` | DELETE | Required | Delete job |
-| `/api/jobs/scrape` | POST | Required | Scrape jobs (coming soon) |
+**Expected Response:**
+```json
+{
+  "id": "resume-uuid",
+  "filename": "resume.pdf",
+  "url": "https://r2-url/resumes/user-id/resume.pdf",
+  "parsedData": { ... }
+}
+```
 
-### Emails
+### Step 2.4: Verify Resume Metadata in D1
 
-| Endpoint | Method | Auth | Description |
-|----------|--------|------|-------------|
-| `/api/emails/send` | POST | Required | Send application email |
-| `/api/emails/history` | GET | Required | Get email history |
-| `/api/emails/remaining` | GET | Required | Get remaining quota |
+```bash
+wrangler d1 execute jobmatch-dev \
+  --command "SELECT id, user_id, filename, file_size FROM resumes WHERE user_id='user-id'"
+```
 
-### Authentication
+**Expected:** Resume record with correct metadata
 
-| Endpoint | Method | Auth | Description |
-|----------|--------|------|-------------|
-| `/api/auth/linkedin/initiate` | GET | Required | Start LinkedIn OAuth |
-| `/api/auth/linkedin/callback` | GET | None | OAuth callback handler |
+### Step 2.5: Test File Size Validation
 
-### Exports
+```bash
+# Create 11MB file (exceeds 10MB limit)
+dd if=/dev/zero of=/tmp/large.pdf bs=1M count=11
 
-| Endpoint | Method | Auth | Description |
-|----------|--------|------|-------------|
-| `/api/exports/pdf` | POST | Required | Export as PDF (client-side) |
-| `/api/exports/docx` | POST | Required | Export as DOCX (client-side) |
-| `/api/exports/text` | POST | Required | Export as plain text |
+curl http://localhost:8787/api/resume/upload \
+  -H "Authorization: Bearer $TOKEN" \
+  -F "resume=@/tmp/large.pdf"
+```
 
-### Resume
+**Expected Response:** 400 Bad Request with "File size exceeds limit" message
 
-| Endpoint | Method | Auth | Description |
-|----------|--------|------|-------------|
-| `/api/resume/parse` | POST | Required | Parse resume with Vision API |
-| `/api/resume/analyze-gaps` | POST | Required | Analyze resume for gaps |
-| `/api/resume/gap-analysis/:id` | GET | Required | Get gap analysis by ID |
-| `/api/resume/gap-analysis/:id/answer` | PATCH | Required | Answer gap analysis question |
-| `/api/resume/gap-analyses` | GET | Required | List all gap analyses |
-| `/api/resume/supported-formats` | GET | None | List supported formats |
+### Test 2 Results:
+- [ ] Avatar uploaded to R2 AVATARS bucket
+- [ ] Resume uploaded to R2 RESUMES bucket
+- [ ] Metadata saved in D1
+- [ ] File size validation works
+- [ ] File type validation works
+- [ ] Download URLs generated
 
-## Rate Limits
+---
 
-| Scope | Limit | Window |
-|-------|-------|--------|
-| Global (IP-based) | 100 requests | 1 minute |
-| Email sending | 10 emails | 1 hour |
-| AI generation | 20 generations | 1 hour |
-| Job scraping | 10 scrapes | 1 hour |
-| Exports | 30 exports | 1 hour |
+## Test 3: Job Search with Vectorize ✓
 
-## Scheduled Jobs (Cron Triggers)
+**Objective:** Verify Workers AI embeddings + Vectorize semantic search + FTS5 hybrid search
 
-| Schedule | Job | Description |
-|----------|-----|-------------|
-| `*/15 * * * *` | Account Unlock | Auto-unlock expired account lockouts |
-| `0 * * * *` | Hourly Cleanup | Rate limits, OAuth states, failed logins |
-| `0 2 * * *` | Job Search | Automated job search (coming soon) |
-| `0 3 * * *` | Archive Jobs | Archive jobs older than 90 days |
+### Step 3.1: Create Test Jobs
 
-## Known Limitations
+**Method:** Create 10 jobs via API
 
-### PDF Parsing
-PDF parsing is now fully supported using Cloudflare Workers AI! PDFs are processed using:
-- **Llama 3.2 Vision 11B** - Extracts text from PDF pages (works with both selectable text and scanned images)
-- **Llama 3.3 70B Instruct** - Parses extracted text into structured resume data
-- Completely free and serverless - no external APIs needed
+```bash
+# Create Frontend Engineer job
+curl http://localhost:8787/api/jobs \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Senior Frontend Engineer",
+    "company": "Tech Corp",
+    "description": "React, TypeScript, Tailwind CSS expert needed",
+    "location": "Remote",
+    "workArrangement": "Remote",
+    "salaryMin": 100000,
+    "salaryMax": 150000,
+    "source": "manual"
+  }'
 
-### PDF/DOCX Generation
-Full PDF and DOCX generation (using pdfkit/docx libraries) is not available in Workers. The API returns structured data that can be used for client-side document generation using libraries like jsPDF or docx.js.
+# Repeat for 9 more jobs with different roles:
+# - Backend Developer - Node.js
+# - Full Stack Software Engineer
+# - DevOps Engineer - AWS
+# - Machine Learning Engineer
+# - Data Scientist - Python
+# - Product Manager - Tech
+# - UI/UX Designer
+# - Technical Writer
+# - Solutions Architect
+```
 
-### Job Scraping
-Apify integration for job scraping is not yet implemented for Workers. This endpoint returns a placeholder response.
+**Expected Response (for each):**
+```json
+{
+  "id": "job-uuid",
+  "title": "Senior Frontend Engineer",
+  "embedding_vector": [0.123, 0.456, ...], // 768 dimensions
+  ...
+}
+```
 
-### Rate Limiting
-IP-based rate limiting uses an in-memory Map that resets on Worker deployment. For production, consider migrating to KV Namespace or Durable Objects (configured but commented out in wrangler.toml).
+### Step 3.2: Verify Embeddings in D1
 
-## Migration from Express.js
+```bash
+wrangler d1 execute jobmatch-dev \
+  --command "SELECT id, title, LENGTH(embedding_vector) as vec_length FROM jobs LIMIT 10"
+```
 
-Key differences from the Express.js implementation:
+**Expected:** All jobs have 768-dimensional embedding vectors
 
-| Feature | Express.js | Cloudflare Workers |
-|---------|------------|-------------------|
-| Framework | Express | Hono |
-| Runtime | Node.js | V8 Isolates |
-| Context | `req`, `res`, `next` | `c` (Hono Context) |
-| Env vars | `process.env` | `c.env` |
-| Request state | `req.userId` | `c.get('userId')` |
-| Response | `res.json()` | `c.json()` |
-| PDF parsing | pdf-parse | Workers AI Vision (Llama 3.2 11B) |
-| PDF generation | pdfkit | Client-side |
-| Cron jobs | node-cron | Cron Triggers |
-| File system | fs module | Not available |
+### Step 3.3: Test Semantic Search
+
+```bash
+curl http://localhost:8787/api/jobs/search \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "software engineer with frontend experience",
+    "searchType": "semantic",
+    "limit": 5
+  }'
+```
+
+**Expected Response:**
+```json
+{
+  "jobs": [
+    {
+      "id": "job-uuid",
+      "title": "Senior Frontend Engineer",
+      "matchScore": 0.95,
+      ...
+    },
+    {
+      "id": "job-uuid-2",
+      "title": "Full Stack Software Engineer",
+      "matchScore": 0.87,
+      ...
+    }
+  ],
+  "searchType": "semantic",
+  "resultCount": 5
+}
+```
+
+**Verify:** Frontend Engineer is ranked higher than Backend Developer
+
+### Step 3.4: Test Hybrid Search (FTS5 + Vectorize)
+
+```bash
+curl http://localhost:8787/api/jobs/search \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "backend node.js developer",
+    "searchType": "hybrid",
+    "limit": 5
+  }'
+```
+
+**Expected:** Results combine keyword matching + semantic similarity
+
+### Step 3.5: Verify Embeddings Cached in KV
+
+```bash
+wrangler kv:key list --namespace-id=YOUR_EMBEDDINGS_CACHE_ID --prefix="job-embedding:"
+```
+
+**Expected:** Embeddings cached for performance
+
+### Test 3 Results:
+- [ ] 10 test jobs created in D1
+- [ ] Embeddings generated (768 dimensions)
+- [ ] Embeddings cached in KV
+- [ ] Embeddings indexed in Vectorize
+- [ ] Semantic search works
+- [ ] Hybrid search works
+- [ ] Results ranked by relevance
+
+---
+
+## Test 4: Email Service ✓
+
+**Objective:** Verify SendGrid integration + D1 email history + rate limiting
+
+### Step 4.1: Send Test Email
+
+```bash
+curl http://localhost:8787/api/emails/send \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "to": "recipient@example.com",
+    "subject": "Test Email from Workers",
+    "html": "<h1>Hello from JobMatch AI!</h1><p>This is a test email.</p>"
+  }'
+```
+
+**Expected Response:**
+```json
+{
+  "success": true,
+  "messageId": "sendgrid-message-id"
+}
+```
+
+### Step 4.2: Verify Email History in D1
+
+```bash
+wrangler d1 execute jobmatch-dev \
+  --command "SELECT id, user_id, recipient, subject, status FROM email_logs WHERE user_id='user-id' ORDER BY created_at DESC LIMIT 5"
+```
+
+**Expected:** Email record with status='sent'
+
+### Step 4.3: Test Rate Limiting
+
+```bash
+# Send 10 emails rapidly (exceeds limit)
+for i in {1..10}; do
+  curl http://localhost:8787/api/emails/send \
+    -H "Authorization: Bearer $TOKEN" \
+    -H "Content-Type: application/json" \
+    -d "{
+      \"to\": \"test$i@example.com\",
+      \"subject\": \"Test $i\",
+      \"html\": \"<p>Test email $i</p>\"
+    }"
+done
+```
+
+**Expected:** First 5 succeed, rest return 429 Too Many Requests
+
+### Step 4.4: Verify Rate Limit in KV
+
+```bash
+wrangler kv:key get "rate-limit:email:user-id" --namespace-id=YOUR_RATE_LIMITS_ID
+```
+
+**Expected:** Shows current usage count
+
+### Test 4 Results:
+- [ ] Email sent via SendGrid
+- [ ] Email history saved in D1
+- [ ] Rate limiting enforced (5 emails/hour)
+- [ ] Rate limit stored in KV
+- [ ] Email templates render correctly
+
+---
+
+## Test 5: PDF/DOCX Exports ✓
+
+**Objective:** Verify export generation + R2 storage + download URLs
+
+### Step 5.1: Create Test Resume Data
+
+```bash
+curl http://localhost:8787/api/profile \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -X PATCH \
+  -d '{
+    "firstName": "John",
+    "lastName": "Doe",
+    "email": "john@example.com",
+    "phone": "+1234567890",
+    "location": "San Francisco, CA",
+    "headline": "Senior Software Engineer",
+    "summary": "Experienced developer with 10 years in full-stack development"
+  }'
+```
+
+### Step 5.2: Generate PDF Export
+
+```bash
+curl http://localhost:8787/api/exports/resume/pdf \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "resumeId": "resume-uuid"
+  }'
+```
+
+**Expected Response:**
+```json
+{
+  "url": "https://r2-url/exports/user-id/resume-2025-01-01.pdf",
+  "expiresAt": "2025-01-01T01:00:00Z"
+}
+```
+
+### Step 5.3: Download and Verify PDF
+
+```bash
+curl -o resume.pdf "https://r2-url/exports/user-id/resume-2025-01-01.pdf"
+file resume.pdf
+```
+
+**Expected:** Valid PDF file
+
+### Step 5.4: Generate DOCX Export
+
+```bash
+curl http://localhost:8787/api/exports/resume/docx \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "resumeId": "resume-uuid"
+  }'
+```
+
+**Expected:** DOCX file generated and downloadable
+
+### Step 5.5: Verify Export in R2
+
+```bash
+wrangler r2 object list jobmatch-ai-dev-exports --prefix="exports/user-id/"
+```
+
+**Expected:** Both PDF and DOCX files listed
+
+### Test 5 Results:
+- [ ] PDF export generated
+- [ ] DOCX export generated
+- [ ] Files stored in R2 EXPORTS bucket
+- [ ] Download URLs work
+- [ ] Files expire after 1 hour
+
+---
+
+## Test 6: Job Scraping ✓
+
+**Objective:** Verify Apify integration + D1 storage + deduplication
+
+### Step 6.1: Scrape LinkedIn Jobs
+
+```bash
+curl http://localhost:8787/api/jobs/scrape \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "keywords": ["software engineer", "frontend"],
+    "location": "Remote",
+    "workArrangement": "Remote",
+    "maxResults": 10,
+    "sources": ["linkedin"]
+  }'
+```
+
+**Expected Response:**
+```json
+{
+  "jobCount": 10,
+  "newJobs": 8,
+  "duplicates": 2,
+  "sources": {
+    "linkedin": 10
+  }
+}
+```
+
+### Step 6.2: Verify Jobs in D1
+
+```bash
+wrangler d1 execute jobmatch-dev \
+  --command "SELECT id, title, company, source FROM jobs WHERE source='linkedin' ORDER BY created_at DESC LIMIT 10"
+```
+
+**Expected:** 10 LinkedIn jobs with unique titles
+
+### Step 6.3: Test Deduplication
+
+**Method:** Re-run same scrape query
+
+```bash
+curl http://localhost:8787/api/jobs/scrape \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "keywords": ["software engineer", "frontend"],
+    "location": "Remote",
+    "workArrangement": "Remote",
+    "maxResults": 10,
+    "sources": ["linkedin"]
+  }'
+```
+
+**Expected Response:**
+```json
+{
+  "jobCount": 10,
+  "newJobs": 0,
+  "duplicates": 10,
+  "sources": {
+    "linkedin": 10
+  }
+}
+```
+
+### Step 6.4: Verify Canonical Job Metadata
+
+```bash
+wrangler d1 execute jobmatch-dev \
+  --command "SELECT COUNT(DISTINCT canonical_job_id) as unique_jobs FROM canonical_job_metadata"
+```
+
+**Expected:** Each unique job has one canonical entry
+
+### Step 6.5: Scrape Indeed Jobs
+
+```bash
+curl http://localhost:8787/api/jobs/scrape \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "keywords": ["backend developer"],
+    "location": "San Francisco",
+    "maxResults": 5,
+    "sources": ["indeed"]
+  }'
+```
+
+**Expected:** Indeed jobs scraped successfully
+
+### Test 6 Results:
+- [ ] LinkedIn scraping works
+- [ ] Indeed scraping works
+- [ ] Jobs saved to D1
+- [ ] Embeddings generated for scraped jobs
+- [ ] Deduplication prevents duplicates
+- [ ] Canonical job metadata created
+
+---
+
+## Summary Checklist
+
+### Test 1: Authentication Flow
+- [ ] User created via Supabase Auth
+- [ ] JWT validation works
+- [ ] User profile in D1
+
+### Test 2: R2 File Uploads
+- [ ] Avatar upload
+- [ ] Resume upload
+- [ ] File validation
+- [ ] Download URLs
+
+### Test 3: Job Search
+- [ ] Embeddings generated
+- [ ] Semantic search
+- [ ] Hybrid search
+- [ ] Vectorize indexing
+
+### Test 4: Email Service
+- [ ] SendGrid integration
+- [ ] Email history
+- [ ] Rate limiting
+
+### Test 5: Exports
+- [ ] PDF generation
+- [ ] DOCX generation
+- [ ] R2 storage
+
+### Test 6: Job Scraping
+- [ ] LinkedIn scraping
+- [ ] Indeed scraping
+- [ ] Deduplication
+- [ ] Embeddings
+
+---
 
 ## Troubleshooting
 
 ### Common Issues
 
-**1. CORS Errors**
-Ensure `APP_URL` is correctly set to your frontend URL. In development, localhost URLs are automatically whitelisted.
+**1. "SUPABASE_URL is not defined"**
+- Check `.dev.vars.development` file exists
+- Verify environment variables are set
 
-**2. Authentication Failures**
-Verify your Supabase keys are correct and the user token is being passed in the `Authorization: Bearer <token>` header.
+**2. "DNS lookup failed" (in tests)**
+- This is expected in isolated Workers test environment
+- Use manual testing guide instead
 
-**3. Rate Limit Exceeded**
-Wait for the window to reset or check the `Retry-After` header for timing.
+**3. "401 Unauthorized"**
+- Verify JWT token is not expired
+- Check Authorization header format: `Bearer <token>`
 
-**4. OpenAI API Errors**
-Verify your API key has GPT-4 and Vision API access. Check your usage limits.
+**4. "R2 bucket not found"**
+- Create buckets: `wrangler r2 bucket create jobmatch-ai-dev-avatars`
+- Verify bucket names in wrangler.toml
 
-**5. Build Failures**
-Ensure you have `nodejs_compat` flag in wrangler.toml for Node.js API compatibility.
+**5. "D1 database not found"**
+- Create database: `wrangler d1 create jobmatch-dev`
+- Run migrations: `wrangler d1 migrations apply jobmatch-dev`
 
-### Debug Logging
+---
 
-In development, the Hono logger middleware logs all requests. For production debugging, use:
+## Next Steps
 
-```bash
-wrangler tail
-```
+After completing all tests:
 
-## Development
+1. **Deploy to Staging:**
+   ```bash
+   npm run deploy:staging
+   ```
 
-### Running Tests
+2. **Run tests against staging:**
+   Replace `http://localhost:8787` with staging URL
 
-```bash
-npm test
-```
+3. **Deploy to Production:**
+   ```bash
+   npm run deploy:production
+   ```
 
-### Type Checking
+4. **Update Frontend:**
+   - Point frontend to Workers API
+   - Test end-to-end flows
+   - Deploy frontend to Cloudflare Pages
 
-```bash
-npm run typecheck
-```
+---
 
-### Linting
+## Test Results Documentation
 
-```bash
-npm run lint
-```
+**Date:** ___________
+**Tester:** ___________
+**Environment:** Development / Staging / Production
 
-### Formatting
+| Test | Status | Notes |
+|------|--------|-------|
+| Test 1: Auth | ⬜ Pass ⬜ Fail | |
+| Test 2: R2 | ⬜ Pass ⬜ Fail | |
+| Test 3: Jobs | ⬜ Pass ⬜ Fail | |
+| Test 4: Email | ⬜ Pass ⬜ Fail | |
+| Test 5: Exports | ⬜ Pass ⬜ Fail | |
+| Test 6: Scraping | ⬜ Pass ⬜ Fail | |
 
-```bash
-npm run format
-```
+**Overall Status:** ⬜ All Tests Pass ⬜ Some Failures ⬜ Not Started
 
-## Security Considerations
+**Blockers/Issues:**
 
-1. **Never commit `.dev.vars`** - Contains sensitive secrets
-2. **Use service role key sparingly** - Only for admin operations
-3. **JWT verification** - All authenticated endpoints verify Supabase JWT
-4. **Rate limiting** - Prevents abuse of AI and email endpoints
-5. **CORS** - Restricts origins to configured APP_URL
-6. **Input validation** - Zod schemas validate all request bodies
-
-## Contributing
-
-1. Create a feature branch
-2. Make your changes
-3. Run tests and type checking
-4. Submit a pull request
-
-## License
-
-MIT
+**Next Actions:**

@@ -47,6 +47,7 @@ function createMockEnv(withKV = true): Env {
     get: vi.fn().mockResolvedValue(null),
     put: vi.fn().mockResolvedValue(undefined),
     delete: vi.fn().mockResolvedValue(undefined),
+    list: vi.fn().mockResolvedValue({ keys: [], list_complete: true }),
   };
 
   return {
@@ -56,9 +57,31 @@ function createMockEnv(withKV = true): Env {
     OPENAI_API_KEY: 'test-openai-key',
     APP_URL: 'http://localhost:3000',
     ENVIRONMENT: 'development',
-    JOB_ANALYSIS_CACHE: withKV ? (mockKV as unknown as KVNamespace) : undefined,
-    AI: {} as unknown as Ai,
-  } as Env;
+
+    // KV Namespaces
+    JOB_ANALYSIS_CACHE: withKV ? (mockKV as unknown as KVNamespace) : (mockKV as unknown as KVNamespace),
+    SESSIONS: mockKV as unknown as KVNamespace,
+    RATE_LIMITS: mockKV as unknown as KVNamespace,
+    OAUTH_STATES: mockKV as unknown as KVNamespace,
+    EMBEDDINGS_CACHE: mockKV as unknown as KVNamespace,
+    AI_GATEWAY_CACHE: mockKV as unknown as KVNamespace,
+
+    // D1 Database
+    DB: {} as any,
+
+    // Vectorize
+    VECTORIZE: {} as any,
+
+    // R2 Buckets
+    AVATARS: {} as any,
+    RESUMES: {} as any,
+    EXPORTS: {} as any,
+
+    // AI binding
+    AI: {
+      run: vi.fn(),
+    } as any,
+  };
 }
 
 describe('Job Analysis Cache', () => {
@@ -74,8 +97,8 @@ describe('Job Analysis Cache', () => {
       const env = createMockEnv();
       const mockKV = env.JOB_ANALYSIS_CACHE!;
 
-      // Mock KV get to return cached data
-      vi.mocked(mockKV.get).mockResolvedValue(JSON.stringify(mockAnalysis));
+      // Mock KV get to return cached data (cast to avoid overload ambiguity)
+      vi.mocked(mockKV.get).mockResolvedValue(JSON.stringify(mockAnalysis) as any);
 
       const result = await getCachedAnalysis(env, 'user-123', 'job-456');
 

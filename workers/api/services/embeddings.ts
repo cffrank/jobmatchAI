@@ -6,9 +6,15 @@
  * for job listings and user resumes/profiles.
  *
  * These embeddings enable semantic job matching beyond keyword matching.
+ *
+ * Phase 2.4: Dual-layer caching implemented
+ * - Layer 1: KV (30-day TTL, user-specific)
+ * - Layer 2: AI Gateway (1-hour TTL, automatic)
+ * - Expected cache hit rate: 60-70% combined
  */
 
 import type { Env, Job, UserProfile, WorkExperience, Skill } from '../types';
+import { generateCachedEmbedding } from './embeddingsCache';
 
 // =============================================================================
 // Configuration
@@ -19,7 +25,7 @@ import type { Env, Job, UserProfile, WorkExperience, Skill } from '../types';
  * @cf/baai/bge-base-en-v1.5 produces 768-dimensional vectors
  * Free tier: Included in Workers AI plan
  */
-const EMBEDDING_MODEL = '@cf/baai/bge-base-en-v1.5';
+// const EMBEDDING_MODEL = '@cf/baai/bge-base-en-v1.5';
 
 /**
  * Expected embedding dimension count
@@ -29,18 +35,18 @@ const EXPECTED_DIMENSIONS = 768;
 /**
  * Retry configuration for transient failures
  */
-const MAX_RETRIES = 3;
-const RETRY_DELAY_MS = 1000;
-const RETRY_BACKOFF_MULTIPLIER = 2;
+// const MAX_RETRIES = 3;
+// const RETRY_DELAY_MS = 1000;
+// const RETRY_BACKOFF_MULTIPLIER = 2;
 
 // =============================================================================
 // Types
 // =============================================================================
 
-interface WorkersAIEmbeddingResponse {
-  shape: number[];
-  data: number[][];
-}
+// interface WorkersAIEmbeddingResponse {
+//   shape: number[];
+//   data: number[][];
+// }
 
 // =============================================================================
 // Core Embedding Generation
@@ -49,8 +55,9 @@ interface WorkersAIEmbeddingResponse {
 /**
  * Generate embedding vector for a text string
  *
- * Uses Workers AI binding with @cf/baai/bge-base-en-v1.5 model
- * Includes exponential backoff retry logic for transient failures
+ * Uses dual-layer caching (Phase 2.4):
+ * - Layer 1: KV cache (30-day TTL)
+ * - Layer 2: Workers AI via AI Gateway (1-hour automatic cache)
  *
  * @param env - Environment bindings (includes AI binding)
  * @param text - Input text to embed (max ~1000 tokens)
@@ -58,78 +65,8 @@ interface WorkersAIEmbeddingResponse {
  * @throws Error if embedding generation fails after retries
  */
 export async function generateEmbedding(env: Env, text: string): Promise<number[]> {
-  const startTime = Date.now();
-
-  // Validate input
-  if (!text || text.trim().length === 0) {
-    throw new Error('Cannot generate embedding for empty text');
-  }
-
-  // Truncate very long text (Workers AI has token limits)
-  const maxChars = 8000; // ~2000 tokens
-  const truncatedText = text.length > maxChars ? text.slice(0, maxChars) : text;
-
-  console.log(`[Embeddings] Generating embedding for text (${truncatedText.length} chars)`);
-
-  let lastError: Error | null = null;
-
-  // Retry loop with exponential backoff
-  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-    try {
-      // Call Workers AI
-      const response = (await env.AI.run(EMBEDDING_MODEL, {
-        text: [truncatedText],
-      })) as WorkersAIEmbeddingResponse;
-
-      // Validate response structure
-      if (!response || !response.data || !Array.isArray(response.data)) {
-        throw new Error('Invalid response structure from Workers AI');
-      }
-
-      // Extract embedding vector (first result since we sent single text)
-      const embedding = response.data[0];
-
-      if (!embedding || !Array.isArray(embedding)) {
-        throw new Error('Embedding data is missing or invalid');
-      }
-
-      // Validate dimensions
-      if (embedding.length !== EXPECTED_DIMENSIONS) {
-        throw new Error(
-          `Unexpected embedding dimensions: got ${embedding.length}, expected ${EXPECTED_DIMENSIONS}`
-        );
-      }
-
-      const duration = Date.now() - startTime;
-      console.log(
-        `[Embeddings] Successfully generated ${EXPECTED_DIMENSIONS}D embedding in ${duration}ms (attempt ${attempt}/${MAX_RETRIES})`
-      );
-
-      return embedding;
-    } catch (error) {
-      lastError = error instanceof Error ? error : new Error(String(error));
-      console.error(
-        `[Embeddings] Attempt ${attempt}/${MAX_RETRIES} failed:`,
-        lastError.message
-      );
-
-      // If this was the last attempt, don't sleep
-      if (attempt < MAX_RETRIES) {
-        const delayMs = RETRY_DELAY_MS * Math.pow(RETRY_BACKOFF_MULTIPLIER, attempt - 1);
-        console.log(`[Embeddings] Retrying in ${delayMs}ms...`);
-        await sleep(delayMs);
-      }
-    }
-  }
-
-  // All retries exhausted
-  const totalDuration = Date.now() - startTime;
-  console.error(
-    `[Embeddings] Failed to generate embedding after ${MAX_RETRIES} attempts (${totalDuration}ms total)`
-  );
-  throw new Error(
-    `Failed to generate embedding after ${MAX_RETRIES} attempts: ${lastError?.message || 'Unknown error'}`
-  );
+  // Use cached generation (handles both KV and AI Gateway layers)
+  return generateCachedEmbedding(env, text);
 }
 
 // =============================================================================
@@ -389,6 +326,6 @@ export async function updateUserResumeEmbedding(
 /**
  * Sleep helper for retry delays
  */
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
+// function sleep(ms: number): Promise<void> {
+//   return new Promise((resolve) => setTimeout(resolve, ms));
+// }
