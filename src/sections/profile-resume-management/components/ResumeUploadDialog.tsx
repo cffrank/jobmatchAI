@@ -55,7 +55,6 @@ export function ResumeUploadDialog({ isOpen, onClose, onSuccess }: ResumeUploadD
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [parsedData, setParsedData] = useState<ParsedResume | null>(null)
   const [gapAnalysis, setGapAnalysis] = useState<GapAnalysis | null>(null)
-  const [analyzingGaps, setAnalyzingGaps] = useState(false)
   const [questionAnswers, setQuestionAnswers] = useState<Record<number, string>>({})
   const [workNarratives, setWorkNarratives] = useState<WorkExperienceNarrative[]>([])
   const [step, setStep] = useState<'select' | 'parsing' | 'preview' | 'analyzing' | 'gapReview' | 'applying' | 'done'>('select')
@@ -118,10 +117,8 @@ export function ResumeUploadDialog({ isOpen, onClose, onSuccess }: ResumeUploadD
 
       // Step 2: Analyze for gaps
       setStep('analyzing')
-      setAnalyzingGaps(true)
       const analysis = await analyzeResumeGaps(data)
       setGapAnalysis(analysis)
-      setAnalyzingGaps(false)
 
       // Step 3: Show gap review
       setStep('gapReview')
@@ -130,7 +127,6 @@ export function ResumeUploadDialog({ isOpen, onClose, onSuccess }: ResumeUploadD
       console.error('Error processing resume:', err)
       toast.error('Failed to process resume. Please try again.')
       setStep('select')
-      setAnalyzingGaps(false)
     }
   }
 

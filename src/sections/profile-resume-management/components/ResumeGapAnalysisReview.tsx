@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { AlertTriangle, CheckCircle2, MessageSquare, Briefcase, ChevronDown, ChevronUp } from 'lucide-react'
+import { CheckCircle2, MessageSquare, Briefcase, ChevronDown, ChevronUp } from 'lucide-react'
 import type { ParsedResume } from '@/hooks/useResumeParser'
 
 interface GapAnalysisQuestion {

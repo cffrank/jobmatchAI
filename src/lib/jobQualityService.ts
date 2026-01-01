@@ -260,7 +260,8 @@ export async function submitJobFeedback(
       .from('spam_reports')
       .insert({
         job_id: jobId,
-        reported_by_user_id: user.id, // Changed from user_id
+        reporter_user_id: user.id,
+        report_type: 'spam',
         reason: feedback.reason || 'user_reported',
         details: feedback.customReason ? { customReason: feedback.customReason } : null,
       });
