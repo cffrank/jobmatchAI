@@ -311,8 +311,7 @@ jobs:
           echo "Applying migrations to DB binding..."
           npx wrangler d1 migrations apply DB \
             --env "$DEPLOY_ENV" \
-            --remote \
-            --yes || {
+            --remote || {
             echo "❌ Migration failed!"
             exit 1
           }
