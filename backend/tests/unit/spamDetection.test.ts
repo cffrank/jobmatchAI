@@ -9,7 +9,7 @@
  * - Database integration
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   analyzeJobForSpam,
   analyzeBatchForSpam,
@@ -17,6 +17,132 @@ import {
   getSpamCacheStats,
   type JobToAnalyze,
 } from '../../src/services/spamDetection.service';
+
+// Mock OpenAI module
+vi.mock('../../src/config/openai', () => ({
+  getOpenAI: () => ({
+    chat: {
+      completions: {
+        create: vi.fn(async (options: any) => {
+          // Mock different responses based on job content
+          const userMessage = options.messages.find((m: any) => m.role === 'user')?.content || '';
+
+          // Extract the actual job description from the prompt
+          // The prompt has format: "**JOB POSTING:**\nTitle: ...\nDescription:\n{actual description}\n\n---"
+          const descriptionMatch = userMessage.match(/Description:\s*\n([\s\S]*?)\n\n---/);
+          const jobDescription = descriptionMatch ? descriptionMatch[1] : userMessage;
+          const titleMatch = userMessage.match(/Title:\s*([^\n]+)/);
+          const title = titleMatch ? titleMatch[1] : '';
+
+          // Throw error for invalid/empty jobs (to test error handling)
+          if (!title.trim() || !jobDescription.trim()) {
+            throw new Error('Invalid job posting: title and description are required');
+          }
+
+          // Detect MLM/scam keywords in the actual job description
+          const isMLM = jobDescription.includes('BE YOUR OWN BOSS') ||
+                       jobDescription.includes('UNLIMITED INCOME POTENTIAL') ||
+                       jobDescription.includes('Build your own team') ||
+                       jobDescription.includes('Revolutionary business opportunity');
+
+          // Detect commission-only
+          const isCommissionOnly = jobDescription.includes('Commission-based (no base salary)') ||
+                                  jobDescription.includes('1099 independent contractor');
+
+          // Detect excessive requirements
+          const isExcessive = jobDescription.includes('10+ years of experience with React') &&
+                             title.includes('Entry Level');
+
+          // Detect legitimate job
+          const isLegitimate = title.includes('Senior Software Engineer') &&
+                              userMessage.includes('Tech Corp') &&
+                              !isMLM && !isCommissionOnly && !isExcessive;
+
+          let spamProbability = 0;
+          let categories: string[] = [];
+          let reasons: string[] = [];
+          let flags: any[] = [];
+
+          if (isMLM) {
+            spamProbability = 0.95;
+            categories = ['mlm-scheme', 'unrealistic-promises'];
+            reasons = [
+              'Heavy emphasis on recruiting and building a team',
+              'Promises of unlimited income with investment required',
+              'Focus on selling to friends and family'
+            ];
+            flags = [
+              {
+                type: 'mlm-indicator',
+                severity: 'critical',
+                description: 'Posting emphasizes recruiting others and building a team'
+              }
+            ];
+          } else if (isCommissionOnly) {
+            spamProbability = 0.6;
+            categories = ['commission-only'];
+            reasons = [
+              'No base salary mentioned',
+              'Commission-only compensation structure',
+              'Independent contractor (1099) position'
+            ];
+            flags = [
+              {
+                type: 'commission-only',
+                severity: 'medium',
+                description: 'Position offers commission-only compensation'
+              }
+            ];
+          } else if (isExcessive) {
+            spamProbability = 0.55;
+            categories = ['excessive-requirements'];
+            reasons = [
+              'Entry-level position requires 10+ years of experience',
+              'Unrealistic skill requirements for salary offered'
+            ];
+            flags = [
+              {
+                type: 'excessive-requirements',
+                severity: 'medium',
+                description: 'Requirements don\'t match experience level'
+              }
+            ];
+          } else if (isLegitimate) {
+            spamProbability = 0.15;
+            categories = [];
+            reasons = [];
+            flags = [];
+          } else {
+            // Default moderate response for unknown jobs
+            spamProbability = 0.3;
+            categories = [];
+            reasons = ['Unable to determine spam indicators'];
+            flags = [];
+          }
+
+          return {
+            choices: [{
+              message: {
+                content: JSON.stringify({
+                  isSpam: spamProbability >= 0.7,
+                  spamProbability,
+                  confidence: spamProbability > 0.7 ? 'high' : spamProbability > 0.4 ? 'medium' : 'low',
+                  categories,
+                  reasons,
+                  flags,
+                  summary: `Spam probability: ${spamProbability.toFixed(2)}`
+                })
+              }
+            }]
+          };
+        })
+      }
+    }
+  }),
+  MODELS: {
+    MATCH_ANALYSIS: 'gpt-4o-mini'
+  }
+}));
 
 // =============================================================================
 // Test Data
