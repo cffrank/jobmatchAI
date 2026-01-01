@@ -1,7 +1,8 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Login Flow', () => {
-  const BASE_URL = 'https://jobmatchai-production.up.railway.app';
+  // Use Cloudflare Pages (not Railway)
+  const BASE_URL = process.env.FRONTEND_URL || 'https://jobmatch-ai-dev.pages.dev';
   const TEST_EMAIL = 'cffrank@yahoo.com';
   const TEST_PASSWORD = 'Pass@word123';
 
