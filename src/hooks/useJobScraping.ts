@@ -47,7 +47,7 @@ export function useJobScraping(): UseJobScrapingReturn {
           throw new Error('Please sign in to scrape jobs');
         }
 
-        // Call the Railway backend API
+        // Call the Cloudflare Workers backend API
         const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
         const response = await fetch(`${backendUrl}/api/jobs/scrape`, {
           method: 'POST',

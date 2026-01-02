@@ -103,7 +103,7 @@ export function useResumeParser() {
         throw new Error('No active session')
       }
 
-      // Call Railway backend API to parse resume
+      // Call Cloudflare Workers backend API to parse resume
       const backendUrl = import.meta.env.VITE_BACKEND_URL
       if (!backendUrl) {
         throw new Error('Backend URL not configured')

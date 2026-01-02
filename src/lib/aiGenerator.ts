@@ -2,7 +2,7 @@ import { supabase } from './supabase'
 import type { GeneratedApplication } from '@/sections/application-generator/types'
 
 /**
- * Call Railway backend API to generate AI-powered resume and cover letter variants
+ * Call Cloudflare Workers backend API to generate AI-powered resume and cover letter variants
  * Uses OpenAI GPT-4 to create tailored applications based on job requirements
  */
 export async function generateApplicationVariants(jobId: string): Promise<GeneratedApplication> {
@@ -14,8 +14,8 @@ export async function generateApplicationVariants(jobId: string): Promise<Genera
       throw new Error('Please sign in to generate applications')
     }
 
-    // Call the Railway backend API
-    const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'
+    // Call the Cloudflare Workers backend API
+    const backendUrl = import.meta.env.VITE_API_URL || 'http://localhost:8787'
     const response = await fetch(`${backendUrl}/api/applications/generate`, {
       method: 'POST',
       headers: {

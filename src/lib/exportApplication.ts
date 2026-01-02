@@ -2,7 +2,7 @@
  * Export Application Utility
  *
  * Client-side utility for exporting applications to PDF or DOCX format.
- * Calls the Railway backend API and handles file download.
+ * Calls the Cloudflare Workers backend API and handles file download.
  */
 
 import { supabase } from './supabase';
@@ -47,7 +47,7 @@ export class ExportError extends Error {
  *
  * This function:
  * 1. Validates the input parameters
- * 2. Calls the Railway backend API to generate the document
+ * 2. Calls the Cloudflare Workers backend API to generate the document
  * 3. Receives a signed download URL
  * 4. Triggers automatic download in the browser
  *
@@ -76,8 +76,8 @@ export async function exportApplication(
       throw new ExportError('Please log in to export applications', 'unauthenticated');
     }
 
-    // Call Railway backend API
-    const backendUrl = import.meta.env.VITE_BACKEND_URL;
+    // Call Cloudflare Workers backend API
+    const backendUrl = import.meta.env.VITE_API_URL;
     const response = await fetch(`${backendUrl}/api/exports/${format}`, {
       method: 'POST',
       headers: {
