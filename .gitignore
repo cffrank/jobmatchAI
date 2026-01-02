@@ -87,3 +87,9 @@ vars/*.json
 **/.dev.vars.*
 workers/.dev.vars
 workers/.dev.vars.*
+
+# Playwright test artifacts
+test-results/
+playwright-report/
+*.png
+*.webm
