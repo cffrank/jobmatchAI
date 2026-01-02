@@ -17,3 +17,5 @@ createRoot(document.getElementById('root')!).render(
     </ErrorBoundary>
   </StrictMode>,
 )
+
+// Force rebuild to pick up updated Supabase development branch credentials (vkstdibhypprasyiswny) - 2026-01-02
