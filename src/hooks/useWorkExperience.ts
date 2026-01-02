@@ -1,14 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
-import type { Database } from '@/types/supabase'
+import { workersApi } from '@/lib/workersApi'
 import type { WorkExperience } from '@/sections/profile-resume-management/types'
 
-type DbWorkExperience = Database['public']['Tables']['work_experience']['Row']
-
 /**
- * Hook to manage work experience entries in Supabase
- * Table: work_experience
+ * Hook to manage work experience entries via Workers API
  */
 export function useWorkExperience() {
   const { user } = useAuth()
@@ -28,20 +25,14 @@ export function useWorkExperience() {
 
     let subscribed = true
 
-    // Fetch initial work experience entries
+    // Fetch initial work experience entries via Workers API
     const fetchWorkExperience = async () => {
       try {
         setLoading(true)
-        const { data, error: fetchError } = await supabase
-          .from('work_experience')
-          .select('*')
-          .eq('user_id', userId)
-          .order('start_date', { ascending: false })
+        const response = await workersApi.getWorkExperience()
 
-        if (fetchError) throw fetchError
-
-        if (subscribed && data) {
-          setWorkExperience(data.map(mapDbWorkExperience))
+        if (subscribed) {
+          setWorkExperience(response.workExperience as WorkExperience[])
           setError(null)
         }
       } catch (err) {
@@ -57,7 +48,7 @@ export function useWorkExperience() {
 
     fetchWorkExperience()
 
-    // Set up real-time subscription
+    // Set up real-time subscription via Supabase (only for reactivity)
     const channel = supabase
       .channel(`work_experience:${userId}`)
       .on(
@@ -70,12 +61,12 @@ export function useWorkExperience() {
         },
         (payload) => {
           if (payload.eventType === 'INSERT') {
-            setWorkExperience((current) => [mapDbWorkExperience(payload.new as DbWorkExperience), ...current])
+            const newExp = payload.new as WorkExperience
+            setWorkExperience((current) => [newExp, ...current])
           } else if (payload.eventType === 'UPDATE') {
+            const updatedExp = payload.new as WorkExperience
             setWorkExperience((current) =>
-              current.map((exp) =>
-                exp.id === payload.new.id ? mapDbWorkExperience(payload.new as DbWorkExperience) : exp
-              )
+              current.map((exp) => (exp.id === updatedExp.id ? updatedExp : exp))
             )
           } else if (payload.eventType === 'DELETE') {
             setWorkExperience((current) => current.filter((exp) => exp.id !== payload.old.id))
@@ -96,19 +87,19 @@ export function useWorkExperience() {
   const addWorkExperience = async (data: Omit<WorkExperience, 'id'>) => {
     if (!userId) throw new Error('User not authenticated')
 
-    const { error: insertError } = await supabase.from('work_experience').insert({
-      user_id: userId,
+    const response = await workersApi.createWorkExperience({
       company: data.company,
-      title: data.position,
+      position: data.position,
       location: data.location,
       description: data.description,
-      start_date: data.startDate,
-      end_date: data.endDate || null,
-      is_current: data.current,
-      accomplishments: data.accomplishments?.filter(a => a.trim() !== '') || [],
+      startDate: data.startDate,
+      endDate: data.endDate || null,
+      current: data.current,
+      accomplishments: data.accomplishments?.filter((a) => a.trim() !== '') || [],
     })
 
-    if (insertError) throw insertError
+    // Realtime subscription will update the state automatically
+    return response
   }
 
   /**
@@ -117,25 +108,22 @@ export function useWorkExperience() {
   const updateWorkExperience = async (id: string, data: Partial<Omit<WorkExperience, 'id'>>) => {
     if (!userId) throw new Error('User not authenticated')
 
-    const updateData: Partial<Database['public']['Tables']['work_experience']['Update']> = {}
+    const updateData: Record<string, unknown> = {}
     if (data.company !== undefined) updateData.company = data.company
-    if (data.position !== undefined) updateData.title = data.position
+    if (data.position !== undefined) updateData.position = data.position
     if (data.location !== undefined) updateData.location = data.location
     if (data.description !== undefined) updateData.description = data.description
-    if (data.startDate !== undefined) updateData.start_date = data.startDate
-    if (data.endDate !== undefined) updateData.end_date = data.endDate || null
-    if (data.current !== undefined) updateData.is_current = data.current
+    if (data.startDate !== undefined) updateData.startDate = data.startDate
+    if (data.endDate !== undefined) updateData.endDate = data.endDate || null
+    if (data.current !== undefined) updateData.current = data.current
     if (data.accomplishments !== undefined) {
-      updateData.accomplishments = data.accomplishments.filter(a => a.trim() !== '')
+      updateData.accomplishments = data.accomplishments.filter((a) => a.trim() !== '')
     }
 
-    const { error: updateError } = await supabase
-      .from('work_experience')
-      .update(updateData)
-      .eq('id', id)
-      .eq('user_id', userId)
+    const response = await workersApi.updateWorkExperience(id, updateData)
 
-    if (updateError) throw updateError
+    // Realtime subscription will update the state automatically
+    return response
   }
 
   /**
@@ -144,13 +132,10 @@ export function useWorkExperience() {
   const deleteWorkExperience = async (id: string) => {
     if (!userId) throw new Error('User not authenticated')
 
-    const { error: deleteError } = await supabase
-      .from('work_experience')
-      .delete()
-      .eq('id', id)
-      .eq('user_id', userId)
+    const response = await workersApi.deleteWorkExperience(id)
 
-    if (deleteError) throw deleteError
+    // Realtime subscription will update the state automatically
+    return response
   }
 
   return {
@@ -160,22 +145,5 @@ export function useWorkExperience() {
     addWorkExperience,
     updateWorkExperience,
     deleteWorkExperience,
-  }
-}
-
-/**
- * Map database work experience to app WorkExperience type
- */
-function mapDbWorkExperience(dbExp: DbWorkExperience): WorkExperience {
-  return {
-    id: dbExp.id,
-    company: dbExp.company,
-    position: dbExp.title,
-    location: dbExp.location || '',
-    startDate: dbExp.start_date,
-    endDate: dbExp.end_date || '',
-    current: dbExp.is_current || false,
-    description: dbExp.description || '',
-    accomplishments: dbExp.accomplishments || [],
   }
 }

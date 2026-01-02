@@ -103,8 +103,8 @@ export interface Env {
     run(model: string, inputs: Record<string, unknown>): Promise<Record<string, unknown>>;
   };
 
-  // PDF Parser Service (Railway deployment for PDF text extraction)
-  // External service used by resume parsing: https://jobmatch-pdf-parser.railway.app
+  // PDF Parser Service (Cloudflare Workers for PDF text extraction)
+  // External service used by resume parsing (deployed to Cloudflare Workers)
   PDF_PARSER_SERVICE_URL?: string;
 }
 

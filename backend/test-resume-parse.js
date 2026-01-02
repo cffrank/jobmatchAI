@@ -3,7 +3,7 @@
  * Run with: node test-resume-parse.js
  */
 
-const backendUrl = process.env.BACKEND_URL || 'https://jobmatch-ai-backend-production.up.railway.app';
+const backendUrl = process.env.BACKEND_URL || 'https://jobmatch-ai-prod.carl-f-frank.workers.dev';
 const testToken = process.env.TEST_TOKEN || 'your-token-here';
 const testPath = process.env.TEST_PATH || 'resumes/4ce126d2-93e9-41b0-8152-a53f37b92bc6/1766720095115_Carl_Frank_Resume.md.pdf';
 

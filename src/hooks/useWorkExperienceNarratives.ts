@@ -1,18 +1,28 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
-import type { Database } from '@/types/supabase'
 
-type WorkExperienceNarrativeRow = Database['public']['Tables']['work_experience_narratives']['Row']
+// Get backend URL from environment
+const BACKEND_URL = import.meta.env.VITE_API_URL || import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'
+
+// Frontend types (camelCase)
+export interface WorkExperienceNarrative {
+  id: string
+  workExperienceId: string
+  userId: string
+  narrative: string
+  createdAt: string
+  updatedAt: string
+}
 
 /**
- * Hook to manage work experience narratives in Supabase
+ * Hook to manage work experience narratives via Workers/Express API
  */
 export function useWorkExperienceNarratives() {
   const { user } = useAuth()
   const userId = user?.id
 
-  const [narratives, setNarratives] = useState<WorkExperienceNarrativeRow[]>([])
+  const [narratives, setNarratives] = useState<WorkExperienceNarrative[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
 
@@ -29,15 +39,28 @@ export function useWorkExperienceNarratives() {
     const fetchNarratives = async () => {
       try {
         setLoading(true)
-        const { data, error: fetchError } = await supabase
-          .from('work_experience_narratives')
-          .select('*')
-          .eq('user_id', userId)
 
-        if (fetchError) throw fetchError
+        // Get JWT token for authentication
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session?.access_token) {
+          throw new Error('No authentication token available')
+        }
 
-        if (subscribed && data) {
-          setNarratives(data)
+        const response = await fetch(`${BACKEND_URL}/api/profile/work-experience-narratives`, {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+        })
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch narratives: ${response.statusText}`)
+        }
+
+        const { narratives: fetchedNarratives } = await response.json()
+
+        if (subscribed && fetchedNarratives) {
+          setNarratives(fetchedNarratives)
           setError(null)
         }
       } catch (err) {
@@ -53,7 +76,7 @@ export function useWorkExperienceNarratives() {
 
     fetchNarratives()
 
-    // Set up real-time subscription
+    // Set up real-time subscription for narratives (read-only)
     const channel = supabase
       .channel(`work_experience_narratives:${userId}`)
       .on(
@@ -65,14 +88,29 @@ export function useWorkExperienceNarratives() {
           filter: `user_id=eq.${userId}`,
         },
         (payload) => {
+          // Transform database fields (snake_case) to frontend format (camelCase)
           if (payload.eventType === 'INSERT') {
-            setNarratives((current) => [...current, payload.new as WorkExperienceNarrativeRow])
+            const newNarrative: WorkExperienceNarrative = {
+              id: payload.new.id,
+              workExperienceId: payload.new.work_experience_id,
+              userId: payload.new.user_id,
+              narrative: payload.new.narrative,
+              createdAt: payload.new.created_at,
+              updatedAt: payload.new.updated_at,
+            }
+            setNarratives((current) => [...current, newNarrative])
           } else if (payload.eventType === 'UPDATE') {
+            const updatedNarrative: WorkExperienceNarrative = {
+              id: payload.new.id,
+              workExperienceId: payload.new.work_experience_id,
+              userId: payload.new.user_id,
+              narrative: payload.new.narrative,
+              createdAt: payload.new.created_at,
+              updatedAt: payload.new.updated_at,
+            }
             setNarratives((current) =>
               current.map((narrative) =>
-                narrative.id === payload.new.id
-                  ? (payload.new as WorkExperienceNarrativeRow)
-                  : narrative
+                narrative.id === updatedNarrative.id ? updatedNarrative : narrative
               )
             )
           } else if (payload.eventType === 'DELETE') {
@@ -91,55 +129,70 @@ export function useWorkExperienceNarratives() {
   /**
    * Get narrative for specific work experience
    */
-  const getNarrativeByWorkExperienceId = (workExperienceId: string): WorkExperienceNarrativeRow | null => {
-    return narratives.find((n) => n.work_experience_id === workExperienceId) || null
+  const getNarrativeByWorkExperienceId = (workExperienceId: string): WorkExperienceNarrative | null => {
+    return narratives.find((n) => n.workExperienceId === workExperienceId) || null
   }
 
   /**
-   * Add or update narrative for work experience
+   * Add or update narrative for work experience via Workers/Express API
    */
   const upsertNarrative = async (workExperienceId: string, narrative: string) => {
     if (!userId) throw new Error('User not authenticated')
 
-    // Check if narrative already exists
-    const existing = narratives.find((n) => n.work_experience_id === workExperienceId)
-
-    if (existing) {
-      // Update existing
-      const { error: updateError } = await supabase
-        .from('work_experience_narratives')
-        .update({ narrative })
-        .eq('id', existing.id)
-        .eq('user_id', userId)
-
-      if (updateError) throw updateError
-    } else {
-      // Insert new
-      const { error: insertError } = await supabase
-        .from('work_experience_narratives')
-        .insert({
-          work_experience_id: workExperienceId,
-          user_id: userId,
-          narrative,
-        })
-
-      if (insertError) throw insertError
+    // Get JWT token for authentication
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session?.access_token) {
+      throw new Error('No authentication token available')
     }
+
+    const response = await fetch(`${BACKEND_URL}/api/profile/work-experience-narratives`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        workExperienceId,
+        narrative,
+      }),
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: response.statusText }))
+      throw new Error(errorData.message || 'Failed to upsert narrative')
+    }
+
+    const result = await response.json()
+    return result
   }
 
   /**
-   * Delete narrative
+   * Delete narrative via Workers/Express API
    */
   const deleteNarrative = async (id: string) => {
     if (!userId) throw new Error('User not authenticated')
 
-    const { error: deleteError } = await supabase
-      .from('work_experience_narratives')
-      .delete()
-      .eq('id', id)
-      .eq('user_id', userId)
+    // Get JWT token for authentication
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session?.access_token) {
+      throw new Error('No authentication token available')
+    }
 
-    if (deleteError) throw deleteError
+    const response = await fetch(`${BACKEND_URL}/api/profile/work-experience-narratives/${id}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`,
+        'Content-Type': 'application/json',
+      },
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: response.statusText }))
+      throw new Error(errorData.message || 'Failed to delete narrative')
+    }
+
+    const result = await response.json()
+    return result
   }
 
   return {

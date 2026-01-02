@@ -1,7 +1,8 @@
 import { useState, useCallback, useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
-import type { Database, Json } from '@/types/supabase'
+import { API_URL } from '@/lib/config'
+import type { Database } from '@/types/supabase'
 import type { TrackedApplication, ActivityLogEntry } from '@/sections/application-tracker/types'
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js'
 
@@ -9,37 +10,19 @@ type DbTrackedApplication = Database['public']['Tables']['tracked_applications']
 type TrackedApplicationPayload = RealtimePostgresChangesPayload<DbTrackedApplication>
 
 /**
- * Hook to manage tracked applications in Supabase
+ * Hook to manage tracked applications via Workers/Express API
  *
- * ⚠️ NOTE: This table does not exist in the current schema.
- * A database migration is required to create the tracked_applications table.
+ * Uses Workers/Express API for all data operations:
+ * - GET /api/tracked-applications - List all tracked applications
+ * - GET /api/tracked-applications/active - List non-archived applications
+ * - GET /api/tracked-applications/:id - Get single application
+ * - POST /api/tracked-applications - Create application
+ * - PATCH /api/tracked-applications/:id - Update application
+ * - PATCH /api/tracked-applications/:id/archive - Archive application
+ * - PATCH /api/tracked-applications/:id/unarchive - Unarchive application
+ * - DELETE /api/tracked-applications/:id - Delete application
  *
- * Required schema:
- * - id (UUID, primary key)
- * - user_id (UUID, foreign key to users)
- * - job_id (UUID, nullable, foreign key to jobs)
- * - application_id (UUID, nullable, foreign key to applications)
- * - company (TEXT)
- * - job_title (TEXT)
- * - location (TEXT, nullable)
- * - match_score (NUMERIC, nullable)
- * - status (ENUM: applied, screening, interview_scheduled, etc.)
- * - applied_date (TIMESTAMPTZ, nullable)
- * - last_updated (TIMESTAMPTZ, default NOW())
- * - status_history (JSONB, default '[]')
- * - interviews (JSONB, default '[]')
- * - recruiter (JSONB, nullable)
- * - hiring_manager (JSONB, nullable)
- * - follow_up_actions (JSONB, default '[]')
- * - next_action (TEXT, nullable)
- * - next_action_date (TIMESTAMPTZ, nullable)
- * - next_interview_date (TIMESTAMPTZ, nullable)
- * - offer_details (JSONB, nullable)
- * - activity_log (JSONB, default '[]')
- * - archived (BOOLEAN, default FALSE)
- * - notes (TEXT, nullable)
- * - created_at (TIMESTAMPTZ, default NOW())
- * - updated_at (TIMESTAMPTZ, default NOW())
+ * Real-time subscriptions still use Supabase (read-only).
  *
  * PERFORMANCE: Uses offset-based pagination (20 items per page)
  */
@@ -48,14 +31,12 @@ export function useTrackedApplications(pageSize = 20) {
   const userId = user?.id
 
   // Pagination state
-  const [offset, setOffset] = useState(0)
+  const [page, setPage] = useState(1)
   const [allApplications, setAllApplications] = useState<TrackedApplication[]>([])
   const [hasMore, setHasMore] = useState(true)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
-  // Internal state to track total count - updated by realtime subscriptions
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [_totalCount, setTotalCount] = useState(0)
+  const [totalCount, setTotalCount] = useState(0)
 
   // Fetch applications with pagination
   useEffect(() => {
@@ -71,27 +52,37 @@ export function useTrackedApplications(pageSize = 20) {
       try {
         setLoading(true)
 
-        // ⚠️ This will fail until the table is created
-        const { data, error: fetchError, count } = await supabase
-          .from('tracked_applications')
-          .select('*', { count: 'exact' })
-          .eq('user_id', userId)
-          .order('last_updated', { ascending: false })
-          .range(offset, offset + pageSize - 1)
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session) {
+          throw new Error('No session found')
+        }
 
-        if (fetchError) throw fetchError
+        const response = await fetch(
+          `${API_URL}/api/tracked-applications?page=${page}&limit=${pageSize}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${session.access_token}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        )
 
-        if (subscribed && data) {
-          const mappedApps = data.map(mapDbTrackedApplication)
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ message: 'Failed to fetch tracked applications' }))
+          throw new Error(errorData.message || 'Failed to fetch tracked applications')
+        }
 
-          if (offset === 0) {
-            setAllApplications(mappedApps)
+        const data = await response.json()
+
+        if (subscribed) {
+          if (page === 1) {
+            setAllApplications(data.trackedApplications || [])
           } else {
-            setAllApplications(prev => [...prev, ...mappedApps])
+            setAllApplications(prev => [...prev, ...(data.trackedApplications || [])])
           }
 
-          setTotalCount(count || 0)
-          setHasMore(data.length === pageSize && (offset + pageSize) < (count || 0))
+          setTotalCount(data.total || 0)
+          setHasMore(data.hasMore || false)
           setError(null)
         }
       } catch (err) {
@@ -110,9 +101,9 @@ export function useTrackedApplications(pageSize = 20) {
     return () => {
       subscribed = false
     }
-  }, [userId, offset, pageSize])
+  }, [userId, page, pageSize])
 
-  // Set up real-time subscription
+  // Set up real-time subscription (read-only)
   useEffect(() => {
     if (!userId) return
 
@@ -153,12 +144,12 @@ export function useTrackedApplications(pageSize = 20) {
 
   const loadMore = useCallback(() => {
     if (hasMore && !loading) {
-      setOffset(prev => prev + pageSize)
+      setPage(prev => prev + 1)
     }
-  }, [hasMore, loading, pageSize])
+  }, [hasMore, loading])
 
   const reset = useCallback(() => {
-    setOffset(0)
+    setPage(1)
     setAllApplications([])
     setHasMore(true)
   }, [])
@@ -166,89 +157,108 @@ export function useTrackedApplications(pageSize = 20) {
   const addTrackedApplication = async (data: Omit<TrackedApplication, 'id' | 'lastUpdated'>) => {
     if (!userId) throw new Error('User not authenticated')
 
-    const { error: insertError } = await supabase.from('tracked_applications').insert({
-      user_id: userId,
-      job_id: data.jobId || null,
-      application_id: data.applicationId || null,
-      company: data.company,
-      job_title: data.jobTitle,
-      location: data.location || null,
-      match_score: data.matchScore || null,
-      status: data.status as Database['public']['Enums']['tracked_application_status'],
-      applied_date: data.appliedDate || null,
-      last_updated: new Date().toISOString(),
-      status_history: data.statusHistory as unknown as Json,
-      interviews: data.interviews as unknown as Json,
-      recruiter: (data.recruiter || null) as unknown as Json,
-      hiring_manager: (data.hiringManager || null) as unknown as Json,
-      follow_up_actions: data.followUpActions as unknown as Json,
-      activity_log: (data.activityLog || []) as unknown as Json,
-      offer_details: (data.offerDetails || null) as unknown as Json,
-      next_action: data.nextAction || null,
-      next_action_date: data.nextActionDate || null,
-      next_interview_date: data.nextInterviewDate || null,
-      notes: data.notes || null,
-      archived: data.archived || false,
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) throw new Error('No session found')
+
+    const response = await fetch(`${API_URL}/api/tracked-applications`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
     })
 
-    if (insertError) throw insertError
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: 'Failed to create tracked application' }))
+      throw new Error(errorData.message || 'Failed to create tracked application')
+    }
+
+    return response.json()
   }
 
   const updateTrackedApplication = async (id: string, data: Partial<Omit<TrackedApplication, 'id'>>) => {
     if (!userId) throw new Error('User not authenticated')
 
-    const updateData: Partial<Database['public']['Tables']['tracked_applications']['Update']> = {
-      last_updated: new Date().toISOString(),
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) throw new Error('No session found')
+
+    const response = await fetch(`${API_URL}/api/tracked-applications/${id}`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: 'Failed to update tracked application' }))
+      throw new Error(errorData.message || 'Failed to update tracked application')
     }
 
-    if (data.jobId !== undefined) updateData.job_id = data.jobId || null
-    if (data.applicationId !== undefined) updateData.application_id = data.applicationId || null
-    if (data.company !== undefined) updateData.company = data.company
-    if (data.jobTitle !== undefined) updateData.job_title = data.jobTitle
-    if (data.location !== undefined) updateData.location = data.location || null
-    if (data.matchScore !== undefined) updateData.match_score = data.matchScore || null
-    if (data.status !== undefined) updateData.status = data.status as Database['public']['Enums']['tracked_application_status']
-    if (data.appliedDate !== undefined) updateData.applied_date = data.appliedDate || null
-    if (data.statusHistory !== undefined) updateData.status_history = data.statusHistory as unknown as Json
-    if (data.interviews !== undefined) updateData.interviews = data.interviews as unknown as Json
-    if (data.recruiter !== undefined) updateData.recruiter = (data.recruiter || null) as unknown as Json
-    if (data.hiringManager !== undefined) updateData.hiring_manager = (data.hiringManager || null) as unknown as Json
-    if (data.followUpActions !== undefined) updateData.follow_up_actions = data.followUpActions as unknown as Json
-    if (data.activityLog !== undefined) updateData.activity_log = data.activityLog as unknown as Json
-    if (data.offerDetails !== undefined) updateData.offer_details = (data.offerDetails || null) as unknown as Json
-    if (data.nextAction !== undefined) updateData.next_action = data.nextAction || null
-    if (data.nextActionDate !== undefined) updateData.next_action_date = data.nextActionDate || null
-    if (data.nextInterviewDate !== undefined) updateData.next_interview_date = data.nextInterviewDate || null
-    if (data.notes !== undefined) updateData.notes = data.notes || null
-    if (data.archived !== undefined) updateData.archived = data.archived
-
-    const { error: updateError } = await supabase
-      .from('tracked_applications')
-      .update(updateData)
-      .eq('id', id)
-      .eq('user_id', userId)
-
-    if (updateError) throw updateError
+    return response.json()
   }
 
   const deleteTrackedApplication = async (id: string) => {
     if (!userId) throw new Error('User not authenticated')
 
-    const { error: deleteError } = await supabase
-      .from('tracked_applications')
-      .delete()
-      .eq('id', id)
-      .eq('user_id', userId)
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) throw new Error('No session found')
 
-    if (deleteError) throw deleteError
+    const response = await fetch(`${API_URL}/api/tracked-applications/${id}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: 'Failed to delete tracked application' }))
+      throw new Error(errorData.message || 'Failed to delete tracked application')
+    }
   }
 
   const archiveTrackedApplication = async (id: string) => {
-    await updateTrackedApplication(id, { archived: true })
+    if (!userId) throw new Error('User not authenticated')
+
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) throw new Error('No session found')
+
+    const response = await fetch(`${API_URL}/api/tracked-applications/${id}/archive`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: 'Failed to archive tracked application' }))
+      throw new Error(errorData.message || 'Failed to archive tracked application')
+    }
+
+    return response.json()
   }
 
   const unarchiveTrackedApplication = async (id: string) => {
-    await updateTrackedApplication(id, { archived: false })
+    if (!userId) throw new Error('User not authenticated')
+
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) throw new Error('No session found')
+
+    const response = await fetch(`${API_URL}/api/tracked-applications/${id}/unarchive`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: 'Failed to unarchive tracked application' }))
+      throw new Error(errorData.message || 'Failed to unarchive tracked application')
+    }
+
+    return response.json()
   }
 
   return {
@@ -258,6 +268,7 @@ export function useTrackedApplications(pageSize = 20) {
     loadMore,
     hasMore,
     reset,
+    totalCount,
     addTrackedApplication,
     updateTrackedApplication,
     deleteTrackedApplication,
@@ -289,17 +300,28 @@ export function useTrackedApplication(id: string | undefined) {
     const fetchApplication = async () => {
       try {
         setLoading(true)
-        const { data, error: fetchError } = await supabase
-          .from('tracked_applications')
-          .select('*')
-          .eq('id', id)
-          .eq('user_id', userId)
-          .single()
 
-        if (fetchError) throw fetchError
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session) {
+          throw new Error('No session found')
+        }
 
-        if (subscribed && data) {
-          setTrackedApplication(mapDbTrackedApplication(data))
+        const response = await fetch(`${API_URL}/api/tracked-applications/${id}`, {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ message: 'Failed to fetch tracked application' }))
+          throw new Error(errorData.message || 'Failed to fetch tracked application')
+        }
+
+        const data = await response.json()
+
+        if (subscribed) {
+          setTrackedApplication(data)
           setError(null)
         }
       } catch (err) {
@@ -316,7 +338,7 @@ export function useTrackedApplication(id: string | undefined) {
 
     fetchApplication()
 
-    // Set up real-time subscription
+    // Set up real-time subscription (read-only)
     const channel = supabase
       .channel(`tracked_application:${id}`)
       .on<DbTrackedApplication>(
@@ -357,7 +379,7 @@ export function useActiveTrackedApplications(pageSize = 20) {
   const { user } = useAuth()
   const userId = user?.id
 
-  const [offset, setOffset] = useState(0)
+  const [page, setPage] = useState(1)
   const [allApplications, setAllApplications] = useState<TrackedApplication[]>([])
   const [hasMore, setHasMore] = useState(true)
   const [loading, setLoading] = useState(true)
@@ -376,26 +398,36 @@ export function useActiveTrackedApplications(pageSize = 20) {
       try {
         setLoading(true)
 
-        const { data, error: fetchError, count } = await supabase
-          .from('tracked_applications')
-          .select('*', { count: 'exact' })
-          .eq('user_id', userId)
-          .eq('archived', false)
-          .order('last_updated', { ascending: false })
-          .range(offset, offset + pageSize - 1)
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session) {
+          throw new Error('No session found')
+        }
 
-        if (fetchError) throw fetchError
+        const response = await fetch(
+          `${API_URL}/api/tracked-applications/active?page=${page}&limit=${pageSize}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${session.access_token}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        )
 
-        if (subscribed && data) {
-          const mappedApps = data.map(mapDbTrackedApplication)
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ message: 'Failed to fetch active tracked applications' }))
+          throw new Error(errorData.message || 'Failed to fetch active tracked applications')
+        }
 
-          if (offset === 0) {
-            setAllApplications(mappedApps)
+        const data = await response.json()
+
+        if (subscribed) {
+          if (page === 1) {
+            setAllApplications(data.activeApplications || [])
           } else {
-            setAllApplications(prev => [...prev, ...mappedApps])
+            setAllApplications(prev => [...prev, ...(data.activeApplications || [])])
           }
 
-          setHasMore(data.length === pageSize && (offset + pageSize) < (count || 0))
+          setHasMore(data.hasMore || false)
           setError(null)
         }
       } catch (err) {
@@ -414,18 +446,18 @@ export function useActiveTrackedApplications(pageSize = 20) {
     return () => {
       subscribed = false
     }
-  }, [userId, offset, pageSize])
+  }, [userId, page, pageSize])
 
   const activeApplications: TrackedApplication[] = allApplications
 
   const loadMore = useCallback(() => {
     if (hasMore && !loading) {
-      setOffset(prev => prev + pageSize)
+      setPage(prev => prev + 1)
     }
-  }, [hasMore, loading, pageSize])
+  }, [hasMore, loading])
 
   const reset = useCallback(() => {
-    setOffset(0)
+    setPage(1)
     setAllApplications([])
     setHasMore(true)
   }, [])
@@ -442,6 +474,7 @@ export function useActiveTrackedApplications(pageSize = 20) {
 
 /**
  * Map database tracked application to app TrackedApplication type
+ * Used by real-time subscriptions (read-only)
  */
 function mapDbTrackedApplication(dbApp: DbTrackedApplication): TrackedApplication {
   return {

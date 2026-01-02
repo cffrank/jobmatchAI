@@ -8,8 +8,8 @@
 
 import { chromium } from 'playwright';
 
-const FRONTEND_URL = process.env.FRONTEND_URL || 'https://jobmatchai-production.up.railway.app';
-const BACKEND_URL = process.env.BACKEND_URL || 'https://intelligent-celebration-production-57e4.up.railway.app';
+const FRONTEND_URL = process.env.FRONTEND_URL || 'https://jobmatch-ai-prod.pages.dev';
+const BACKEND_URL = process.env.BACKEND_URL || 'https://jobmatch-ai-prod.carl-f-frank.workers.dev';
 
 // Test credentials
 const TEST_EMAIL = process.env.TEST_EMAIL || 'test@example.com';

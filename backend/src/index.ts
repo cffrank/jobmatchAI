@@ -28,6 +28,11 @@ import exportsRouter from './routes/exports';
 import resumeRouter from './routes/resume';
 import spamDetectionRouter from './routes/spamDetection';
 import searchPreferencesRouter from './routes/searchPreferences';
+import profileRouter from './routes/profile';
+import skillsRouter from './routes/skills';
+import usageRouter from './routes/usage';
+import trackedApplicationsRouter from './routes/trackedApplications';
+import billingRouter from './routes/billing';
 
 // Middleware imports
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
@@ -202,6 +207,11 @@ app.use('/api/jobs', jobsRouter);
 app.use('/api/spam-detection', spamDetectionRouter);
 app.use('/api/exports', exportsRouter);
 app.use('/api/resume', resumeRouter);
+app.use('/api/profile', profileRouter);
+app.use('/api/skills', skillsRouter);
+app.use('/api/usage', usageRouter);
+app.use('/api/tracked-applications', trackedApplicationsRouter);
+app.use('/api/billing', billingRouter);
 
 // Search preferences, history, templates, and manual trigger
 // All routes are defined in searchPreferencesRouter with their full paths
@@ -245,7 +255,24 @@ if (NODE_ENV === 'development') {
           'POST /api/exports/docx': 'Export application as DOCX',
         },
         resume: {
+          'GET /api/resume': 'Fetch user resumes',
+          'POST /api/resume': 'Create new resume',
+          'PATCH /api/resume/:id': 'Update resume',
+          'DELETE /api/resume/:id': 'Delete resume',
           'POST /api/resume/parse': 'Parse resume file using AI',
+        },
+        profile: {
+          'GET /api/profile': 'Get current user profile',
+          'PATCH /api/profile': 'Update current user profile',
+        },
+        skills: {
+          'GET /api/skills': 'Get current user skills',
+          'POST /api/skills': 'Create a new skill',
+          'PATCH /api/skills/:id': 'Update a skill',
+          'DELETE /api/skills/:id': 'Delete a skill',
+        },
+        usage: {
+          'GET /api/usage/metrics': 'Get current user usage metrics',
         },
         searchPreferences: {
           'GET /api/search-preferences': 'Get user search preferences',

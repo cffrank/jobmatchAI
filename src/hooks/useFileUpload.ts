@@ -179,17 +179,38 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
   }
 
   /**
-   * Delete file from Supabase Storage
-   * @param storagePath - Path in storage bucket
-   * @param bucket - Storage bucket name (default: 'files')
+   * Delete file from Cloudflare R2 via Workers API
+   * @param storagePath - Path in storage bucket (e.g., 'users/123/resumes/resume.pdf')
+   * @param _bucket - Storage bucket name (default: 'files', kept for backward compatibility but unused)
    */
-  const deleteFile = async (storagePath: string, bucket: string = 'files'): Promise<void> => {
+  const deleteFile = async (storagePath: string, _bucket: string = 'files'): Promise<void> => {
     try {
-      const { error: deleteError } = await supabase.storage
-        .from(bucket)
-        .remove([storagePath])
+      // Get auth session for API call
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        throw new Error('No active session')
+      }
 
-      if (deleteError) throw deleteError
+      // Get backend URL
+      const backendUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_BACKEND_URL
+      if (!backendUrl) {
+        throw new Error('Backend URL not configured')
+      }
+
+      // Delete via Workers API
+      const response = await fetch(`${backendUrl}/api/files/${encodeURIComponent(storagePath)}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Delete failed' }))
+        throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`)
+      }
+
+      console.log(`[useFileUpload] File deleted: ${storagePath}`)
     } catch (error) {
       const err = error as Error
       setError(err)
@@ -198,23 +219,53 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
   }
 
   /**
-   * Get signed URL for private file access
-   * @param storagePath - Path in storage bucket
-   * @param bucket - Storage bucket name (default: 'files')
-   * @param expiresIn - Expiration time in seconds (default: 3600 = 1 hour)
+   * Get signed URL for private file access via Workers API
+   * @param storagePath - Path in storage bucket (e.g., 'users/123/resumes/resume.pdf')
+   * @param _bucket - Storage bucket name (default: 'files', kept for backward compatibility but unused)
+   * @param expiresIn - Expiration time in seconds (default: 3600 = 1 hour, max: 86400 = 24 hours)
    */
   const getSignedUrl = async (
     storagePath: string,
-    bucket: string = 'files',
+    _bucket: string = 'files',
     expiresIn: number = 3600
   ): Promise<string> => {
     try {
-      const { data, error: signError } = await supabase.storage
-        .from(bucket)
-        .createSignedUrl(storagePath, expiresIn)
+      // Get auth session for API call
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        throw new Error('No active session')
+      }
 
-      if (signError) throw signError
-      if (!data?.signedUrl) throw new Error('Failed to generate signed URL')
+      // Get backend URL
+      const backendUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_BACKEND_URL
+      if (!backendUrl) {
+        throw new Error('Backend URL not configured')
+      }
+
+      // Request signed URL via Workers API
+      const response = await fetch(
+        `${backendUrl}/api/files/${encodeURIComponent(storagePath)}/signed-url?expiresIn=${expiresIn}`,
+        {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+        }
+      )
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Failed to generate signed URL' }))
+        throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`)
+      }
+
+      const data = await response.json() as {
+        signedUrl: string
+        expiresIn: number
+        expiresAt: string
+        key: string
+      }
+
+      console.log(`[useFileUpload] Signed URL generated for: ${storagePath} (expires: ${data.expiresAt})`)
 
       return data.signedUrl
     } catch (error) {

@@ -4,10 +4,11 @@
  * Handles application generation and management.
  *
  * Endpoints:
- * - POST /api/applications/generate - Generate application variants for a job
- * - GET /api/applications - List user's applications
- * - GET /api/applications/:id - Get application by ID
- * - PATCH /api/applications/:id - Update application
+ * - POST /api/applications/generate - Generate application variants for a job (with AI)
+ * - POST /api/applications - Create new application (without AI generation)
+ * - GET /api/applications - List user's applications with pagination
+ * - GET /api/applications/:id - Get application by ID with variants
+ * - PATCH /api/applications/:id - Update application (status, selectedVariantId)
  * - DELETE /api/applications/:id - Delete application
  */
 
@@ -144,14 +145,93 @@ app.post('/generate', authenticateUser, rateLimiter(), async (c) => {
     skills: mappedSkills,
   });
 
-  // Save application to database
-  const applicationData = {
-    user_id: userId,
-    job_id: jobId,
-    job_title: mappedJob.title,
+  // Save application to D1 database
+  // Note: In D1 schema, variants are stored as JSON in applications.variants column
+  const applicationId = crypto.randomUUID();
+  const now = new Date().toISOString();
+
+  const variantsJson = JSON.stringify(variants.map((v) => ({
+    id: v.id,
+    name: v.name,
+    resume: v.resume,
+    cover_letter: v.coverLetter,
+    ai_rationale: v.aiRationale,
+  })));
+
+  try {
+    await c.env.DB.prepare(
+      `INSERT INTO applications (
+        id, user_id, job_id, status, variants, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?)`
+    )
+      .bind(
+        applicationId,
+        userId,
+        jobId,
+        'draft',
+        variantsJson,
+        now,
+        now
+      )
+      .run();
+  } catch (error) {
+    console.error('Failed to save application to D1:', error);
+    throw new Error('Failed to save application');
+  }
+
+  console.log(`Application created: ${applicationId}`);
+
+  const response: GenerateApplicationResponse = {
+    id: applicationId,
+    jobId,
+    jobTitle: mappedJob.title,
     company: mappedJob.company,
     status: 'draft',
-    selected_variant_id: variants[0]?.id || '',
+    createdAt: new Date().toISOString(),
+    variants,
+    selectedVariantId: variants[0]?.id || '',
+  };
+
+  return c.json(response, 201);
+});
+
+/**
+ * POST /api/applications
+ * Create a new application (without AI generation)
+ */
+const createApplicationSchema = z.object({
+  jobId: z.string().optional().nullable(),
+  jobTitle: z.string().min(1, 'Job title is required'),
+  company: z.string().min(1, 'Company is required'),
+  status: z.enum(['draft', 'submitted', 'viewed', 'interviewing', 'offered', 'rejected', 'withdrawn', 'accepted']).optional(),
+  selectedVariantId: z.string().optional().nullable(),
+  variants: z.array(z.any()).optional(),
+});
+
+app.post('/', authenticateUser, rateLimiter(), async (c) => {
+  const userId = getUserId(c);
+  const body = await c.req.json();
+  const supabase = createSupabaseAdmin(c.env);
+
+  const parseResult = createApplicationSchema.safeParse(body);
+  if (!parseResult.success) {
+    throw createValidationError(
+      'Invalid request body',
+      Object.fromEntries(
+        parseResult.error.errors.map((e) => [e.path.join('.'), e.message])
+      )
+    );
+  }
+
+  const { jobId, jobTitle, company, status, selectedVariantId, variants } = parseResult.data;
+
+  const applicationData = {
+    user_id: userId,
+    job_id: jobId || null,
+    job_title: jobTitle,
+    company,
+    status: status || 'draft',
+    selected_variant_id: selectedVariantId || null,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   };
@@ -163,37 +243,35 @@ app.post('/generate', authenticateUser, rateLimiter(), async (c) => {
     .single();
 
   if (insertError || !application) {
-    console.error('Failed to save application:', insertError);
-    throw new Error('Failed to save application');
+    console.error('Failed to create application:', insertError);
+    throw new Error('Failed to create application');
   }
 
-  // Save variants
-  const variantRecords = variants.map((v) => ({
-    application_id: application.id,
-    variant_id: v.id,
-    name: v.name,
-    resume: v.resume,
-    cover_letter: v.coverLetter,
-    ai_rationale: v.aiRationale,
-    created_at: new Date().toISOString(),
-  }));
+  // Save variants if provided
+  if (variants && variants.length > 0) {
+    const variantRecords = variants.map((v) => ({
+      application_id: application.id,
+      variant_id: v.id as string,
+      name: v.name as string,
+      resume: v.resume,
+      cover_letter: v.coverLetter as string,
+      ai_rationale: v.aiRationale,
+      created_at: new Date().toISOString(),
+    }));
 
-  await supabase.from(TABLES.APPLICATION_VARIANTS).insert(variantRecords);
+    await supabase.from(TABLES.APPLICATION_VARIANTS).insert(variantRecords);
+  }
 
-  console.log(`Application created: ${application.id}`);
-
-  const response: GenerateApplicationResponse = {
+  return c.json({
     id: application.id,
     jobId,
-    jobTitle: mappedJob.title,
-    company: mappedJob.company,
-    status: 'draft',
+    jobTitle,
+    company,
+    status: status || 'draft',
     createdAt: new Date().toISOString(),
-    variants,
-    selectedVariantId: variants[0]?.id || '',
-  };
-
-  return c.json(response, 201);
+    selectedVariantId,
+    variants: variants || [],
+  }, 201);
 });
 
 /**

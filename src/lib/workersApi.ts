@@ -417,6 +417,67 @@ export class WorkersAPI {
       body: JSON.stringify(updates),
     });
   }
+
+  // ---------------------------------------------------------------------------
+  // Work Experience Methods
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Get all work experience for current user
+   */
+  async getWorkExperience(): Promise<{ workExperience: unknown[] }> {
+    return this.request('/api/profile/work-experience');
+  }
+
+  /**
+   * Create new work experience entry
+   */
+  async createWorkExperience(data: {
+    company: string;
+    position: string;
+    location?: string;
+    description?: string;
+    startDate: string;
+    endDate?: string | null;
+    current?: boolean;
+    accomplishments?: string[];
+  }): Promise<{ success: boolean; message: string; workExperience: unknown }> {
+    return this.request('/api/profile/work-experience', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  /**
+   * Update existing work experience entry
+   */
+  async updateWorkExperience(
+    id: string,
+    data: {
+      company?: string;
+      position?: string;
+      location?: string;
+      description?: string;
+      startDate?: string;
+      endDate?: string | null;
+      current?: boolean;
+      accomplishments?: string[];
+    }
+  ): Promise<{ success: boolean; message: string; workExperience: unknown }> {
+    return this.request(`/api/profile/work-experience/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  /**
+   * Delete work experience entry
+   */
+  async deleteWorkExperience(id: string): Promise<{ success: boolean; message: string }> {
+    return this.request(`/api/profile/work-experience/${id}`, {
+      method: 'DELETE',
+    });
+  }
 }
 
 // =============================================================================

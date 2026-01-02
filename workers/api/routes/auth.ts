@@ -312,19 +312,10 @@ async function importProfileToDatabase(
     throw error;
   }
 
-  // Create notification about limited data import
+  // Note: Notifications table doesn't exist in D1 schema yet
+  // Frontend will show LinkedIn import status via query parameters in redirect URL
   if (limitedAccess) {
-    await supabase.from(TABLES.NOTIFICATIONS).insert({
-      user_id: userId,
-      type: 'linkedin_import_limited',
-      title: 'LinkedIn Import Completed',
-      message:
-        'Basic profile information has been imported from LinkedIn. To add work experience, education, and skills, please enter them manually in your profile or upload your resume.',
-      read: false,
-      action_url: '/profile/edit',
-      action_text: 'Complete Profile',
-      created_at: new Date().toISOString(),
-    });
+    console.log(`[OAuth] Limited access import completed for user ${userId}. Frontend will display notification.`);
   }
 }
 

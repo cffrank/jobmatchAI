@@ -640,10 +640,14 @@ Return the response as JSON with this EXACT structure:
   let parsedData: ParsedResume;
 
   if (isPdf) {
-    // For PDFs: Call Railway service to extract text, then parse with Llama 3.3 70B
-    console.log('[parseResume] PDF detected - using Railway PDF parser service');
+    // For PDFs: Call PDF parser service to extract text, then parse with Llama 3.3 70B
+    console.log('[parseResume] PDF detected - using PDF parser service');
 
-    const pdfParserUrl = env.PDF_PARSER_SERVICE_URL || 'https://jobmatch-pdf-parser.railway.app';
+    if (!env.PDF_PARSER_SERVICE_URL) {
+      throw new Error('PDF_PARSER_SERVICE_URL is not configured');
+    }
+
+    const pdfParserUrl = env.PDF_PARSER_SERVICE_URL;
     console.log(`[parseResume] Calling PDF parser at ${pdfParserUrl}`);
 
     const pdfResponse = await fetch(`${pdfParserUrl}/parse-pdf`, {

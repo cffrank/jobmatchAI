@@ -2,7 +2,7 @@
  * Test backend API endpoint to diagnose HTTP 500 errors
  */
 
-const BACKEND_URL = 'https://backend1-development.up.railway.app';
+const BACKEND_URL = 'https://jobmatch-ai-dev.carl-f-frank.workers.dev';
 
 // You'll need to get this from browser DevTools after logging in
 // Open console, run: localStorage.getItem('jobmatch-auth-token')
