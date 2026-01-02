@@ -15,7 +15,6 @@ import type { Env, Variables } from '../types';
 import { HttpError, TABLES } from '../types';
 import { authenticateUser, getUserId } from '../middleware/auth';
 import { rateLimiter, ipRateLimiter } from '../middleware/rateLimiter';
-import { createSupabaseAdmin } from '../services/supabase';
 
 // =============================================================================
 // Router Setup
@@ -157,9 +156,8 @@ app.get('/linkedin/callback', ipRateLimiter(10, 15 * 60 * 1000), async (c) => {
       return redirectWithError(c, 'profile_fetch_failed');
     }
 
-    // Import profile to database (still uses Supabase for user data)
-    const supabase = createSupabaseAdmin(c.env);
-    await importProfileToDatabase(supabase, userId, profileData);
+    // Import profile to database (migrated to D1)
+    await importProfileToDatabase(c.env.DB, userId, profileData);
 
     console.log(`Successfully imported LinkedIn data for user ${userId}`);
 
@@ -262,54 +260,70 @@ async function fetchLinkedInProfile(accessToken: string): Promise<LinkedInProfil
 }
 
 async function importProfileToDatabase(
-  supabase: ReturnType<typeof createSupabaseAdmin>,
+  db: D1Database,
   userId: string,
   linkedInData: LinkedInProfileData
 ): Promise<void> {
   const { userInfo, limitedAccess } = linkedInData;
+  const now = new Date().toISOString();
 
-  // Build profile update
-  const profileUpdate: Record<string, unknown> = {
-    linkedin_imported: true,
-    linkedin_imported_at: new Date().toISOString(),
-    linkedin_limited_access: limitedAccess,
-    updated_at: new Date().toISOString(),
-  };
+  // Build update parts
+  const updateParts: string[] = [];
+  const params: any[] = [];
+
+  updateParts.push('linkedin_imported = ?');
+  params.push(true);
+
+  updateParts.push('linkedin_imported_at = ?');
+  params.push(now);
+
+  updateParts.push('linkedin_limited_access = ?');
+  params.push(limitedAccess);
 
   if (userInfo.given_name) {
-    profileUpdate.first_name = userInfo.given_name;
+    updateParts.push('first_name = ?');
+    params.push(userInfo.given_name);
   }
 
   if (userInfo.family_name) {
-    profileUpdate.last_name = userInfo.family_name;
+    updateParts.push('last_name = ?');
+    params.push(userInfo.family_name);
   }
 
   if (userInfo.email) {
-    profileUpdate.email = userInfo.email;
+    updateParts.push('email = ?');
+    params.push(userInfo.email);
   }
 
   if (userInfo.picture) {
-    profileUpdate.profile_image_url = userInfo.picture;
+    updateParts.push('profile_image_url = ?');
+    params.push(userInfo.picture);
   }
 
   if (userInfo.sub) {
     const profileId = userInfo.sub.includes(':') ? userInfo.sub.split(':').pop() : userInfo.sub;
-    profileUpdate.linkedin_url = `https://www.linkedin.com/in/${profileId}`;
+    updateParts.push('linkedin_url = ?');
+    params.push(`https://www.linkedin.com/in/${profileId}`);
   }
 
   if (userInfo.locale) {
-    profileUpdate.locale = userInfo.locale;
+    updateParts.push('locale = ?');
+    params.push(userInfo.locale);
   }
 
-  // Update user profile
-  const { error } = await supabase
-    .from(TABLES.USERS)
-    .update(profileUpdate)
-    .eq('id', userId);
+  updateParts.push('updated_at = ?');
+  params.push(now);
 
-  if (error) {
-    console.error('Profile update error:', error);
-    throw error;
+  // Execute update
+  params.push(userId); // WHERE clause parameter
+
+  const { meta } = await db.prepare(
+    `UPDATE users SET ${updateParts.join(', ')} WHERE id = ?`
+  ).bind(...params).run();
+
+  if (meta.changes === 0) {
+    console.error('[OAuth] Profile update failed: user not found');
+    throw new Error('User profile not found');
   }
 
   // Note: Notifications table doesn't exist in D1 schema yet

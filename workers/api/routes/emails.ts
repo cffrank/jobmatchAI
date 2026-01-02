@@ -16,7 +16,6 @@ import { TABLES } from '../types';
 import { authenticateUser, getUserId } from '../middleware/auth';
 import { rateLimiter } from '../middleware/rateLimiter';
 import { createNotFoundError, createValidationError } from '../middleware/errorHandler';
-import { createSupabaseAdmin } from '../services/supabase';
 
 // =============================================================================
 // Router Setup
@@ -59,7 +58,6 @@ const emailHistorySchema = z.object({
 app.post('/send', authenticateUser, rateLimiter({ maxRequests: 10, windowMs: 60 * 60 * 1000 }), async (c) => {
   const userId = getUserId(c);
   const body = await c.req.json();
-  const supabase = createSupabaseAdmin(c.env);
 
   // Check if SendGrid is configured
   if (!c.env.SENDGRID_API_KEY) {
@@ -90,66 +88,61 @@ app.post('/send', authenticateUser, rateLimiter({ maxRequests: 10, windowMs: 60 
 
   console.log(`Sending application email for user ${userId}, application ${applicationId}`);
 
-  // Fetch application
-  const { data: applicationRecord, error: applicationError } = await supabase
-    .from(TABLES.APPLICATIONS)
-    .select('*')
-    .eq('id', applicationId)
-    .eq('user_id', userId)
-    .single();
+  // Fetch application from D1
+  const { results: applicationResults } = await c.env.DB.prepare(
+    'SELECT * FROM applications WHERE id = ? AND user_id = ?'
+  ).bind(applicationId, userId).all();
 
-  if (applicationError || !applicationRecord) {
+  const applicationRecord = applicationResults[0];
+
+  if (!applicationRecord) {
     throw createNotFoundError('Application', applicationId);
   }
 
-  // Fetch selected variant
-  const { data: variantRecords, error: variantError } = await supabase
-    .from(TABLES.APPLICATION_VARIANTS)
-    .select('*')
-    .eq('application_id', applicationId);
+  // Parse variants JSON
+  const variants = applicationRecord.variants ? JSON.parse(applicationRecord.variants as string) : [];
 
-  if (variantError || !variantRecords || variantRecords.length === 0) {
+  if (variants.length === 0) {
     throw createNotFoundError('Application variants');
   }
 
   // Find selected variant or use first one
   const selectedVariantRecord =
-    variantRecords.find((v) => v.variant_id === applicationRecord.selected_variant_id) ||
-    variantRecords[0];
+    variants.find((v: any) => v.id === applicationRecord.selected_variant_id) || variants[0];
 
   if (!selectedVariantRecord) {
     throw createNotFoundError('Selected variant');
   }
 
-  // Fetch user profile
-  const { data: profileRecord, error: profileError } = await supabase
-    .from(TABLES.USERS)
-    .select('*')
-    .eq('id', userId)
-    .single();
+  // Fetch user profile from D1
+  const { results: profileResults } = await c.env.DB.prepare(
+    'SELECT * FROM users WHERE id = ?'
+  ).bind(userId).all();
 
-  if (profileError || !profileRecord) {
+  const profileRecord = profileResults[0];
+
+  if (!profileRecord) {
     throw createNotFoundError('User profile');
   }
 
   // Map to typed objects
   const application: Application = {
-    id: applicationRecord.id,
-    userId: applicationRecord.user_id,
-    jobId: applicationRecord.job_id,
-    jobTitle: applicationRecord.job_title,
-    company: applicationRecord.company,
-    status: applicationRecord.status,
-    createdAt: applicationRecord.created_at,
-    updatedAt: applicationRecord.updated_at,
-    submittedAt: applicationRecord.submitted_at,
+    id: applicationRecord.id as string,
+    userId: applicationRecord.user_id as string,
+    jobId: applicationRecord.job_id as string | undefined,
+    jobTitle: applicationRecord.job_title as string,
+    company: applicationRecord.company as string,
+    status: applicationRecord.status as string,
+    createdAt: applicationRecord.created_at as string,
+    updatedAt: applicationRecord.updated_at as string,
+    submittedAt: applicationRecord.submitted_at as string | undefined,
     variants: [],
-    selectedVariantId: applicationRecord.selected_variant_id,
-    editHistory: applicationRecord.edit_history || [],
+    selectedVariantId: applicationRecord.selected_variant_id as string | undefined,
+    editHistory: applicationRecord.edit_history ? JSON.parse(applicationRecord.edit_history as string) : [],
   };
 
   const variant: ApplicationVariant = {
-    id: selectedVariantRecord.variant_id,
+    id: selectedVariantRecord.id,
     name: selectedVariantRecord.name,
     resume: selectedVariantRecord.resume,
     coverLetter: selectedVariantRecord.cover_letter,
@@ -157,20 +150,20 @@ app.post('/send', authenticateUser, rateLimiter({ maxRequests: 10, windowMs: 60 
   };
 
   const profile: UserProfile = {
-    id: profileRecord.id,
-    email: profileRecord.email,
-    firstName: profileRecord.first_name,
-    lastName: profileRecord.last_name,
-    phone: profileRecord.phone,
-    location: profileRecord.location,
-    summary: profileRecord.summary,
-    headline: profileRecord.headline,
-    profileImageUrl: profileRecord.profile_image_url,
-    linkedInUrl: profileRecord.linkedin_url,
-    linkedInImported: profileRecord.linkedin_imported,
-    linkedInImportedAt: profileRecord.linkedin_imported_at,
-    createdAt: profileRecord.created_at,
-    updatedAt: profileRecord.updated_at,
+    id: profileRecord.id as string,
+    email: profileRecord.email as string,
+    firstName: profileRecord.first_name as string | undefined,
+    lastName: profileRecord.last_name as string | undefined,
+    phone: profileRecord.phone as string | undefined,
+    location: profileRecord.location as string | undefined,
+    summary: profileRecord.summary as string | undefined,
+    headline: profileRecord.headline as string | undefined,
+    profileImageUrl: profileRecord.profile_image_url as string | undefined,
+    linkedInUrl: profileRecord.linkedin_url as string | undefined,
+    linkedInImported: profileRecord.linkedin_imported as boolean | undefined,
+    linkedInImportedAt: profileRecord.linkedin_imported_at as string | undefined,
+    createdAt: profileRecord.created_at as string,
+    updatedAt: profileRecord.updated_at as string,
   };
 
   // Send email using SendGrid service (Phase 3.6)
@@ -180,7 +173,7 @@ app.post('/send', authenticateUser, rateLimiter({ maxRequests: 10, windowMs: 60 
   const resumeText = buildResumeText(variant, profile);
   const emailContent = generateApplicationEmail(
     `${profile.firstName} ${profile.lastName}`,
-    profile.email,
+    profile.email!,
     application.jobTitle,
     application.company,
     variant.coverLetter,
@@ -195,7 +188,7 @@ app.post('/send', authenticateUser, rateLimiter({ maxRequests: 10, windowMs: 60 
       name: `${profile.firstName} ${profile.lastName}`,
     },
     replyTo: {
-      email: profile.email,
+      email: profile.email!,
       name: `${profile.firstName} ${profile.lastName}`,
     },
     subject: emailContent.subject,
@@ -226,7 +219,6 @@ app.post('/send', authenticateUser, rateLimiter({ maxRequests: 10, windowMs: 60 
  */
 app.get('/history', authenticateUser, async (c) => {
   const userId = getUserId(c);
-  const supabase = createSupabaseAdmin(c.env);
 
   const parseResult = emailHistorySchema.safeParse({
     page: c.req.query('page'),
@@ -246,31 +238,39 @@ app.get('/history', authenticateUser, async (c) => {
   const { page, limit, applicationId } = parseResult.data;
   const offset = (page - 1) * limit;
 
-  // Build query
-  let query = supabase
-    .from(TABLES.EMAILS)
-    .select('*', { count: 'exact' })
-    .eq('user_id', userId)
-    .order('sent_at', { ascending: false })
-    .range(offset, offset + limit - 1);
+  // Build query for D1
+  let query = 'SELECT * FROM email_history WHERE user_id = ?';
+  const params: any[] = [userId];
 
   if (applicationId) {
-    query = query.eq('application_id', applicationId);
+    query += ' AND application_id = ?';
+    params.push(applicationId);
   }
 
-  const { data: emails, error, count } = await query;
+  query += ' ORDER BY sent_at DESC LIMIT ? OFFSET ?';
+  params.push(limit, offset);
 
-  if (error) {
-    console.error('Failed to fetch email history:', error);
-    throw new Error('Failed to fetch email history');
+  // Get emails
+  const { results: emails } = await c.env.DB.prepare(query).bind(...params).all();
+
+  // Get total count
+  let countQuery = 'SELECT COUNT(*) as count FROM email_history WHERE user_id = ?';
+  const countParams: any[] = [userId];
+
+  if (applicationId) {
+    countQuery += ' AND application_id = ?';
+    countParams.push(applicationId);
   }
+
+  const { results: countResults } = await c.env.DB.prepare(countQuery).bind(...countParams).all();
+  const count = (countResults[0] as any)?.count || 0;
 
   return c.json({
     emails: emails || [],
-    total: count || 0,
+    total: count,
     page,
     limit,
-    hasMore: (count || 0) > offset + limit,
+    hasMore: count > offset + limit,
   });
 });
 
@@ -280,18 +280,15 @@ app.get('/history', authenticateUser, async (c) => {
  */
 app.get('/remaining', authenticateUser, async (c) => {
   const userId = getUserId(c);
-  const supabase = createSupabaseAdmin(c.env);
 
   // Check rate limit without incrementing
-  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
 
-  const { count } = await supabase
-    .from(TABLES.EMAILS)
-    .select('*', { count: 'exact', head: true })
-    .eq('user_id', userId)
-    .gte('sent_at', oneHourAgo.toISOString());
+  const { results: countResults } = await c.env.DB.prepare(
+    'SELECT COUNT(*) as count FROM email_history WHERE user_id = ? AND sent_at >= ?'
+  ).bind(userId, oneHourAgo).all();
 
-  const sent = count || 0;
+  const sent = (countResults[0] as any)?.count || 0;
   const limit = 10;
   const remaining = Math.max(0, limit - sent);
 
@@ -320,7 +317,7 @@ export async function sendApplicationEmail(
   variant: ApplicationVariant,
   profile: UserProfile,
   recipientEmail: string,
-  supabase: ReturnType<typeof createSupabaseAdmin>
+  db: D1Database
 ): Promise<SendEmailResult> {
   const fromEmail = env.SENDGRID_FROM_EMAIL || 'noreply@jobmatch-ai.com';
   const fromName = `${profile.firstName || ''} ${profile.lastName || ''}`.trim() || 'JobMatch AI User';
@@ -362,39 +359,40 @@ export async function sendApplicationEmail(
     throw new Error('Failed to send email via SendGrid');
   }
 
-  // Log email to database
-  const { data, error } = await supabase
-    .from(TABLES.EMAILS)
-    .insert({
-      user_id: userId,
-      application_id: application.id,
-      recipient_email: recipientEmail,
-      subject,
-      from_email: fromEmail,
-      from_name: fromName,
-      status: 'sent',
-      sent_at: new Date().toISOString(),
-    })
-    .select('id')
-    .single();
+  // Log email to D1 database
+  const emailId = crypto.randomUUID();
+  const now = new Date().toISOString();
 
-  if (error) {
-    console.error('Failed to log email:', error);
-    throw error;
-  }
+  await db.prepare(
+    `INSERT INTO email_history (
+      id, user_id, application_id, to_address, subject, from_address, from_name,
+      status, sent_at, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  )
+    .bind(
+      emailId,
+      userId,
+      application.id,
+      recipientEmail,
+      subject,
+      fromEmail,
+      fromName,
+      'sent',
+      now,
+      now
+    )
+    .run();
 
   // Update application with last email timestamp
-  await supabase
-    .from(TABLES.APPLICATIONS)
-    .update({
-      last_email_sent_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', application.id);
+  await db.prepare(
+    'UPDATE applications SET last_email_sent_at = ?, updated_at = ? WHERE id = ?'
+  )
+    .bind(now, now, application.id)
+    .run();
 
   return {
     success: true,
-    emailId: data.id,
+    emailId,
     message: 'Email sent successfully',
   };
 }

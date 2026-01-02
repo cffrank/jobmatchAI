@@ -9,7 +9,6 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import type { Env, Variables } from '../types';
 import { authenticateUser, getUserId } from '../middleware/auth';
-import { createSupabaseAdmin } from '../services/supabase';
 import { updateUserResumeEmbedding } from '../services/embeddings';
 import { invalidateCacheForUser } from '../services/jobAnalysisCache';
 
@@ -26,13 +25,11 @@ function triggerSkillsChangeBackgroundUpdates(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   c: any,
   env: Env,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  supabase: any,
   userId: string
 ): void {
   c.executionCtx.waitUntil(
     Promise.allSettled([
-      updateUserResumeEmbedding(env, supabase, userId).catch((err) => {
+      updateUserResumeEmbedding(env, userId).catch((err) => {
         console.error('[Skills] Failed to update user embedding:', err);
       }),
       invalidateCacheForUser(env, userId).catch((err) => {
@@ -61,22 +58,17 @@ const skillSchema = z.object({
  */
 app.get('/', authenticateUser, async (c) => {
   const userId = getUserId(c);
-  const supabase = createSupabaseAdmin(c.env);
 
   try {
-    const { data: skills, error: fetchError } = await supabase
-      .from('skills')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
-
-    if (fetchError) {
-      throw new Error(`Failed to fetch skills: ${fetchError.message}`);
-    }
+    const { results } = await c.env.DB.prepare(
+      'SELECT * FROM skills WHERE user_id = ? ORDER BY created_at DESC'
+    )
+      .bind(userId)
+      .all();
 
     return c.json({
       message: 'Skills fetched successfully',
-      skills: skills || [],
+      skills: results || [],
     });
   } catch (error) {
     console.error('[Skills] Error fetching skills:', error);
@@ -106,32 +98,39 @@ app.post('/', authenticateUser, async (c) => {
     );
   }
 
-  const supabase = createSupabaseAdmin(c.env);
-
   try {
+    const skillId = crypto.randomUUID();
     const timestamp = new Date().toISOString();
 
-    const { data, error: insertError } = await supabase
-      .from('skills')
-      .insert({
-        user_id: userId,
-        ...parseResult.data,
-        created_at: timestamp,
-        updated_at: timestamp,
-      })
-      .select()
-      .single();
+    await c.env.DB.prepare(
+      `INSERT INTO skills (id, user_id, name, proficiency_level, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?)`
+    )
+      .bind(
+        skillId,
+        userId,
+        parseResult.data.name,
+        parseResult.data.level || null,
+        timestamp,
+        timestamp
+      )
+      .run();
 
-    if (insertError) {
-      throw new Error(`Failed to add skill: ${insertError.message}`);
-    }
+    // Fetch the inserted skill
+    const { results } = await c.env.DB.prepare(
+      'SELECT * FROM skills WHERE id = ?'
+    )
+      .bind(skillId)
+      .all();
 
-    triggerSkillsChangeBackgroundUpdates(c, c.env, supabase, userId);
+    const skill = results[0];
+
+    triggerSkillsChangeBackgroundUpdates(c, c.env, userId);
     console.log(`[Skills] Added skill for user ${userId}, background updates queued`);
 
     return c.json({
       message: 'Skill added successfully',
-      skill: data,
+      skill,
     });
   } catch (error) {
     console.error('[Skills] Error adding skill:', error);
@@ -162,36 +161,53 @@ app.patch('/:id', authenticateUser, async (c) => {
     );
   }
 
-  const supabase = createSupabaseAdmin(c.env);
-
   try {
     const timestamp = new Date().toISOString();
 
-    const { data, error: updateError } = await supabase
-      .from('skills')
-      .update({
-        ...parseResult.data,
-        updated_at: timestamp,
-      })
-      .eq('id', skillId)
-      .eq('user_id', userId)
-      .select()
-      .single();
+    // Build dynamic UPDATE query based on fields provided
+    const updates: string[] = [];
+    const values: any[] = [];
 
-    if (updateError) {
-      throw new Error(`Failed to update skill: ${updateError.message}`);
+    if (parseResult.data.name !== undefined) {
+      updates.push('name = ?');
+      values.push(parseResult.data.name);
+    }
+    if (parseResult.data.level !== undefined) {
+      updates.push('proficiency_level = ?');
+      values.push(parseResult.data.level);
     }
 
-    if (!data) {
+    updates.push('updated_at = ?');
+    values.push(timestamp);
+
+    // Add WHERE clause values
+    values.push(skillId, userId);
+
+    const { meta } = await c.env.DB.prepare(
+      `UPDATE skills SET ${updates.join(', ')} WHERE id = ? AND user_id = ?`
+    )
+      .bind(...values)
+      .run();
+
+    if (meta.changes === 0) {
       return c.json({ error: 'Skill not found or access denied' }, 404);
     }
 
-    triggerSkillsChangeBackgroundUpdates(c, c.env, supabase, userId);
+    // Fetch updated skill
+    const { results } = await c.env.DB.prepare(
+      'SELECT * FROM skills WHERE id = ? AND user_id = ?'
+    )
+      .bind(skillId, userId)
+      .all();
+
+    const skill = results[0];
+
+    triggerSkillsChangeBackgroundUpdates(c, c.env, userId);
     console.log(`[Skills] Updated skill ${skillId} for user ${userId}, background updates queued`);
 
     return c.json({
       message: 'Skill updated successfully',
-      skill: data,
+      skill,
     });
   } catch (error) {
     console.error('[Skills] Error updating skill:', error);
@@ -213,20 +229,18 @@ app.delete('/:id', authenticateUser, async (c) => {
   const userId = getUserId(c);
   const skillId = c.req.param('id');
 
-  const supabase = createSupabaseAdmin(c.env);
-
   try {
-    const { error: deleteError } = await supabase
-      .from('skills')
-      .delete()
-      .eq('id', skillId)
-      .eq('user_id', userId);
+    const { meta } = await c.env.DB.prepare(
+      'DELETE FROM skills WHERE id = ? AND user_id = ?'
+    )
+      .bind(skillId, userId)
+      .run();
 
-    if (deleteError) {
-      throw new Error(`Failed to delete skill: ${deleteError.message}`);
+    if (meta.changes === 0) {
+      return c.json({ error: 'Skill not found or access denied' }, 404);
     }
 
-    triggerSkillsChangeBackgroundUpdates(c, c.env, supabase, userId);
+    triggerSkillsChangeBackgroundUpdates(c, c.env, userId);
     console.log(`[Skills] Deleted skill ${skillId} for user ${userId}, background updates queued`);
 
     return c.json({
