@@ -137,10 +137,10 @@ app.get('/', authenticateUser, async (c) => {
 });
 
 /**
- * PUT /api/profile
+ * PATCH /api/profile
  * Update user profile (headline, summary, contact info)
  */
-app.put('/', authenticateUser, async (c) => {
+app.patch('/', authenticateUser, async (c) => {
   const userId = getUserId(c);
   const body = await c.req.json();
 
@@ -288,10 +288,10 @@ app.post('/work-experience', authenticateUser, async (c) => {
 });
 
 /**
- * PUT /api/profile/work-experience/:id
+ * PATCH /api/profile/work-experience/:id
  * Update existing work experience entry
  */
-app.put('/work-experience/:id', authenticateUser, async (c) => {
+app.patch('/work-experience/:id', authenticateUser, async (c) => {
   const userId = getUserId(c);
   const experienceId = c.req.param('id');
   const body = await c.req.json();
@@ -489,10 +489,10 @@ app.post('/skills', authenticateUser, async (c) => {
 });
 
 /**
- * PUT /api/profile/skills/:id
+ * PATCH /api/profile/skills/:id
  * Update existing skill
  */
-app.put('/skills/:id', authenticateUser, async (c) => {
+app.patch('/skills/:id', authenticateUser, async (c) => {
   const userId = getUserId(c);
   const skillId = c.req.param('id');
   const body = await c.req.json();
