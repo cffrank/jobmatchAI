@@ -322,6 +322,9 @@ test.describe('Backend Direct Testing (via Playwright)', () => {
   });
 
   test('should test health endpoint accessibility', async ({ request }) => {
+    // Skip environment check when running against local Express backend
+    test.skip(BACKEND_URL.includes('localhost'), 'This test requires Cloudflare Workers backend');
+
     const response = await request.get(`${BACKEND_URL}/health`);
 
     console.log('\n=== Health Check ===');
@@ -342,6 +345,9 @@ test.describe('Backend Direct Testing (via Playwright)', () => {
   });
 
   test('should test GET request with CORS headers', async ({ request }) => {
+    // Skip CORS origin reflection test when running against local Express backend
+    test.skip(BACKEND_URL.includes('localhost'), 'This test requires Cloudflare Workers backend');
+
     const response = await request.get(`${BACKEND_URL}/health`, {
       headers: {
         'Origin': PRODUCTION_URL,

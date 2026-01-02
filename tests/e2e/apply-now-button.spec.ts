@@ -263,6 +263,9 @@ test.describe('Apply Now Button - Authenticated', () => {
 
 test.describe('Apply Now Button - CORS Verification', () => {
   test('CORS headers allow Cloudflare Pages preview deployments', async ({ request }) => {
+    // Skip this test when running against local Express backend
+    test.skip(BACKEND_URL.includes('localhost'), 'This test requires Cloudflare Workers backend');
+
     // Test that wildcard CORS pattern works
     const previewOrigins = [
       'https://5802a4d3.jobmatch-ai-dev.pages.dev',
@@ -291,6 +294,9 @@ test.describe('Apply Now Button - CORS Verification', () => {
   });
 
   test('CORS does NOT allow malicious subdomains', async ({ request }) => {
+    // Skip this test when running against local Express backend
+    test.skip(BACKEND_URL.includes('localhost'), 'This test requires Cloudflare Workers backend');
+
     const maliciousOrigins = [
       'https://jobmatch-ai-dev.pages.dev.evil.com',
       'https://evil.com',
