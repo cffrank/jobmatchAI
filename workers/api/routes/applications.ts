@@ -15,11 +15,9 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import type { Env, Variables, Job, UserProfile, WorkExperience, Education, Skill, GenerateApplicationResponse } from '../types';
-import { TABLES } from '../types';
 import { authenticateUser, getUserId } from '../middleware/auth';
 import { rateLimiter } from '../middleware/rateLimiter';
 import { createNotFoundError, createValidationError } from '../middleware/errorHandler';
-import { createSupabaseAdmin } from '../services/supabase';
 import { generateApplicationVariants } from '../services/openai';
 
 // =============================================================================
@@ -76,38 +74,41 @@ app.post('/generate', authenticateUser, rateLimiter(), async (c) => {
   }
 
   const { jobId } = parseResult.data;
-  const supabase = createSupabaseAdmin(c.env);
 
   console.log(`Generating application for user ${userId}, job ${jobId}`);
 
-  // Fetch job data
-  const { data: job, error: jobError } = await supabase
-    .from(TABLES.JOBS)
-    .select('*')
-    .eq('id', jobId)
-    .single();
+  // Fetch job data from D1
+  const { results: jobResults } = await c.env.DB.prepare(
+    'SELECT * FROM jobs WHERE id = ?'
+  )
+    .bind(jobId)
+    .all();
 
-  if (jobError || !job) {
+  const job = jobResults[0];
+
+  if (!job) {
     throw createNotFoundError('Job', jobId);
   }
 
-  // Fetch user profile
-  const { data: profile, error: profileError } = await supabase
-    .from(TABLES.USERS)
-    .select('*')
-    .eq('id', userId)
-    .single();
+  // Fetch user profile from D1
+  const { results: profileResults } = await c.env.DB.prepare(
+    'SELECT * FROM users WHERE id = ?'
+  )
+    .bind(userId)
+    .all();
 
-  if (profileError || !profile) {
+  const profile = profileResults[0];
+
+  if (!profile) {
     throw createNotFoundError('User profile');
   }
 
-  // Fetch work experience
-  const { data: workExperience } = await supabase
-    .from(TABLES.WORK_EXPERIENCE)
-    .select('*')
-    .eq('user_id', userId)
-    .order('start_date', { ascending: false });
+  // Fetch work experience from D1
+  const { results: workExperience } = await c.env.DB.prepare(
+    'SELECT * FROM work_experience WHERE user_id = ? ORDER BY start_date DESC'
+  )
+    .bind(userId)
+    .all();
 
   if (!workExperience || workExperience.length === 0) {
     throw createValidationError('Add work experience to your profile first', {
@@ -115,19 +116,19 @@ app.post('/generate', authenticateUser, rateLimiter(), async (c) => {
     });
   }
 
-  // Fetch education
-  const { data: education } = await supabase
-    .from(TABLES.EDUCATION)
-    .select('*')
-    .eq('user_id', userId)
-    .order('end_date', { ascending: false });
+  // Fetch education from D1
+  const { results: education } = await c.env.DB.prepare(
+    'SELECT * FROM education WHERE user_id = ? ORDER BY end_date DESC'
+  )
+    .bind(userId)
+    .all();
 
-  // Fetch skills
-  const { data: skills } = await supabase
-    .from(TABLES.SKILLS)
-    .select('*')
-    .eq('user_id', userId)
-    .order('endorsements', { ascending: false });
+  // Fetch skills from D1
+  const { results: skills } = await c.env.DB.prepare(
+    'SELECT * FROM skills WHERE user_id = ? ORDER BY endorsements DESC'
+  )
+    .bind(userId)
+    .all();
 
   // Map database records to type interfaces
   const mappedJob: Job = mapDatabaseJob(job);
@@ -211,7 +212,6 @@ const createApplicationSchema = z.object({
 app.post('/', authenticateUser, rateLimiter(), async (c) => {
   const userId = getUserId(c);
   const body = await c.req.json();
-  const supabase = createSupabaseAdmin(c.env);
 
   const parseResult = createApplicationSchema.safeParse(body);
   if (!parseResult.success) {
@@ -225,50 +225,52 @@ app.post('/', authenticateUser, rateLimiter(), async (c) => {
 
   const { jobId, jobTitle, company, status, selectedVariantId, variants } = parseResult.data;
 
-  const applicationData = {
-    user_id: userId,
-    job_id: jobId || null,
-    job_title: jobTitle,
-    company,
-    status: status || 'draft',
-    selected_variant_id: selectedVariantId || null,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  };
+  const applicationId = crypto.randomUUID();
+  const now = new Date().toISOString();
 
-  const { data: application, error: insertError } = await supabase
-    .from(TABLES.APPLICATIONS)
-    .insert(applicationData)
-    .select('id')
-    .single();
+  // Store variants as JSON in D1
+  const variantsJson = variants && variants.length > 0
+    ? JSON.stringify(variants.map((v) => ({
+        id: v.id,
+        name: v.name,
+        resume: v.resume,
+        cover_letter: v.coverLetter,
+        ai_rationale: v.aiRationale,
+      })))
+    : null;
 
-  if (insertError || !application) {
-    console.error('Failed to create application:', insertError);
+  try {
+    await c.env.DB.prepare(
+      `INSERT INTO applications (
+        id, user_id, job_id, job_title, company, status,
+        selected_variant_id, variants, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    )
+      .bind(
+        applicationId,
+        userId,
+        jobId || null,
+        jobTitle,
+        company,
+        status || 'draft',
+        selectedVariantId || null,
+        variantsJson,
+        now,
+        now
+      )
+      .run();
+  } catch (error) {
+    console.error('Failed to create application:', error);
     throw new Error('Failed to create application');
   }
 
-  // Save variants if provided
-  if (variants && variants.length > 0) {
-    const variantRecords = variants.map((v) => ({
-      application_id: application.id,
-      variant_id: v.id as string,
-      name: v.name as string,
-      resume: v.resume,
-      cover_letter: v.coverLetter as string,
-      ai_rationale: v.aiRationale,
-      created_at: new Date().toISOString(),
-    }));
-
-    await supabase.from(TABLES.APPLICATION_VARIANTS).insert(variantRecords);
-  }
-
   return c.json({
-    id: application.id,
+    id: applicationId,
     jobId,
     jobTitle,
     company,
     status: status || 'draft',
-    createdAt: new Date().toISOString(),
+    createdAt: now,
     selectedVariantId,
     variants: variants || [],
   }, 201);
@@ -280,7 +282,6 @@ app.post('/', authenticateUser, rateLimiter(), async (c) => {
  */
 app.get('/', authenticateUser, async (c) => {
   const userId = getUserId(c);
-  const supabase = createSupabaseAdmin(c.env);
 
   const parseResult = listApplicationsSchema.safeParse({
     page: c.req.query('page'),
@@ -300,31 +301,43 @@ app.get('/', authenticateUser, async (c) => {
   const { page, limit, status } = parseResult.data;
   const offset = (page - 1) * limit;
 
-  // Build query
-  let query = supabase
-    .from(TABLES.APPLICATIONS)
-    .select('*', { count: 'exact' })
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false })
-    .range(offset, offset + limit - 1);
+  // Build query with optional status filter
+  let query = 'SELECT * FROM applications WHERE user_id = ?';
+  const params: any[] = [userId];
 
   if (status) {
-    query = query.eq('status', status);
+    query += ' AND status = ?';
+    params.push(status);
   }
 
-  const { data: applications, error, count } = await query;
+  query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
+  params.push(limit, offset);
 
-  if (error) {
-    console.error('Failed to fetch applications:', error);
-    throw new Error('Failed to fetch applications');
+  const { results: applications } = await c.env.DB.prepare(query)
+    .bind(...params)
+    .all();
+
+  // Get total count
+  let countQuery = 'SELECT COUNT(*) as count FROM applications WHERE user_id = ?';
+  const countParams: any[] = [userId];
+
+  if (status) {
+    countQuery += ' AND status = ?';
+    countParams.push(status);
   }
+
+  const { results: countResults } = await c.env.DB.prepare(countQuery)
+    .bind(...countParams)
+    .all();
+
+  const count = (countResults[0] as any)?.count || 0;
 
   return c.json({
     applications: applications || [],
-    total: count || 0,
+    total: count,
     page,
     limit,
-    hasMore: (count || 0) > offset + limit,
+    hasMore: count > offset + limit,
   });
 });
 
@@ -335,29 +348,28 @@ app.get('/', authenticateUser, async (c) => {
 app.get('/:id', authenticateUser, async (c) => {
   const userId = getUserId(c);
   const id = c.req.param('id');
-  const supabase = createSupabaseAdmin(c.env);
 
-  // Fetch application
-  const { data: application, error } = await supabase
-    .from(TABLES.APPLICATIONS)
-    .select('*')
-    .eq('id', id)
-    .eq('user_id', userId)
-    .single();
+  // Fetch application from D1
+  const { results } = await c.env.DB.prepare(
+    'SELECT * FROM applications WHERE id = ? AND user_id = ?'
+  )
+    .bind(id, userId)
+    .all();
 
-  if (error || !application) {
+  const application = results[0];
+
+  if (!application) {
     throw createNotFoundError('Application', id);
   }
 
-  // Fetch variants
-  const { data: variants } = await supabase
-    .from(TABLES.APPLICATION_VARIANTS)
-    .select('*')
-    .eq('application_id', id);
+  // Parse variants from JSON
+  const variants = application.variants
+    ? JSON.parse(application.variants as string)
+    : [];
 
   return c.json({
     ...application,
-    variants: variants || [],
+    variants,
   });
 });
 
@@ -369,7 +381,6 @@ app.patch('/:id', authenticateUser, async (c) => {
   const userId = getUserId(c);
   const id = c.req.param('id');
   const body = await c.req.json();
-  const supabase = createSupabaseAdmin(c.env);
 
   const parseResult = updateApplicationSchema.safeParse(body);
   if (!parseResult.success) {
@@ -382,35 +393,52 @@ app.patch('/:id', authenticateUser, async (c) => {
   }
 
   const updates = parseResult.data;
+  const now = new Date().toISOString();
 
-  // Verify ownership
-  const { data: existing } = await supabase
-    .from(TABLES.APPLICATIONS)
-    .select('id')
-    .eq('id', id)
-    .eq('user_id', userId)
-    .single();
+  // Build dynamic UPDATE query
+  const updateFields: string[] = [];
+  const values: any[] = [];
 
-  if (!existing) {
+  if (updates.status !== undefined) {
+    updateFields.push('status = ?');
+    values.push(updates.status);
+
+    // Set submitted_at if status is submitted
+    if (updates.status === 'submitted') {
+      updateFields.push('submitted_at = ?');
+      values.push(now);
+    }
+  }
+
+  if (updates.selectedVariantId !== undefined) {
+    updateFields.push('selected_variant_id = ?');
+    values.push(updates.selectedVariantId);
+  }
+
+  updateFields.push('updated_at = ?');
+  values.push(now);
+
+  // Add WHERE clause values
+  values.push(id, userId);
+
+  const { meta } = await c.env.DB.prepare(
+    `UPDATE applications SET ${updateFields.join(', ')} WHERE id = ? AND user_id = ?`
+  )
+    .bind(...values)
+    .run();
+
+  if (meta.changes === 0) {
     throw createNotFoundError('Application', id);
   }
 
-  // Update application
-  const { data: application, error } = await supabase
-    .from(TABLES.APPLICATIONS)
-    .update({
-      ...updates,
-      updated_at: new Date().toISOString(),
-      ...(updates.status === 'submitted' && { submitted_at: new Date().toISOString() }),
-    })
-    .eq('id', id)
-    .select()
-    .single();
+  // Fetch updated application
+  const { results } = await c.env.DB.prepare(
+    'SELECT * FROM applications WHERE id = ? AND user_id = ?'
+  )
+    .bind(id, userId)
+    .all();
 
-  if (error) {
-    console.error('Failed to update application:', error);
-    throw new Error('Failed to update application');
-  }
+  const application = results[0];
 
   return c.json(application);
 });
@@ -422,18 +450,16 @@ app.patch('/:id', authenticateUser, async (c) => {
 app.delete('/:id', authenticateUser, async (c) => {
   const userId = getUserId(c);
   const id = c.req.param('id');
-  const supabase = createSupabaseAdmin(c.env);
 
-  // Verify ownership and delete
-  const { error } = await supabase
-    .from(TABLES.APPLICATIONS)
-    .delete()
-    .eq('id', id)
-    .eq('user_id', userId);
+  // Delete application from D1
+  const { meta } = await c.env.DB.prepare(
+    'DELETE FROM applications WHERE id = ? AND user_id = ?'
+  )
+    .bind(id, userId)
+    .run();
 
-  if (error) {
-    console.error('Failed to delete application:', error);
-    throw new Error('Failed to delete application');
+  if (meta.changes === 0) {
+    throw createNotFoundError('Application', id);
   }
 
   return c.body(null, 204);
