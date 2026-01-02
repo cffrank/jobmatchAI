@@ -1,8 +1,10 @@
 name: Test Suite
 
 on:
+  # Note: 'develop' branch is tested in cloudflare-deploy.yml
+  # This workflow runs on 'main' branch and all PRs
   push:
-    branches: [main, develop]
+    branches: [main]
   pull_request:
     branches: [main, develop]
   workflow_dispatch:

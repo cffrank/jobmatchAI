@@ -1,13 +1,16 @@
-name: E2E Tests
+name: E2E Tests (Manual Only - Replaced by post-deployment-e2e.yml)
 
 on:
-  # Run after successful deployment
-  workflow_run:
-    workflows: ["Deploy"]
-    types:
-      - completed
+  # DISABLED: This workflow has been replaced by post-deployment-e2e.yml
+  # which runs after actual Cloudflare deployment completes.
+  # Keep this workflow for manual testing only via workflow_dispatch.
+  #
+  # workflow_run:
+  #   workflows: ["Deploy to Cloudflare (GitHub Actions)"]
+  #   types:
+  #     - completed
 
-  # Allow manual trigger
+  # Allow manual trigger for testing specific environments
   workflow_dispatch:
     inputs:
       environment:
@@ -23,15 +26,15 @@ jobs:
   e2e-tests:
     name: Run E2E Tests
     runs-on: ubuntu-latest
-    # Only run if deployment succeeded
-    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    # Only run if manually triggered (workflow_run disabled)
+    if: ${{ github.event_name == 'workflow_dispatch' }}
 
     steps:
       - name: Wait for deployment to propagate
         run: sleep 30
 
       - name: Run E2E Tests (Development)
-        if: github.event.inputs.environment == 'development' || github.event_name == 'workflow_run'
+        if: github.event.inputs.environment == 'development'
         id: test_dev
         run: |
           echo "Running E2E tests against development environment..."
