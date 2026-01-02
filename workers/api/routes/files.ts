@@ -15,6 +15,120 @@ import { getFile } from '../services/storage';
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 // =============================================================================
+// File Upload Endpoint
+// =============================================================================
+
+/**
+ * POST /api/files/upload
+ * Upload file to R2 storage
+ *
+ * Accepts multipart/form-data with:
+ * - file: The file to upload (required)
+ * - bucket: Target bucket ('avatars', 'resumes', 'exports') (required)
+ * - path: Storage path relative to user folder (optional, auto-generated if not provided)
+ *
+ * Returns:
+ * - key: Full path in R2 bucket
+ * - downloadURL: URL to download the file
+ * - size: File size in bytes
+ */
+app.post('/upload', authenticateUser, async (c) => {
+  const userId = getUserId(c);
+
+  console.log(`[Files] Upload request from user ${userId}`);
+
+  try {
+    // Parse multipart form data
+    const formData = await c.req.formData();
+    const file = formData.get('file') as File | null;
+    const bucketName = formData.get('bucket') as string | null;
+    const requestedPath = formData.get('path') as string | null;
+
+    if (!file) {
+      return c.json({ error: 'No file provided' }, 400);
+    }
+
+    if (!bucketName) {
+      return c.json({ error: 'Bucket name required' }, 400);
+    }
+
+    // Determine bucket
+    let bucket: R2Bucket;
+    let folderPrefix: string;
+
+    switch (bucketName.toLowerCase()) {
+      case 'avatars':
+        bucket = c.env.AVATARS;
+        folderPrefix = 'profile';
+        break;
+      case 'resumes':
+        bucket = c.env.RESUMES;
+        folderPrefix = 'resumes';
+        break;
+      case 'exports':
+        bucket = c.env.EXPORTS;
+        folderPrefix = 'exports';
+        break;
+      default:
+        return c.json({ error: 'Invalid bucket name' }, 400);
+    }
+
+    // Generate storage path
+    // Format: users/{userId}/{folder}/{timestamp}_{filename}
+    const timestamp = Date.now();
+    const filename = requestedPath || `${timestamp}_${file.name}`;
+    const storageKey = `users/${userId}/${folderPrefix}/${filename}`;
+
+    console.log(`[Files] Uploading to ${bucketName}: ${storageKey}`);
+
+    // Validate file size (10MB max)
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+      return c.json({
+        error: 'File too large',
+        message: `File size ${(file.size / 1024 / 1024).toFixed(2)}MB exceeds 10MB limit`
+      }, 400);
+    }
+
+    // Upload to R2
+    const arrayBuffer = await file.arrayBuffer();
+    const uploaded = await bucket.put(storageKey, arrayBuffer, {
+      httpMetadata: {
+        contentType: file.type || 'application/octet-stream',
+      },
+      customMetadata: {
+        uploadedBy: userId,
+        originalFilename: file.name,
+        uploadedAt: new Date().toISOString(),
+      },
+    });
+
+    // Generate download URL (via our API)
+    const downloadURL = `/api/files/download/${encodeURIComponent(storageKey)}`;
+
+    console.log(`[Files] ✓ Upload successful: ${storageKey} (${file.size} bytes)`);
+
+    return c.json({
+      key: uploaded.key,
+      downloadURL,
+      fullPath: storageKey, // For backward compatibility with Supabase
+      size: uploaded.size,
+      uploadedAt: new Date().toISOString(),
+    }, 201);
+
+  } catch (error) {
+    console.error('[Files] Upload failed:', error);
+    return c.json(
+      {
+        error: 'Failed to upload file',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      },
+      500
+    );
+  }
+});
+
+// =============================================================================
 // File Download Endpoint
 // =============================================================================
 
