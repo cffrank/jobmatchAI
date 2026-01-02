@@ -20,8 +20,7 @@ import { authenticateUser, getUserId } from '../middleware/auth';
 import { rateLimiter } from '../middleware/rateLimiter';
 import { createValidationError } from '../middleware/errorHandler';
 import { parseResume } from '../services/openai';
-import { analyzeResumeGaps, type ResumeGapAnalysis } from '../services/resumeGapAnalysis';
-import { createSupabaseAdmin } from '../services/supabase';
+import { analyzeResumeGaps } from '../services/resumeGapAnalysis';
 import {
   uploadFile,
   deleteFile,
@@ -55,20 +54,15 @@ const parseResumeSchema = z.object({
  */
 app.get('/', authenticateUser, async (c) => {
   const userId = getUserId(c);
-  const supabase = createSupabaseAdmin(c.env);
 
   try {
-    const { data: resumes, error: fetchError } = await supabase
-      .from('resumes')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
+    const { results } = await c.env.DB.prepare(
+      'SELECT * FROM resumes WHERE user_id = ? ORDER BY created_at DESC'
+    )
+      .bind(userId)
+      .all();
 
-    if (fetchError) {
-      throw new Error(`Failed to fetch resumes: ${fetchError.message}`);
-    }
-
-    return c.json(resumes || []);
+    return c.json(results || []);
   } catch (error) {
     console.error('[Resume] Error fetching resumes:', error);
     return c.json(
@@ -262,23 +256,23 @@ app.post('/analyze-gaps', authenticateUser, rateLimiter(), async (c) => {
 app.get('/gap-analysis/:id', authenticateUser, async (c) => {
   const userId = getUserId(c);
   const analysisId = c.req.param('id');
-  const supabase = createSupabaseAdmin(c.env);
 
   console.log(`[/api/resume/gap-analysis/:id] Fetching analysis ${analysisId} for user ${userId}`);
 
   try {
-    const { data, error } = await supabase
-      .from('resume_gap_analyses')
-      .select('*')
-      .eq('id', analysisId)
-      .eq('user_id', userId)
-      .single();
+    const { results } = await c.env.DB.prepare(
+      'SELECT * FROM resume_gap_analyses WHERE id = ? AND user_id = ?'
+    )
+      .bind(analysisId, userId)
+      .all();
 
-    if (error || !data) {
+    const analysis = results[0];
+
+    if (!analysis) {
       return c.json({ error: 'Gap analysis not found' }, 404);
     }
 
-    return c.json(data, 200);
+    return c.json(analysis, 200);
   } catch (error) {
     console.error(`[/api/resume/gap-analysis/:id] Failed:`, error);
     throw error;
@@ -294,7 +288,6 @@ app.get('/gap-analysis/:id', authenticateUser, async (c) => {
 app.patch('/gap-analysis/:id/answer', authenticateUser, rateLimiter(), async (c) => {
   const userId = getUserId(c);
   const analysisId = c.req.param('id');
-  const supabase = createSupabaseAdmin(c.env);
 
   const body = await c.req.json();
   const { question_id, answer } = z
@@ -310,20 +303,24 @@ app.patch('/gap-analysis/:id/answer', authenticateUser, rateLimiter(), async (c)
 
   try {
     // Fetch existing analysis
-    const { data: analysis, error: fetchError } = await supabase
-      .from('resume_gap_analyses')
-      .select('*')
-      .eq('id', analysisId)
-      .eq('user_id', userId)
-      .single();
+    const { results } = await c.env.DB.prepare(
+      'SELECT * FROM resume_gap_analyses WHERE id = ? AND user_id = ?'
+    )
+      .bind(analysisId, userId)
+      .all();
 
-    if (fetchError || !analysis) {
+    const analysis = results[0];
+
+    if (!analysis) {
       return c.json({ error: 'Gap analysis not found' }, 404);
     }
 
-    // Update the specific question with the answer
-    const questions = analysis.clarification_questions as ResumeGapAnalysis['clarification_questions'];
-    const questionIndex = questions.findIndex((q) => q.question_id === question_id);
+    // Parse clarification_questions from JSON
+    const questions = analysis.clarification_questions
+      ? JSON.parse(analysis.clarification_questions as string)
+      : [];
+
+    const questionIndex = questions.findIndex((q: any) => q.question_id === question_id);
 
     if (questionIndex === -1) {
       return c.json({ error: 'Question not found' }, 404);
@@ -333,33 +330,49 @@ app.patch('/gap-analysis/:id/answer', authenticateUser, rateLimiter(), async (c)
     questions[questionIndex].answer = answer;
 
     // Count how many questions have been answered
-    const answeredCount = questions.filter((q) => q.answer && q.answer.trim().length > 0).length;
+    const answeredCount = questions.filter((q: any) => q.answer && q.answer.trim().length > 0).length;
 
     // Update status based on progress
-    let status = analysis.status;
+    let status = analysis.status as string;
     if (answeredCount === questions.length) {
       status = 'completed';
     } else if (answeredCount > 0) {
       status = 'in_progress';
     }
 
-    // Save updated analysis
-    const { data: updatedAnalysis, error: updateError } = await supabase
-      .from('resume_gap_analyses')
-      .update({
-        clarification_questions: questions,
-        questions_answered: answeredCount,
-        status,
-        completed_at: status === 'completed' ? new Date().toISOString() : null,
-      })
-      .eq('id', analysisId)
-      .eq('user_id', userId)
-      .select()
-      .single();
+    const timestamp = new Date().toISOString();
+    const completedAt = status === 'completed' ? timestamp : null;
 
-    if (updateError) {
-      throw new Error('Failed to update gap analysis');
+    // Save updated analysis
+    const { meta } = await c.env.DB.prepare(
+      `UPDATE resume_gap_analyses
+       SET clarification_questions = ?, questions_answered = ?, status = ?,
+           completed_at = ?, updated_at = ?
+       WHERE id = ? AND user_id = ?`
+    )
+      .bind(
+        JSON.stringify(questions),
+        answeredCount,
+        status,
+        completedAt,
+        timestamp,
+        analysisId,
+        userId
+      )
+      .run();
+
+    if (meta.changes === 0) {
+      return c.json({ error: 'Gap analysis not found' }, 404);
     }
+
+    // Fetch updated analysis
+    const { results: updatedResults } = await c.env.DB.prepare(
+      'SELECT * FROM resume_gap_analyses WHERE id = ? AND user_id = ?'
+    )
+      .bind(analysisId, userId)
+      .all();
+
+    const updatedAnalysis = updatedResults[0];
 
     console.log(
       `[/api/resume/gap-analysis/:id/answer] Answer saved, progress: ${answeredCount}/${questions.length}`
@@ -378,22 +391,17 @@ app.patch('/gap-analysis/:id/answer', authenticateUser, rateLimiter(), async (c)
  */
 app.get('/gap-analyses', authenticateUser, async (c) => {
   const userId = getUserId(c);
-  const supabase = createSupabaseAdmin(c.env);
 
   console.log(`[/api/resume/gap-analyses] Fetching all analyses for user ${userId}`);
 
   try {
-    const { data, error } = await supabase
-      .from('resume_gap_analyses')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
+    const { results } = await c.env.DB.prepare(
+      'SELECT * FROM resume_gap_analyses WHERE user_id = ? ORDER BY created_at DESC'
+    )
+      .bind(userId)
+      .all();
 
-    if (error) {
-      throw new Error('Failed to fetch gap analyses');
-    }
-
-    return c.json(data || [], 200);
+    return c.json(results || [], 200);
   } catch (error) {
     console.error(`[/api/resume/gap-analyses] Failed:`, error);
     throw error;
