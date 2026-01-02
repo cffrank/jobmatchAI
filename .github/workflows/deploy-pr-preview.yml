@@ -3,6 +3,7 @@ name: Deploy PR Preview
 on:
   pull_request:
     types: [opened, synchronize, reopened, closed]
+    branches: [main]  # Only run on PRs targeting main branch
     paths:
       - 'backend/**'
       - '.github/workflows/deploy-pr-preview.yml'

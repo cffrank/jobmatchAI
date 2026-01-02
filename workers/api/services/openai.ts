@@ -10,8 +10,38 @@
 
 import OpenAI from 'openai';
 import type { Env, Job, UserProfile, WorkExperience, Education, Skill, ApplicationVariant, ResumeContent, ParsedResume, JobCompatibilityAnalysis } from '../types';
-import { createSupabaseAdmin } from './supabase';
 import { analyzeJobCompatibilityWithWorkersAI } from './workersAI';
+
+// =============================================================================
+// Utilities
+// =============================================================================
+
+/**
+ * Convert ArrayBuffer to base64 string
+ */
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
+
+/**
+ * Get MIME type from file extension
+ */
+function getMimeType(ext: string): string {
+  const mimeTypes: Record<string, string> = {
+    'pdf': 'application/pdf',
+    'png': 'image/png',
+    'jpg': 'image/jpeg',
+    'jpeg': 'image/jpeg',
+    'gif': 'image/gif',
+    'webp': 'image/webp',
+  };
+  return mimeTypes[ext.toLowerCase()] || 'application/octet-stream';
+}
 
 // =============================================================================
 // Configuration
@@ -549,7 +579,6 @@ function getFallbackVariant(
  */
 export async function parseResume(env: Env, storagePath: string): Promise<ParsedResume> {
   const openai = createOpenAI(env);
-  const supabase = createSupabaseAdmin(env);
 
   console.log(`[parseResume] Starting parse for path: ${storagePath}`);
 
@@ -565,18 +594,24 @@ export async function parseResume(env: Env, storagePath: string): Promise<Parsed
 
   const isPdf = ext === 'pdf';
 
-  // Generate signed URL for the file
-  const { data: signedUrlData, error: urlError } = await supabase.storage
-    .from('files')
-    .createSignedUrl(storagePath, 3600);
+  // Fetch file from R2 RESUMES bucket
+  console.log(`[parseResume] Fetching file from R2: ${storagePath}`);
+  const fileObject = await env.RESUMES.get(storagePath);
 
-  if (urlError || !signedUrlData) {
-    console.error('[parseResume] Failed to generate signed URL:', urlError);
+  if (!fileObject) {
+    console.error('[parseResume] File not found in R2:', storagePath);
     throw new Error(`Failed to access resume file at ${storagePath}.`);
   }
 
-  const fileUrl = signedUrlData.signedUrl;
-  console.log(`[parseResume] Signed URL generated successfully`);
+  // Get file data as ArrayBuffer
+  const fileData = await fileObject.arrayBuffer();
+  console.log(`[parseResume] File fetched from R2 successfully (${fileData.byteLength} bytes)`);
+
+  // Convert to base64 data URL for PDF parser and OpenAI Vision
+  const base64Data = arrayBufferToBase64(fileData);
+  const mimeType = getMimeType(ext || '');
+  const fileUrl = `data:${mimeType};base64,${base64Data}`;
+  console.log(`[parseResume] Converted to data URL (${mimeType})`);
 
   const prompt = `
 You are an expert resume parser. Extract all information from this resume and return it as structured JSON.

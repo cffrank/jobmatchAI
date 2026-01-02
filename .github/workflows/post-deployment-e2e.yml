@@ -1,11 +1,13 @@
 name: Post-Deployment E2E Tests
 
 on:
-  # Run after code is pushed to develop (Cloudflare Pages auto-deploys)
-  push:
-    branches: [develop]
+  # DISABLED: E2E tests now run within cloudflare-deploy.yml workflow
+  # This prevents duplicate workflow runs on develop branch pushes
+  #
+  # push:
+  #   branches: [develop]
 
-  # Allow manual trigger
+  # Allow manual trigger only
   workflow_dispatch:
     inputs:
       environment:

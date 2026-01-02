@@ -264,6 +264,106 @@ npm run test:e2e tests/e2e/your-test.spec.ts
 
 ## Migration Notes
 
+**Migration History:**
+1. **Firebase → Supabase + Railway** (Completed 2024)
+   - Firebase code archived in `firebase-archive/`
+   - All Cloud Functions converted to Express routes
+   - Firestore queries converted to PostgreSQL
+   - Firebase Auth replaced with Supabase Auth
+
+2. **Railway → Cloudflare Workers** (In Progress, 35% code migration complete)
+   - Workers/Pages deployed ✅
+   - KV caching active ✅
+   - D1/R2/Vectorize configured but code not migrated yet ⏳
+   - See `docs/CLOUDFLARE_MIGRATION_STATUS.md` for task breakdown
+   - See `docs/CLOUDFLARE_INFRASTRUCTURE_AUDIT_2026-01-02.md` for current state
+
+## Current Deployment Architecture (Hybrid State)
+
+**JobMatch AI runs on Cloudflare infrastructure but still uses Supabase for data operations.**
+
+### What's Deployed and Active ✅
+
+**Cloudflare Workers (Backend API):**
+- Development: https://jobmatch-ai-dev.carl-f-frank.workers.dev
+- Staging: https://jobmatch-ai-staging.carl-f-frank.workers.dev
+- Production: https://jobmatch-ai-prod.carl-f-frank.workers.dev
+- Framework: Hono (Express-like for Workers)
+- Location: `workers/api/`
+- All 18 API endpoints deployed and responding
+- Automated deployment via GitHub Actions (`.github/workflows/cloudflare-deploy.yml`)
+
+**Cloudflare Pages (Frontend):**
+- Development: https://jobmatch-ai-dev.pages.dev
+- Staging: https://jobmatch-ai-staging.pages.dev
+- Production: https://jobmatch-ai-production.pages.dev
+- Framework: React 19, Vite, TypeScript
+- Automated deployment on push to develop/staging/main
+
+**Active Cloudflare Services:**
+- ✅ **Workers AI** - Embeddings generation (BGE-base-en-v1.5, 768 dimensions)
+- ✅ **AI Gateway** - OpenAI request caching (60-80% hit rate, ~$25/month savings)
+- ✅ **KV Storage** - 4 active namespaces:
+  - `RATE_LIMITS` - IP + user rate limiting (5x faster than PostgreSQL)
+  - `OAUTH_STATES` - LinkedIn OAuth state validation (6x faster)
+  - `EMBEDDINGS_CACHE` - 30-day embedding cache (12x faster on cache hit)
+  - `JOB_ANALYSIS_CACHE` - 7-day AI compatibility analysis cache
+
+**Still Using Supabase (PostgreSQL):**
+- ⚠️ **Database:** All CRUD operations query Supabase PostgreSQL (not D1)
+- ⚠️ **Storage:** File uploads (avatars, resumes) use Supabase Storage (not R2)
+- ⚠️ **Embeddings:** Job embeddings stored in PostgreSQL pgvector (not Vectorize)
+- ⚠️ **Sessions:** Session management in PostgreSQL (not KV)
+- ✅ **Auth:** Supabase Auth (JWT validation) - Will remain on Supabase
+
+### Configured But Not Yet Used ⏳
+
+**D1 Databases (SQLite at Edge):**
+- 3 databases created: `jobmatch-dev`, `jobmatch-staging`, `jobmatch-prod`
+- Schema migrated: 26 tables, 60+ indexes (`workers/migrations/0001_initial_schema.sql`)
+- **Code still queries Supabase PostgreSQL, not D1** ⚠️
+- Migration pending: Replace Supabase queries with D1 SQL in all routes
+
+**R2 Buckets (Object Storage):**
+- 9 buckets created (avatars, resumes, exports × 3 environments)
+- Storage service created: `workers/api/services/storage.ts` (426 lines, presigned URLs ready)
+- **Routes still use Supabase Storage** ⚠️
+- Migration pending: Replace Supabase Storage client with R2 service calls
+
+**Vectorize Indexes (Vector Database):**
+- 3 indexes created: 768-dim, cosine similarity
+- Vectorize service created: `workers/api/services/vectorize.ts` (387 lines, hybrid search ready)
+- **Embeddings still in PostgreSQL pgvector** ⚠️
+- Migration pending: Switch semantic search from pgvector to Vectorize
+
+### Migration Status Summary
+
+**Infrastructure:** 100% deployed and configured ✅
+**Code Migration:** 35% complete ⏳
+
+| Component | Deployed | Code Migration | Status |
+|-----------|----------|----------------|--------|
+| Workers backend | ✅ | 100% | Live in production |
+| Pages frontend | ✅ | 100% | Live in production |
+| KV caching | ✅ | 67% | 4/6 namespaces active |
+| AI Gateway | ✅ | 100% | Active, saving $25/mo |
+| Workers AI | ✅ | 100% | Generating embeddings |
+| D1 database | ✅ | 0% | Schema ready, code uses Supabase |
+| R2 storage | ✅ | 0% | Buckets ready, code uses Supabase |
+| Vectorize | ✅ | 0% | Indexes ready, code uses pgvector |
+
+**Why Hybrid?**
+Workers/Pages successfully deployed, but database/storage queries not migrated. This works but doesn't achieve full cost savings until Supabase PostgreSQL replaced with D1.
+
+**Current Monthly Cost:** ~$65 (Cloudflare $5.55 + Supabase $25 + APIs $35)
+**Target After Full Migration:** ~$40 (28% additional savings)
+
+**Next Critical Steps:**
+1. Migrate database queries from Supabase to D1 (start with one route as POC)
+2. Implement app-level `WHERE user_id = ?` filters (replacement for RLS)
+3. Switch file uploads from Supabase Storage to R2
+4. Migrate embeddings from pgvector to Vectorize
+
 ## Common Patterns
 
 ### Adding a new API endpoint (backend)
@@ -334,12 +434,14 @@ See `docs/GITHUB_SECRETS_SETUP.md` for setup instructions.
 - `ENVIRONMENT-SETUP.md` - Local environment setup
 - `GITHUB_SECRETS_SETUP.md` - CI/CD secrets configuration
 
-### Migration to Cloudflare Workers
-- `cloudflare-migration/README.md` - Migration overview and getting started guide
-- `cloudflare-migration/MIGRATION_STRATEGY.md` - High-level migration approach (8-week timeline)
-- `cloudflare-migration/CLOUDFLARE_WORKERS_SETUP.md` - Technical setup guide (Wrangler, Hono, testing)
-- `cloudflare-migration/API_MIGRATION_CHECKLIST.md` - Endpoint-by-endpoint migration tasks (18 endpoints)
-- `cloudflare-migration/COST_ANALYSIS.md` - Financial comparison ($81/month → $5.50/month = 93% savings)
+### Cloudflare Migration (In Progress - 35% Complete)
+- `CLOUDFLARE_INFRASTRUCTURE_AUDIT_2026-01-02.md` - **Current state audit** (what's deployed vs pending)
+- `CLOUDFLARE_MIGRATION_STATUS.md` - Migration progress tracker (outdated, check audit instead)
+- `CLOUDFLARE_WORKERS_DEPLOYMENT.md` - Deployment guide and CI/CD setup
+- `CLOUDFLARE_KV_AND_WORKERS_ARCHITECTURE.md` - KV namespace design
+- `CLOUDFLARE_AI_GATEWAY_ANALYSIS.md` - AI Gateway integration details
+- `D1_SCHEMA_MAPPING.md` - PostgreSQL → SQLite conversion guide (26 tables)
+- `CLOUDFLARE_MIGRATION_TASK_PLAN.md` - Original 40-task plan (outdated)
 
 ### Security
 - `CREDENTIAL_ROTATION_POLICY.md` - API key rotation schedules (90/180/365-day cycles)
