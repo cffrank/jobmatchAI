@@ -84,9 +84,57 @@ const skillSchema = z.object({
   level: z.enum(['beginner', 'intermediate', 'advanced', 'expert']).optional(),
 });
 
+const educationSchema = z.object({
+  school: z.string().min(1, 'School/institution is required'),
+  degree: z.string().optional(),
+  field: z.string().optional(), // field_of_study
+  startDate: z.string().optional(),
+  endDate: z.string().optional().nullable(),
+  highlights: z.array(z.string()).optional(),
+});
+
 // =============================================================================
 // Profile Routes
 // =============================================================================
+
+/**
+ * GET /api/profile
+ * Fetch user profile
+ */
+app.get('/', authenticateUser, async (c) => {
+  const userId = getUserId(c);
+  const supabase = createSupabaseAdmin(c.env);
+
+  try {
+    const { data: profile, error: fetchError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', userId)
+      .single();
+
+    if (fetchError) {
+      throw new Error(`Failed to fetch profile: ${fetchError.message}`);
+    }
+
+    if (!profile) {
+      return c.json({ error: 'Profile not found' }, 404);
+    }
+
+    return c.json({
+      message: 'Profile fetched successfully',
+      profile,
+    });
+  } catch (error) {
+    console.error('[Profile] Error fetching profile:', error);
+    return c.json(
+      {
+        error: 'Failed to fetch profile',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      },
+      500
+    );
+  }
+});
 
 /**
  * PUT /api/profile
@@ -147,6 +195,41 @@ app.put('/', authenticateUser, async (c) => {
 // =============================================================================
 // Work Experience Routes
 // =============================================================================
+
+/**
+ * GET /api/profile/work-experience
+ * Fetch all work experience entries for the user
+ */
+app.get('/work-experience', authenticateUser, async (c) => {
+  const userId = getUserId(c);
+  const supabase = createSupabaseAdmin(c.env);
+
+  try {
+    const { data: experiences, error: fetchError } = await supabase
+      .from('work_experience')
+      .select('*')
+      .eq('user_id', userId)
+      .order('start_date', { ascending: false });
+
+    if (fetchError) {
+      throw new Error(`Failed to fetch work experience: ${fetchError.message}`);
+    }
+
+    return c.json({
+      message: 'Work experience fetched successfully',
+      experiences: experiences || [],
+    });
+  } catch (error) {
+    console.error('[Profile] Error fetching work experience:', error);
+    return c.json(
+      {
+        error: 'Failed to fetch work experience',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      },
+      500
+    );
+  }
+});
 
 /**
  * POST /api/profile/work-experience
@@ -315,6 +398,41 @@ app.delete('/work-experience/:id', authenticateUser, async (c) => {
 // =============================================================================
 
 /**
+ * GET /api/profile/skills
+ * Fetch all skills for the user
+ */
+app.get('/skills', authenticateUser, async (c) => {
+  const userId = getUserId(c);
+  const supabase = createSupabaseAdmin(c.env);
+
+  try {
+    const { data: skills, error: fetchError } = await supabase
+      .from('skills')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (fetchError) {
+      throw new Error(`Failed to fetch skills: ${fetchError.message}`);
+    }
+
+    return c.json({
+      message: 'Skills fetched successfully',
+      skills: skills || [],
+    });
+  } catch (error) {
+    console.error('[Profile] Error fetching skills:', error);
+    return c.json(
+      {
+        error: 'Failed to fetch skills',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      },
+      500
+    );
+  }
+});
+
+/**
  * POST /api/profile/skills
  * Add new skill
  */
@@ -466,6 +584,233 @@ app.delete('/skills/:id', authenticateUser, async (c) => {
     return c.json(
       {
         error: 'Failed to delete skill',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      },
+      500
+    );
+  }
+});
+
+// =============================================================================
+// Education Routes
+// =============================================================================
+
+/**
+ * GET /api/profile/education
+ * Fetch all education entries for the user
+ */
+app.get('/education', authenticateUser, async (c) => {
+  const userId = getUserId(c);
+  const supabase = createSupabaseAdmin(c.env);
+
+  try {
+    const { data: education, error: fetchError } = await supabase
+      .from('education')
+      .select('*')
+      .eq('user_id', userId)
+      .order('start_date', { ascending: false });
+
+    if (fetchError) {
+      throw new Error(`Failed to fetch education: ${fetchError.message}`);
+    }
+
+    return c.json({
+      message: 'Education fetched successfully',
+      education: education || [],
+    });
+  } catch (error) {
+    console.error('[Profile] Error fetching education:', error);
+    return c.json(
+      {
+        error: 'Failed to fetch education',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      },
+      500
+    );
+  }
+});
+
+/**
+ * POST /api/profile/education
+ * Add new education entry
+ */
+app.post('/education', authenticateUser, async (c) => {
+  const userId = getUserId(c);
+  const body = await c.req.json();
+
+  const parseResult = educationSchema.safeParse(body);
+  if (!parseResult.success) {
+    return c.json(
+      { error: 'Invalid education data', details: parseResult.error.errors },
+      400
+    );
+  }
+
+  const supabase = createSupabaseAdmin(c.env);
+
+  try {
+    const timestamp = new Date().toISOString();
+
+    // Transform frontend format to database format
+    const { data, error: insertError } = await supabase
+      .from('education')
+      .insert({
+        user_id: userId,
+        institution: parseResult.data.school,
+        degree: parseResult.data.degree || null,
+        field_of_study: parseResult.data.field || null,
+        start_date: parseResult.data.startDate || null,
+        end_date: parseResult.data.endDate || null,
+        description: parseResult.data.highlights?.join('\n') || null,
+        created_at: timestamp,
+        updated_at: timestamp,
+      })
+      .select()
+      .single();
+
+    if (insertError) {
+      throw new Error(`Failed to add education: ${insertError.message}`);
+    }
+
+    // Trigger background updates (embedding + cache invalidation)
+    triggerProfileChangeBackgroundUpdates(c, c.env, supabase, userId);
+    console.log(`[Profile] Added education for user ${userId}, background updates queued`);
+
+    return c.json({
+      message: 'Education added successfully',
+      education: data,
+    });
+  } catch (error) {
+    console.error('[Profile] Error adding education:', error);
+    return c.json(
+      {
+        error: 'Failed to add education',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      },
+      500
+    );
+  }
+});
+
+/**
+ * PATCH /api/profile/education/:id
+ * Update existing education entry
+ */
+app.patch('/education/:id', authenticateUser, async (c) => {
+  const userId = getUserId(c);
+  const educationId = c.req.param('id');
+  const body = await c.req.json();
+
+  const parseResult = educationSchema.partial().safeParse(body);
+  if (!parseResult.success) {
+    return c.json(
+      { error: 'Invalid education data', details: parseResult.error.errors },
+      400
+    );
+  }
+
+  const supabase = createSupabaseAdmin(c.env);
+
+  try {
+    const timestamp = new Date().toISOString();
+
+    // Transform frontend format to database format
+    const updateData: Record<string, unknown> = {
+      updated_at: timestamp,
+    };
+
+    if (parseResult.data.school !== undefined) {
+      updateData.institution = parseResult.data.school;
+    }
+    if (parseResult.data.degree !== undefined) {
+      updateData.degree = parseResult.data.degree || null;
+    }
+    if (parseResult.data.field !== undefined) {
+      updateData.field_of_study = parseResult.data.field || null;
+    }
+    if (parseResult.data.startDate !== undefined) {
+      updateData.start_date = parseResult.data.startDate || null;
+    }
+    if (parseResult.data.endDate !== undefined) {
+      updateData.end_date = parseResult.data.endDate || null;
+    }
+    if (parseResult.data.highlights !== undefined) {
+      updateData.description = parseResult.data.highlights?.join('\n') || null;
+    }
+
+    const { data, error: updateError } = await supabase
+      .from('education')
+      .update(updateData)
+      .eq('id', educationId)
+      .eq('user_id', userId)
+      .select()
+      .single();
+
+    if (updateError) {
+      throw new Error(`Failed to update education: ${updateError.message}`);
+    }
+
+    if (!data) {
+      return c.json({ error: 'Education not found or access denied' }, 404);
+    }
+
+    // Trigger background updates (embedding + cache invalidation)
+    triggerProfileChangeBackgroundUpdates(c, c.env, supabase, userId);
+    console.log(
+      `[Profile] Updated education ${educationId} for user ${userId}, background updates queued`
+    );
+
+    return c.json({
+      message: 'Education updated successfully',
+      education: data,
+    });
+  } catch (error) {
+    console.error('[Profile] Error updating education:', error);
+    return c.json(
+      {
+        error: 'Failed to update education',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      },
+      500
+    );
+  }
+});
+
+/**
+ * DELETE /api/profile/education/:id
+ * Delete education entry
+ */
+app.delete('/education/:id', authenticateUser, async (c) => {
+  const userId = getUserId(c);
+  const educationId = c.req.param('id');
+
+  const supabase = createSupabaseAdmin(c.env);
+
+  try {
+    const { error: deleteError } = await supabase
+      .from('education')
+      .delete()
+      .eq('id', educationId)
+      .eq('user_id', userId);
+
+    if (deleteError) {
+      throw new Error(`Failed to delete education: ${deleteError.message}`);
+    }
+
+    // Trigger background updates (embedding + cache invalidation)
+    triggerProfileChangeBackgroundUpdates(c, c.env, supabase, userId);
+    console.log(
+      `[Profile] Deleted education ${educationId} for user ${userId}, background updates queued`
+    );
+
+    return c.json({
+      message: 'Education deleted successfully',
+    });
+  } catch (error) {
+    console.error('[Profile] Error deleting education:', error);
+    return c.json(
+      {
+        error: 'Failed to delete education',
         message: error instanceof Error ? error.message : 'Unknown error',
       },
       500

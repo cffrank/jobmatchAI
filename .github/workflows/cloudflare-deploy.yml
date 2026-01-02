@@ -670,7 +670,7 @@ jobs:
         env:
           VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-          VITE_BACKEND_URL: ${{ steps.env.outputs.backend_url }}
+          VITE_API_URL: ${{ steps.env.outputs.backend_url }}
           VITE_USE_WORKERS_API: 'true'
           VITE_CLOUDFLARE_PAGES: 'true'
         run: npm run build

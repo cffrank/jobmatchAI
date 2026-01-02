@@ -31,6 +31,7 @@ import authRouter from './routes/auth';
 import exportsRouter from './routes/exports';
 import resumeRouter from './routes/resume';
 import profileRouter from './routes/profile';
+import skillsRouter from './routes/skills';
 import analyticsRouter from './routes/analytics';
 import filesRouter from './routes/files';
 
@@ -173,6 +174,7 @@ app.route('/api/jobs', jobsRouter);
 app.route('/api/exports', exportsRouter);
 app.route('/api/resume', resumeRouter);
 app.route('/api/profile', profileRouter);
+app.route('/api/skills', skillsRouter);
 app.route('/api/analytics', analyticsRouter);
 app.route('/api/files', filesRouter); // Phase 3.3: File download endpoints
 

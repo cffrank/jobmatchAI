@@ -50,6 +50,38 @@ const parseResumeSchema = z.object({
 // =============================================================================
 
 /**
+ * GET /api/resume
+ * Fetch all resumes for the user
+ */
+app.get('/', authenticateUser, async (c) => {
+  const userId = getUserId(c);
+  const supabase = createSupabaseAdmin(c.env);
+
+  try {
+    const { data: resumes, error: fetchError } = await supabase
+      .from('resumes')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (fetchError) {
+      throw new Error(`Failed to fetch resumes: ${fetchError.message}`);
+    }
+
+    return c.json(resumes || []);
+  } catch (error) {
+    console.error('[Resume] Error fetching resumes:', error);
+    return c.json(
+      {
+        error: 'Failed to fetch resumes',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      },
+      500
+    );
+  }
+});
+
+/**
  * POST /api/resume/parse
  * Parse resume file using AI
  *
