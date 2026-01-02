@@ -430,7 +430,8 @@ jobs:
           echo "✅ D1 migrations completed successfully"
 
       - name: Slack Notification - D1 Migration Success
-        if: success() && secrets.SLACK_WEBHOOK_URL != ''
+        if: success()
+        continue-on-error: true
         working-directory: workers
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
@@ -438,6 +439,12 @@ jobs:
           BRANCH_NAME: ${{ github.ref_name }}
           COMMIT_SHA: ${{ github.sha }}
         run: |
+          # Skip if SLACK_WEBHOOK_URL is not set
+          if [ -z "$SLACK_WEBHOOK_URL" ]; then
+            echo "Slack webhook not configured, skipping notification"
+            exit 0
+          fi
+
           COMMIT_SHORT="${COMMIT_SHA:0:7}"
           MIGRATION_COUNT=$(find migrations -name "*.sql" 2>/dev/null | wc -l)
 
@@ -480,7 +487,8 @@ jobs:
           fi
 
       - name: Slack Notification - D1 Migration Failure
-        if: failure() && secrets.SLACK_WEBHOOK_URL != ''
+        if: failure()
+        continue-on-error: true
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           DEPLOY_ENV: ${{ steps.env.outputs.environment }}
@@ -488,6 +496,12 @@ jobs:
           GITHUB_REPO: ${{ github.repository }}
           RUN_ID: ${{ github.run_id }}
         run: |
+          # Skip if SLACK_WEBHOOK_URL is not set
+          if [ -z "$SLACK_WEBHOOK_URL" ]; then
+            echo "Slack webhook not configured, skipping notification"
+            exit 0
+          fi
+
           MENTION=""
           if [ "$DEPLOY_ENV" == "production" ]; then
             MENTION="<!channel> "
@@ -722,12 +736,19 @@ jobs:
           EOF
 
       - name: Slack Notification - Full Deployment Success
-        if: success() && secrets.SLACK_WEBHOOK_URL != ''
+        if: success()
+        continue-on-error: true
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           DEPLOY_ENV: ${{ steps.env.outputs.environment }}
           COMMIT_SHA: ${{ github.sha }}
         run: |
+          # Skip if SLACK_WEBHOOK_URL is not set
+          if [ -z "$SLACK_WEBHOOK_URL" ]; then
+            echo "Slack webhook not configured, skipping notification"
+            exit 0
+          fi
+
           COMMIT_SHORT="${COMMIT_SHA:0:7}"
 
           case "$DEPLOY_ENV" in
@@ -868,7 +889,8 @@ jobs:
           EOF
 
       - name: Slack Notification - Workers Deployment Success
-        if: success() && secrets.SLACK_WEBHOOK_URL != ''
+        if: success()
+        continue-on-error: true
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           DEPLOY_ENV: ${{ steps.env.outputs.environment }}
@@ -878,6 +900,12 @@ jobs:
           GITHUB_REPO: ${{ github.repository }}
           RUN_ID: ${{ github.run_id }}
         run: |
+          # Skip if SLACK_WEBHOOK_URL is not set
+          if [ -z "$SLACK_WEBHOOK_URL" ]; then
+            echo "Slack webhook not configured, skipping notification"
+            exit 0
+          fi
+
           COMMIT_SHORT="${COMMIT_SHA:0:7}"
 
           # Get commit message safely
@@ -955,7 +983,8 @@ jobs:
             }"
 
       - name: Slack Notification - Workers Deployment Failure
-        if: failure() && secrets.SLACK_WEBHOOK_URL != ''
+        if: failure()
+        continue-on-error: true
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           DEPLOY_ENV: ${{ steps.env.outputs.environment }}
@@ -963,6 +992,12 @@ jobs:
           GITHUB_REPO: ${{ github.repository }}
           RUN_ID: ${{ github.run_id }}
         run: |
+          # Skip if SLACK_WEBHOOK_URL is not set
+          if [ -z "$SLACK_WEBHOOK_URL" ]; then
+            echo "Slack webhook not configured, skipping notification"
+            exit 0
+          fi
+
           MENTION=""
           if [ "$DEPLOY_ENV" == "production" ]; then
             MENTION="<!channel> "
