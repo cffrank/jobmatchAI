@@ -16,11 +16,9 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import type { Env, Variables, ListJobsResponse, Job, UserProfile, WorkExperience, Education, Skill } from '../types';
-import { TABLES } from '../types';
 import { authenticateUser, requireAdmin, getUserId } from '../middleware/auth';
 import { rateLimiter } from '../middleware/rateLimiter';
 import { createNotFoundError, createValidationError } from '../middleware/errorHandler';
-import { createSupabaseAdmin } from '../services/supabase';
 import { analyzeJobCompatibility } from '../services/openai';
 import { generateJobEmbedding } from '../services/embeddings';
 import { getCachedAnalysis, cacheAnalysis } from '../services/jobAnalysisCache';
@@ -136,7 +134,6 @@ export async function generateAndSaveJobEmbedding(
  */
 app.get('/', authenticateUser, async (c) => {
   const userId = getUserId(c);
-  const supabase = createSupabaseAdmin(c.env);
 
   const parseResult = listJobsSchema.safeParse({
     page: c.req.query('page'),
@@ -162,49 +159,68 @@ app.get('/', authenticateUser, async (c) => {
     parseResult.data;
   const offset = (page - 1) * limit;
 
-  // Build query
-  let query = supabase
-    .from(TABLES.JOBS)
-    .select('*', { count: 'exact' })
-    .eq('user_id', userId)
-    .eq('is_archived', archived)
-    .order('created_at', { ascending: false })
-    .range(offset, offset + limit - 1);
+  // Build dynamic query
+  const conditions: string[] = ['user_id = ?', 'is_archived = ?'];
+  const params: any[] = [userId, archived ? 1 : 0];
 
-  // Apply optional filters
   if (saved !== undefined) {
-    query = query.eq('is_saved', saved);
+    conditions.push('is_saved = ?');
+    params.push(saved ? 1 : 0);
   }
 
   if (source) {
-    query = query.eq('source', source);
+    conditions.push('source = ?');
+    params.push(source);
   }
 
   if (minMatchScore !== undefined) {
-    query = query.gte('match_score', minMatchScore);
+    conditions.push('match_score >= ?');
+    params.push(minMatchScore);
   }
 
   if (workArrangement) {
-    query = query.eq('work_arrangement', workArrangement);
+    conditions.push('work_arrangement = ?');
+    params.push(workArrangement);
   }
 
   if (search) {
-    query = query.or(`title.ilike.%${search}%,company.ilike.%${search}%`);
+    conditions.push('(title LIKE ? OR company LIKE ?)');
+    const searchPattern = `%${search}%`;
+    params.push(searchPattern, searchPattern);
   }
 
-  const { data: jobs, error, count } = await query;
+  // Get jobs with pagination
+  const jobsQuery = `
+    SELECT * FROM jobs
+    WHERE ${conditions.join(' AND ')}
+    ORDER BY created_at DESC
+    LIMIT ? OFFSET ?
+  `;
+  params.push(limit, offset);
 
-  if (error) {
-    console.error('Failed to fetch jobs:', error);
-    throw new Error('Failed to fetch jobs');
-  }
+  const { results: jobs } = await c.env.DB.prepare(jobsQuery)
+    .bind(...params)
+    .all();
+
+  // Get total count (same conditions, without pagination)
+  const countQuery = `
+    SELECT COUNT(*) as count FROM jobs
+    WHERE ${conditions.join(' AND ')}
+  `;
+  const countParams = params.slice(0, params.length - 2); // Remove LIMIT and OFFSET
+
+  const { results: countResults } = await c.env.DB.prepare(countQuery)
+    .bind(...countParams)
+    .all();
+
+  const count = (countResults[0] as any)?.count || 0;
 
   const response: ListJobsResponse = {
     jobs: jobs || [],
-    total: count || 0,
+    total: count,
     page,
     limit,
-    hasMore: (count || 0) > offset + limit,
+    hasMore: count > offset + limit,
   };
 
   return c.json(response);
@@ -217,16 +233,16 @@ app.get('/', authenticateUser, async (c) => {
 app.get('/:id', authenticateUser, async (c) => {
   const userId = getUserId(c);
   const id = c.req.param('id');
-  const supabase = createSupabaseAdmin(c.env);
 
-  const { data: job, error } = await supabase
-    .from(TABLES.JOBS)
-    .select('*')
-    .eq('id', id)
-    .eq('user_id', userId)
-    .single();
+  const { results } = await c.env.DB.prepare(
+    'SELECT * FROM jobs WHERE id = ? AND user_id = ?'
+  )
+    .bind(id, userId)
+    .all();
 
-  if (error || !job) {
+  const job = results[0];
+
+  if (!job) {
     throw createNotFoundError('Job', id);
   }
 
@@ -267,8 +283,7 @@ app.post('/search', authenticateUser, rateLimiter(), async (c) => {
       // Pure semantic search using Vectorize
       const results = await semanticSearchJobs(c.env, query, userId, limit);
 
-      // Fetch full job details from Supabase
-      const supabase = createSupabaseAdmin(c.env);
+      // Fetch full job details from D1
       const jobIds = results.map((r) => r.metadata.jobId);
 
       if (jobIds.length === 0) {
@@ -279,19 +294,19 @@ app.post('/search', authenticateUser, rateLimiter(), async (c) => {
         });
       }
 
-      const { data: jobs, error } = await supabase
-        .from(TABLES.JOBS)
-        .select('*')
-        .in('id', jobIds)
-        .eq('user_id', userId); // Security: ensure user owns these jobs
+      // Build IN clause placeholders
+      const placeholders = jobIds.map(() => '?').join(', ');
+      const jobsQuery = `
+        SELECT * FROM jobs
+        WHERE id IN (${placeholders}) AND user_id = ?
+      `;
 
-      if (error) {
-        console.error('[JobSearch] Failed to fetch job details:', error);
-        throw new Error('Failed to fetch job details');
-      }
+      const { results: jobs } = await c.env.DB.prepare(jobsQuery)
+        .bind(...jobIds, userId)
+        .all();
 
       // Sort jobs by semantic score (maintain Vectorize ranking)
-      const jobsMap = new Map(jobs?.map((j) => [j.id, j]) || []);
+      const jobsMap = new Map(jobs?.map((j: any) => [j.id, j]) || []);
       const sortedJobs = results
         .map((r) => jobsMap.get(r.metadata.jobId))
         .filter(Boolean);
@@ -307,8 +322,7 @@ app.post('/search', authenticateUser, rateLimiter(), async (c) => {
         topK: limit,
       });
 
-      // Fetch full job details from Supabase
-      const supabase = createSupabaseAdmin(c.env);
+      // Fetch full job details from D1
       const jobIds = results.map((r) => r.jobId);
 
       if (jobIds.length === 0) {
@@ -319,19 +333,19 @@ app.post('/search', authenticateUser, rateLimiter(), async (c) => {
         });
       }
 
-      const { data: jobs, error } = await supabase
-        .from(TABLES.JOBS)
-        .select('*')
-        .in('id', jobIds)
-        .eq('user_id', userId); // Security: ensure user owns these jobs
+      // Build IN clause placeholders
+      const placeholders = jobIds.map(() => '?').join(', ');
+      const jobsQuery = `
+        SELECT * FROM jobs
+        WHERE id IN (${placeholders}) AND user_id = ?
+      `;
 
-      if (error) {
-        console.error('[JobSearch] Failed to fetch job details:', error);
-        throw new Error('Failed to fetch job details');
-      }
+      const { results: jobs } = await c.env.DB.prepare(jobsQuery)
+        .bind(...jobIds, userId)
+        .all();
 
       // Sort jobs by combined score (maintain hybrid ranking)
-      const jobsMap = new Map(jobs?.map((j) => [j.id, j]) || []);
+      const jobsMap = new Map(jobs?.map((j: any) => [j.id, j]) || []);
       const sortedJobs = results
         .map((r) => jobsMap.get(r.jobId))
         .filter(Boolean);
@@ -411,7 +425,6 @@ app.patch('/:id', authenticateUser, async (c) => {
   const userId = getUserId(c);
   const id = c.req.param('id');
   const body = await c.req.json();
-  const supabase = createSupabaseAdmin(c.env);
 
   const parseResult = updateJobSchema.safeParse(body);
   if (!parseResult.success) {
@@ -424,22 +437,46 @@ app.patch('/:id', authenticateUser, async (c) => {
   }
 
   const updates = parseResult.data;
+  const timestamp = new Date().toISOString();
 
-  // Verify ownership and update
-  const { data: job, error } = await supabase
-    .from(TABLES.JOBS)
-    .update({
-      ...updates,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', id)
-    .eq('user_id', userId)
-    .select()
-    .single();
+  // Build dynamic UPDATE query
+  const updateFields: string[] = [];
+  const values: any[] = [];
 
-  if (error || !job) {
+  if (updates.isSaved !== undefined) {
+    updateFields.push('is_saved = ?');
+    values.push(updates.isSaved ? 1 : 0);
+  }
+
+  if (updates.isArchived !== undefined) {
+    updateFields.push('is_archived = ?');
+    values.push(updates.isArchived ? 1 : 0);
+  }
+
+  updateFields.push('updated_at = ?');
+  values.push(timestamp);
+
+  // Add WHERE clause values
+  values.push(id, userId);
+
+  const { meta } = await c.env.DB.prepare(
+    `UPDATE jobs SET ${updateFields.join(', ')} WHERE id = ? AND user_id = ?`
+  )
+    .bind(...values)
+    .run();
+
+  if (meta.changes === 0) {
     throw createNotFoundError('Job', id);
   }
+
+  // Fetch updated job
+  const { results } = await c.env.DB.prepare(
+    'SELECT * FROM jobs WHERE id = ? AND user_id = ?'
+  )
+    .bind(id, userId)
+    .all();
+
+  const job = results[0];
 
   return c.json(job);
 });
@@ -451,17 +488,15 @@ app.patch('/:id', authenticateUser, async (c) => {
 app.delete('/:id', authenticateUser, async (c) => {
   const userId = getUserId(c);
   const id = c.req.param('id');
-  const supabase = createSupabaseAdmin(c.env);
 
-  const { error } = await supabase
-    .from(TABLES.JOBS)
-    .delete()
-    .eq('id', id)
-    .eq('user_id', userId);
+  const { meta } = await c.env.DB.prepare(
+    'DELETE FROM jobs WHERE id = ? AND user_id = ?'
+  )
+    .bind(id, userId)
+    .run();
 
-  if (error) {
-    console.error('Failed to delete job:', error);
-    throw new Error('Failed to delete job');
+  if (meta.changes === 0) {
+    throw createNotFoundError('Job', id);
   }
 
   return c.body(null, 204);
@@ -482,7 +517,6 @@ app.delete('/:id', authenticateUser, async (c) => {
 app.post('/:id/analyze', authenticateUser, rateLimiter(), async (c) => {
   const userId = getUserId(c);
   const jobId = c.req.param('id');
-  const supabase = createSupabaseAdmin(c.env);
 
   console.log(`Analyzing compatibility for user ${userId}, job ${jobId}`);
 
@@ -495,13 +529,12 @@ app.post('/:id/analyze', authenticateUser, rateLimiter(), async (c) => {
     console.log(`[Cost Savings] Avoided OpenAI API call (~$0.03-0.05 saved)`);
 
     // Still update job's match_score in database
-    await supabase
-      .from(TABLES.JOBS)
-      .update({
-        match_score: cached.analysis.overallScore,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', jobId);
+    const timestamp = new Date().toISOString();
+    await c.env.DB.prepare(
+      'UPDATE jobs SET match_score = ?, updated_at = ? WHERE id = ?'
+    )
+      .bind(cached.analysis.overallScore, timestamp, jobId)
+      .run();
 
     // Return cached result with metadata
     return c.json({
@@ -516,34 +549,37 @@ app.post('/:id/analyze', authenticateUser, rateLimiter(), async (c) => {
 
   // === FETCH DATA ===
   // Fetch job data
-  const { data: job, error: jobError } = await supabase
-    .from(TABLES.JOBS)
-    .select('*')
-    .eq('id', jobId)
-    .eq('user_id', userId)
-    .single();
+  const { results: jobResults } = await c.env.DB.prepare(
+    'SELECT * FROM jobs WHERE id = ? AND user_id = ?'
+  )
+    .bind(jobId, userId)
+    .all();
 
-  if (jobError || !job) {
+  const job = jobResults[0];
+
+  if (!job) {
     throw createNotFoundError('Job', jobId);
   }
 
   // Fetch user profile
-  const { data: profile, error: profileError } = await supabase
-    .from(TABLES.USERS)
-    .select('*')
-    .eq('id', userId)
-    .single();
+  const { results: profileResults } = await c.env.DB.prepare(
+    'SELECT * FROM users WHERE id = ?'
+  )
+    .bind(userId)
+    .all();
 
-  if (profileError || !profile) {
+  const profile = profileResults[0];
+
+  if (!profile) {
     throw createNotFoundError('User profile');
   }
 
   // Fetch work experience
-  const { data: workExperience } = await supabase
-    .from(TABLES.WORK_EXPERIENCE)
-    .select('*')
-    .eq('user_id', userId)
-    .order('start_date', { ascending: false });
+  const { results: workExperience } = await c.env.DB.prepare(
+    'SELECT * FROM work_experience WHERE user_id = ? ORDER BY start_date DESC'
+  )
+    .bind(userId)
+    .all();
 
   if (!workExperience || workExperience.length === 0) {
     throw createValidationError('Add work experience to your profile first', {
@@ -552,18 +588,18 @@ app.post('/:id/analyze', authenticateUser, rateLimiter(), async (c) => {
   }
 
   // Fetch education
-  const { data: education } = await supabase
-    .from(TABLES.EDUCATION)
-    .select('*')
-    .eq('user_id', userId)
-    .order('end_date', { ascending: false });
+  const { results: education } = await c.env.DB.prepare(
+    'SELECT * FROM education WHERE user_id = ? ORDER BY end_date DESC'
+  )
+    .bind(userId)
+    .all();
 
   // Fetch skills
-  const { data: skills } = await supabase
-    .from(TABLES.SKILLS)
-    .select('*')
-    .eq('user_id', userId)
-    .order('endorsements', { ascending: false });
+  const { results: skills } = await c.env.DB.prepare(
+    'SELECT * FROM skills WHERE user_id = ? ORDER BY endorsements DESC'
+  )
+    .bind(userId)
+    .all();
 
   // === MAP DATA ===
   const mappedJob: Job = mapDatabaseJob(job);
@@ -586,13 +622,12 @@ app.post('/:id/analyze', authenticateUser, rateLimiter(), async (c) => {
   c.executionCtx.waitUntil(cacheAnalysis(c.env, userId, jobId, analysis));
 
   // === UPDATE JOB MATCH SCORE ===
-  await supabase
-    .from(TABLES.JOBS)
-    .update({
-      match_score: analysis.overallScore,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', jobId);
+  const timestamp = new Date().toISOString();
+  await c.env.DB.prepare(
+    'UPDATE jobs SET match_score = ?, updated_at = ? WHERE id = ?'
+  )
+    .bind(analysis.overallScore, timestamp, jobId)
+    .run();
 
   console.log(`Compatibility analysis complete: ${analysis.overallScore} (${analysis.recommendation})`);
   console.log('[Cost] OpenAI API call made (~$0.03-0.05)');
@@ -611,29 +646,22 @@ app.post('/:id/analyze', authenticateUser, rateLimiter(), async (c) => {
  * Admin endpoint to cleanup old jobs
  */
 app.post('/cleanup', authenticateUser, requireAdmin, async (c) => {
-  const supabase = createSupabaseAdmin(c.env);
   const daysOld = parseInt(c.req.query('daysOld') || '90', 10);
 
   const cutoffDate = new Date();
   cutoffDate.setDate(cutoffDate.getDate() - daysOld);
+  const timestamp = new Date().toISOString();
 
   // Archive jobs older than cutoff
-  const { data, error } = await supabase
-    .from(TABLES.JOBS)
-    .update({
-      is_archived: true,
-      updated_at: new Date().toISOString(),
-    })
-    .lt('created_at', cutoffDate.toISOString())
-    .eq('is_archived', false)
-    .select('id');
+  const { meta } = await c.env.DB.prepare(
+    `UPDATE jobs
+     SET is_archived = 1, updated_at = ?
+     WHERE created_at < ? AND is_archived = 0`
+  )
+    .bind(timestamp, cutoffDate.toISOString())
+    .run();
 
-  if (error) {
-    console.error('Failed to cleanup jobs:', error);
-    throw new Error('Failed to cleanup jobs');
-  }
-
-  const archivedCount = data?.length || 0;
+  const archivedCount = meta.changes || 0;
   console.log(`Archived ${archivedCount} jobs older than ${daysOld} days`);
 
   return c.json({
