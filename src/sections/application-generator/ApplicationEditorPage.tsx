@@ -26,7 +26,7 @@ export default function ApplicationEditorPage() {
 
   // State for email dialog (reserved for future implementation)
   const [emailDialogOpen, setEmailDialogOpen] = useState(false)
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+   
   const [_currentApplicationId, setCurrentApplicationId] = useState<string | null>(null)
 
   // Use Supabase hook to fetch application (skip if creating new)
