@@ -20,7 +20,6 @@ import { TABLES, BUCKETS } from '../types';
 import { authenticateUser, getUserId } from '../middleware/auth';
 import { rateLimiter } from '../middleware/rateLimiter';
 import { createNotFoundError, createValidationError } from '../middleware/errorHandler';
-import { createSupabaseAdmin } from '../services/supabase';
 
 // =============================================================================
 // Router Setup
@@ -205,38 +204,29 @@ app.post('/text', authenticateUser, rateLimiter({ maxRequests: 30, windowMs: 60 
   const { applicationId } = parseResult.data;
   console.log(`Exporting text for user ${userId}, application ${applicationId}`);
 
-  // Fetch application data
+  // Fetch application data from D1
   const { application, variant, profile } = await fetchApplicationData(c.env, userId, applicationId);
 
   // Generate text content
   const textContent = generateTextContent(application, variant, profile);
 
-  // Store text content
-  const supabase = createSupabaseAdmin(c.env);
+  // Store text content in R2
   const fileName = sanitizeFilename(`${application.job_title}_${new Date().toISOString().split('T')[0]}.txt`);
-  const filePath = `exports/${userId}/${applicationId}/${crypto.randomUUID()}_${fileName}`;
+  const objectKey = `exports/${userId}/${applicationId}/${crypto.randomUUID()}_${fileName}`;
 
-  const { error: uploadError } = await supabase.storage
-    .from(BUCKETS.EXPORTS)
-    .upload(filePath, textContent, {
+  await c.env.EXPORTS.put(objectKey, textContent, {
+    httpMetadata: {
       contentType: 'text/plain',
-      cacheControl: '3600',
-    });
+      cacheControl: 'max-age=3600',
+    },
+  });
 
-  if (uploadError) {
-    console.error('Failed to upload text:', uploadError);
-    throw new Error('Failed to upload text');
-  }
-
-  // Generate signed URL
-  const { data: signedData } = await supabase.storage
-    .from(BUCKETS.EXPORTS)
-    .createSignedUrl(filePath, 24 * 60 * 60);
-
+  // Generate presigned URL (valid for 24 hours)
   const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  const downloadUrl = `${c.env.PUBLIC_URL || ''}/r2/exports/${objectKey}`;
 
   return c.json({
-    downloadUrl: signedData?.signedUrl || '',
+    downloadUrl,
     fileName,
     expiresAt: expiresAt.toISOString(),
     format: 'txt',
@@ -255,51 +245,49 @@ interface ApplicationData {
 }
 
 async function fetchApplicationData(env: Env, userId: string, applicationId: string): Promise<ApplicationData> {
-  const supabase = createSupabaseAdmin(env);
+  // Fetch application from D1
+  const { results: applicationResults } = await env.DB.prepare(
+    'SELECT * FROM applications WHERE id = ? AND user_id = ?'
+  )
+    .bind(applicationId, userId)
+    .all();
 
-  // Fetch application
-  const { data: application, error: appError } = await supabase
-    .from(TABLES.APPLICATIONS)
-    .select('*')
-    .eq('id', applicationId)
-    .eq('user_id', userId)
-    .single();
+  const application = applicationResults[0];
 
-  if (appError || !application) {
+  if (!application) {
     throw createNotFoundError('Application', applicationId);
   }
 
-  // Fetch variants
-  const { data: variants, error: variantError } = await supabase
-    .from(TABLES.APPLICATION_VARIANTS)
-    .select('*')
-    .eq('application_id', applicationId);
+  // Parse variants from JSON
+  const variants = application.variants ? JSON.parse(application.variants as string) : [];
 
-  if (variantError || !variants || variants.length === 0) {
+  if (variants.length === 0) {
     throw createNotFoundError('Application variants');
   }
 
-  // Find selected variant
+  // Find selected variant or use first one
   const selectedVariant =
-    variants.find((v) => v.variant_id === application.selected_variant_id) || variants[0];
+    variants.find((v: any) => v.id === application.selected_variant_id) || variants[0];
 
   if (!selectedVariant) {
     throw createNotFoundError('Selected variant');
   }
 
-  // Fetch user profile
-  const { data: profileRecord, error: profileError } = await supabase
-    .from(TABLES.USERS)
-    .select('*')
-    .eq('id', userId)
-    .single();
+  // Fetch user profile from D1
+  const { results: profileResults } = await env.DB.prepare(
+    'SELECT * FROM users WHERE id = ?'
+  )
+    .bind(userId)
+    .all();
 
-  if (profileError || !profileRecord) {
+  const profileRecord = profileResults[0];
+
+  if (!profileRecord) {
     throw createNotFoundError('User profile');
   }
 
   const variant: ApplicationVariant = {
-    id: selectedVariant.variant_id,
+    id: selectedVariant.id,
     name: selectedVariant.name,
     resume: selectedVariant.resume,
     coverLetter: selectedVariant.cover_letter,
@@ -307,20 +295,20 @@ async function fetchApplicationData(env: Env, userId: string, applicationId: str
   };
 
   const profile: UserProfile = {
-    id: profileRecord.id,
-    email: profileRecord.email,
-    firstName: profileRecord.first_name,
-    lastName: profileRecord.last_name,
-    phone: profileRecord.phone,
-    location: profileRecord.location,
-    summary: profileRecord.summary,
-    headline: profileRecord.headline,
-    profileImageUrl: profileRecord.profile_image_url,
-    linkedInUrl: profileRecord.linkedin_url,
-    linkedInImported: profileRecord.linkedin_imported,
-    linkedInImportedAt: profileRecord.linkedin_imported_at,
-    createdAt: profileRecord.created_at,
-    updatedAt: profileRecord.updated_at,
+    id: profileRecord.id as string,
+    email: profileRecord.email as string,
+    firstName: profileRecord.first_name as string | undefined,
+    lastName: profileRecord.last_name as string | undefined,
+    phone: profileRecord.phone as string | undefined,
+    location: profileRecord.location as string | undefined,
+    summary: profileRecord.summary as string | undefined,
+    headline: profileRecord.headline as string | undefined,
+    profileImageUrl: profileRecord.profile_image_url as string | undefined,
+    linkedInUrl: profileRecord.linkedin_url as string | undefined,
+    linkedInImported: profileRecord.linkedin_imported as boolean | undefined,
+    linkedInImportedAt: profileRecord.linkedin_imported_at as string | undefined,
+    createdAt: profileRecord.created_at as string,
+    updatedAt: profileRecord.updated_at as string,
   };
 
   return { application, variant, profile };
