@@ -9,9 +9,9 @@ JobMatch AI is an AI-powered job search and application tracking platform with a
 **Tech Stack:**
 - Frontend: React 19, TypeScript, Vite, Tailwind CSS, shadcn/ui
 - Backend: Node.js 22+, Express, TypeScript
-- Database: Supabase (PostgreSQL with Row Level Security)
+- Database: Cloudflare Di
 - AI: OpenAI GPT-4
-- Hosting: Railway (backend), Vercel/Netlify (frontend)
+- Hosting: Cloudflare (backend), Cloudflare (frontend)
 - Email: SendGrid
 - Job Scraping: Apify
 
@@ -89,11 +89,11 @@ feature/x → develop → staging → main
 **Entry Point:** `index.ts`
 - Express app with helmet security, CORS, rate limiting
 - All endpoints secured with Supabase JWT auth (except /health)
-- PostgreSQL-backed rate limiting via Supabase
+- 
 
 **Routes (`routes/`):**
 - `applications.ts` - Application CRUD + AI generation
-- `auth.ts` - OAuth (LinkedIn), session management
+- `auth.ts` - OAuth (supabase), session management
 - `emails.ts` - SendGrid email sending
 - `exports.ts` - PDF/DOCX export generation
 - `jobs.ts` - Job CRUD + scraping
@@ -107,7 +107,7 @@ feature/x → develop → staging → main
 **Middleware (`middleware/`):**
 - `auth.ts` - Supabase JWT verification
 - `errorHandler.ts` - Centralized error handling
-- `rateLimiter.ts` - IP-based + user-based rate limiting (PostgreSQL-backed)
+- `rateLimiter.ts` - IP-based + user-based rate limiting 
 - `loginProtection.ts` - Account lockout protection (5 attempts/15min → 30min lockout)
 
 **Utilities (`lib/`):**
@@ -130,7 +130,6 @@ feature/x → develop → staging → main
 - `pages/` - Route pages
 
 **Important files:**
-- `lib/supabase.ts` - Supabase client initialization with auth config (PKCE flow enabled)
 - `lib/aiGenerator.ts` - Frontend AI generation utilities
 - `lib/jobMatching.ts` - Job matching logic
 - `lib/securityService.ts` - Security utilities (session management, device tracking)
@@ -154,12 +153,6 @@ Generated TypeScript types in `src/types/supabase.ts` from Supabase schema:
 
 **All tables enforce Row Level Security (RLS)** - users can only access their own data.
 
-**Supabase Storage:**
-- `avatars` bucket - User profile photos
-- RLS policies enforce users can only upload/modify their own files
-- File path pattern: `users/{userId}/profile/avatar.{ext}`
-- Public read access for profile photos
-- See `docs/STORAGE_POLICIES_SETUP.md` for policy details
 
 ## Environment Variables
 
@@ -217,7 +210,6 @@ npm run test:e2e tests/e2e/your-test.spec.ts
 2. Supabase returns JWT token
 3. Frontend stores token in localStorage (key: `jobmatch-auth-token`)
 4. Backend verifies JWT on each request via `auth.ts` middleware
-5. RLS policies in Supabase enforce data access control
 
 ### AI Generation Flow
 1. User requests resume/cover letter generation
@@ -233,7 +225,6 @@ npm run test:e2e tests/e2e/your-test.spec.ts
 - Generates detailed compatibility reports with match percentage
 
 ### Rate Limiting
-- PostgreSQL-backed rate limiting (not in-memory)
 - IP-based limits for unauthenticated requests
 - User-based limits for authenticated requests
 - Configured in `middleware/rateLimiter.ts`
@@ -266,20 +257,12 @@ npm run test:e2e tests/e2e/your-test.spec.ts
 **Other Security Measures:**
 - Helmet security headers (CSP, HSTS, X-Frame-Options)
 - CORS with strict origin whitelisting (production + specific dev ports only)
-- Row Level Security (RLS) on all Supabase tables
-- PostgreSQL-backed rate limiting (not in-memory, survives restarts)
 - Zod validation for API inputs
 - Secure cookie flags (HttpOnly, Secure, SameSite=Lax)
 - Automated dependency scanning (GitHub Actions + Dependabot)
 - Credential rotation policy (90/180/365-day schedules)
 
 ## Migration Notes
-
-**Migrated from Firebase to Supabase + Railway:**
-- Firebase code archived in `firebase-archive/`
-- All Cloud Functions converted to Express routes
-- Firestore queries converted to PostgreSQL
-- Firebase Auth replaced with Supabase Auth
 
 ## Common Patterns
 
@@ -321,7 +304,6 @@ GitHub Actions workflows automatically deploy on push:
 The following secrets must be configured in GitHub repository settings for CI/CD to work:
 
 **Deployment:**
-- `RAILWAY_TOKEN` - Railway deployment token
 
 **Supabase:**
 - `SUPABASE_URL` - Production Supabase project URL
