@@ -9,7 +9,6 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import type { Env, Variables } from '../types';
 import { authenticateUser, getUserId } from '../middleware/auth';
-import { createSupabaseAdmin } from '../services/supabase';
 import { updateUserResumeEmbedding } from '../services/embeddings';
 import { invalidateCacheForUser } from '../services/jobAnalysisCache';
 import {
@@ -37,14 +36,12 @@ function triggerProfileChangeBackgroundUpdates(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   c: any, // Hono Context - using any to avoid circular dependency with full Context type
   env: Env,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  supabase: any, // SupabaseClient - using any to avoid @supabase/supabase-js dependency in types
   userId: string
 ): void {
   c.executionCtx.waitUntil(
     Promise.allSettled([
       // Update user resume embedding for semantic search
-      updateUserResumeEmbedding(env, supabase, userId).catch((err) => {
+      updateUserResumeEmbedding(env, userId).catch((err) => {
         console.error('[Profile] Failed to update user embedding:', err);
       }),
       // Invalidate job compatibility analysis cache (stale after profile changes)
@@ -103,18 +100,15 @@ const educationSchema = z.object({
  */
 app.get('/', authenticateUser, async (c) => {
   const userId = getUserId(c);
-  const supabase = createSupabaseAdmin(c.env);
 
   try {
-    const { data: profile, error: fetchError } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', userId)
-      .single();
+    const { results } = await c.env.DB.prepare(
+      'SELECT * FROM users WHERE id = ?'
+    )
+      .bind(userId)
+      .all();
 
-    if (fetchError) {
-      throw new Error(`Failed to fetch profile: ${fetchError.message}`);
-    }
+    const profile = results[0];
 
     if (!profile) {
       return c.json({ error: 'Profile not found' }, 404);
@@ -152,33 +146,48 @@ app.patch('/', authenticateUser, async (c) => {
     );
   }
 
-  const supabase = createSupabaseAdmin(c.env);
-
   try {
     const timestamp = new Date().toISOString();
 
-    // Update profile
-    const { data, error: updateError } = await supabase
-      .from('users')
-      .update({
-        ...parseResult.data,
-        updated_at: timestamp,
-      })
-      .eq('id', userId)
-      .select()
-      .single();
+    // Build dynamic UPDATE query
+    const updateFields: string[] = [];
+    const values: any[] = [];
 
-    if (updateError) {
-      throw new Error(`Failed to update profile: ${updateError.message}`);
+    Object.entries(parseResult.data).forEach(([key, value]) => {
+      updateFields.push(`${key} = ?`);
+      values.push(value);
+    });
+
+    updateFields.push('updated_at = ?');
+    values.push(timestamp);
+    values.push(userId);
+
+    const { meta } = await c.env.DB.prepare(
+      `UPDATE users SET ${updateFields.join(', ')} WHERE id = ?`
+    )
+      .bind(...values)
+      .run();
+
+    if (meta.changes === 0) {
+      return c.json({ error: 'Profile not found' }, 404);
     }
 
+    // Fetch updated profile
+    const { results } = await c.env.DB.prepare(
+      'SELECT * FROM users WHERE id = ?'
+    )
+      .bind(userId)
+      .all();
+
+    const profile = results[0];
+
     // Trigger background updates (embedding + cache invalidation)
-    triggerProfileChangeBackgroundUpdates(c, c.env, supabase, userId);
+    triggerProfileChangeBackgroundUpdates(c, c.env, userId);
     console.log(`[Profile] Updated profile for user ${userId}, background updates queued`);
 
     return c.json({
       message: 'Profile updated successfully',
-      profile: data,
+      profile,
     });
   } catch (error) {
     console.error('[Profile] Error updating profile:', error);
@@ -202,18 +211,13 @@ app.patch('/', authenticateUser, async (c) => {
  */
 app.get('/work-experience', authenticateUser, async (c) => {
   const userId = getUserId(c);
-  const supabase = createSupabaseAdmin(c.env);
 
   try {
-    const { data: experiences, error: fetchError } = await supabase
-      .from('work_experience')
-      .select('*')
-      .eq('user_id', userId)
-      .order('start_date', { ascending: false });
-
-    if (fetchError) {
-      throw new Error(`Failed to fetch work experience: ${fetchError.message}`);
-    }
+    const { results: experiences } = await c.env.DB.prepare(
+      'SELECT * FROM work_experience WHERE user_id = ? ORDER BY start_date DESC'
+    )
+      .bind(userId)
+      .all();
 
     return c.json({
       message: 'Work experience fetched successfully',
@@ -247,33 +251,46 @@ app.post('/work-experience', authenticateUser, async (c) => {
     );
   }
 
-  const supabase = createSupabaseAdmin(c.env);
-
   try {
+    const experienceId = crypto.randomUUID();
     const timestamp = new Date().toISOString();
 
-    const { data, error: insertError } = await supabase
-      .from('work_experience')
-      .insert({
-        user_id: userId,
-        ...parseResult.data,
-        created_at: timestamp,
-        updated_at: timestamp,
-      })
-      .select()
-      .single();
+    await c.env.DB.prepare(
+      `INSERT INTO work_experience (
+        id, user_id, position, company, description, start_date, end_date,
+        is_current, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    )
+      .bind(
+        experienceId,
+        userId,
+        parseResult.data.position,
+        parseResult.data.company,
+        parseResult.data.description || null,
+        parseResult.data.start_date,
+        parseResult.data.end_date || null,
+        parseResult.data.is_current || false,
+        timestamp,
+        timestamp
+      )
+      .run();
 
-    if (insertError) {
-      throw new Error(`Failed to add work experience: ${insertError.message}`);
-    }
+    // Fetch inserted experience
+    const { results } = await c.env.DB.prepare(
+      'SELECT * FROM work_experience WHERE id = ?'
+    )
+      .bind(experienceId)
+      .all();
+
+    const experience = results[0];
 
     // Trigger background updates (embedding + cache invalidation)
-    triggerProfileChangeBackgroundUpdates(c, c.env, supabase, userId);
+    triggerProfileChangeBackgroundUpdates(c, c.env, userId);
     console.log(`[Profile] Added work experience for user ${userId}, background updates queued`);
 
     return c.json({
       message: 'Work experience added successfully',
-      experience: data,
+      experience,
     });
   } catch (error) {
     console.error('[Profile] Error adding work experience:', error);
@@ -304,40 +321,50 @@ app.patch('/work-experience/:id', authenticateUser, async (c) => {
     );
   }
 
-  const supabase = createSupabaseAdmin(c.env);
-
   try {
     const timestamp = new Date().toISOString();
 
-    // Update work experience (ensure user owns it)
-    const { data, error: updateError } = await supabase
-      .from('work_experience')
-      .update({
-        ...parseResult.data,
-        updated_at: timestamp,
-      })
-      .eq('id', experienceId)
-      .eq('user_id', userId)
-      .select()
-      .single();
+    // Build dynamic UPDATE query
+    const updateFields: string[] = [];
+    const values: any[] = [];
 
-    if (updateError) {
-      throw new Error(`Failed to update work experience: ${updateError.message}`);
-    }
+    Object.entries(parseResult.data).forEach(([key, value]) => {
+      updateFields.push(`${key} = ?`);
+      values.push(value);
+    });
 
-    if (!data) {
+    updateFields.push('updated_at = ?');
+    values.push(timestamp);
+    values.push(experienceId, userId);
+
+    const { meta } = await c.env.DB.prepare(
+      `UPDATE work_experience SET ${updateFields.join(', ')} WHERE id = ? AND user_id = ?`
+    )
+      .bind(...values)
+      .run();
+
+    if (meta.changes === 0) {
       return c.json({ error: 'Work experience not found or access denied' }, 404);
     }
 
+    // Fetch updated experience
+    const { results } = await c.env.DB.prepare(
+      'SELECT * FROM work_experience WHERE id = ? AND user_id = ?'
+    )
+      .bind(experienceId, userId)
+      .all();
+
+    const experience = results[0];
+
     // Trigger background updates (embedding + cache invalidation)
-    triggerProfileChangeBackgroundUpdates(c, c.env, supabase, userId);
+    triggerProfileChangeBackgroundUpdates(c, c.env, userId);
     console.log(
       `[Profile] Updated work experience ${experienceId} for user ${userId}, background updates queued`
     );
 
     return c.json({
       message: 'Work experience updated successfully',
-      experience: data,
+      experience,
     });
   } catch (error) {
     console.error('[Profile] Error updating work experience:', error);
@@ -359,21 +386,19 @@ app.delete('/work-experience/:id', authenticateUser, async (c) => {
   const userId = getUserId(c);
   const experienceId = c.req.param('id');
 
-  const supabase = createSupabaseAdmin(c.env);
-
   try {
-    const { error: deleteError } = await supabase
-      .from('work_experience')
-      .delete()
-      .eq('id', experienceId)
-      .eq('user_id', userId);
+    const { meta } = await c.env.DB.prepare(
+      'DELETE FROM work_experience WHERE id = ? AND user_id = ?'
+    )
+      .bind(experienceId, userId)
+      .run();
 
-    if (deleteError) {
-      throw new Error(`Failed to delete work experience: ${deleteError.message}`);
+    if (meta.changes === 0) {
+      return c.json({ error: 'Work experience not found or access denied' }, 404);
     }
 
     // Trigger background updates (embedding + cache invalidation)
-    triggerProfileChangeBackgroundUpdates(c, c.env, supabase, userId);
+    triggerProfileChangeBackgroundUpdates(c, c.env, userId);
     console.log(
       `[Profile] Deleted work experience ${experienceId} for user ${userId}, background updates queued`
     );
@@ -403,18 +428,13 @@ app.delete('/work-experience/:id', authenticateUser, async (c) => {
  */
 app.get('/skills', authenticateUser, async (c) => {
   const userId = getUserId(c);
-  const supabase = createSupabaseAdmin(c.env);
 
   try {
-    const { data: skills, error: fetchError } = await supabase
-      .from('skills')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
-
-    if (fetchError) {
-      throw new Error(`Failed to fetch skills: ${fetchError.message}`);
-    }
+    const { results: skills } = await c.env.DB.prepare(
+      'SELECT * FROM skills WHERE user_id = ? ORDER BY created_at DESC'
+    )
+      .bind(userId)
+      .all();
 
     return c.json({
       message: 'Skills fetched successfully',
@@ -448,33 +468,40 @@ app.post('/skills', authenticateUser, async (c) => {
     );
   }
 
-  const supabase = createSupabaseAdmin(c.env);
-
   try {
+    const skillId = crypto.randomUUID();
     const timestamp = new Date().toISOString();
 
-    const { data, error: insertError } = await supabase
-      .from('skills')
-      .insert({
-        user_id: userId,
-        ...parseResult.data,
-        created_at: timestamp,
-        updated_at: timestamp,
-      })
-      .select()
-      .single();
+    await c.env.DB.prepare(
+      `INSERT INTO skills (id, user_id, name, proficiency_level, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?)`
+    )
+      .bind(
+        skillId,
+        userId,
+        parseResult.data.name,
+        parseResult.data.level || null,
+        timestamp,
+        timestamp
+      )
+      .run();
 
-    if (insertError) {
-      throw new Error(`Failed to add skill: ${insertError.message}`);
-    }
+    // Fetch inserted skill
+    const { results } = await c.env.DB.prepare(
+      'SELECT * FROM skills WHERE id = ?'
+    )
+      .bind(skillId)
+      .all();
+
+    const skill = results[0];
 
     // Trigger background updates (embedding + cache invalidation)
-    triggerProfileChangeBackgroundUpdates(c, c.env, supabase, userId);
+    triggerProfileChangeBackgroundUpdates(c, c.env, userId);
     console.log(`[Profile] Added skill for user ${userId}, background updates queued`);
 
     return c.json({
       message: 'Skill added successfully',
-      skill: data,
+      skill,
     });
   } catch (error) {
     console.error('[Profile] Error adding skill:', error);
@@ -505,39 +532,54 @@ app.patch('/skills/:id', authenticateUser, async (c) => {
     );
   }
 
-  const supabase = createSupabaseAdmin(c.env);
-
   try {
     const timestamp = new Date().toISOString();
 
-    const { data, error: updateError } = await supabase
-      .from('skills')
-      .update({
-        ...parseResult.data,
-        updated_at: timestamp,
-      })
-      .eq('id', skillId)
-      .eq('user_id', userId)
-      .select()
-      .single();
+    // Build dynamic UPDATE query
+    const updateFields: string[] = [];
+    const values: any[] = [];
 
-    if (updateError) {
-      throw new Error(`Failed to update skill: ${updateError.message}`);
+    if (parseResult.data.name !== undefined) {
+      updateFields.push('name = ?');
+      values.push(parseResult.data.name);
+    }
+    if (parseResult.data.level !== undefined) {
+      updateFields.push('proficiency_level = ?');
+      values.push(parseResult.data.level);
     }
 
-    if (!data) {
+    updateFields.push('updated_at = ?');
+    values.push(timestamp);
+    values.push(skillId, userId);
+
+    const { meta } = await c.env.DB.prepare(
+      `UPDATE skills SET ${updateFields.join(', ')} WHERE id = ? AND user_id = ?`
+    )
+      .bind(...values)
+      .run();
+
+    if (meta.changes === 0) {
       return c.json({ error: 'Skill not found or access denied' }, 404);
     }
 
+    // Fetch updated skill
+    const { results } = await c.env.DB.prepare(
+      'SELECT * FROM skills WHERE id = ? AND user_id = ?'
+    )
+      .bind(skillId, userId)
+      .all();
+
+    const skill = results[0];
+
     // Trigger background updates (embedding + cache invalidation)
-    triggerProfileChangeBackgroundUpdates(c, c.env, supabase, userId);
+    triggerProfileChangeBackgroundUpdates(c, c.env, userId);
     console.log(
       `[Profile] Updated skill ${skillId} for user ${userId}, background updates queued`
     );
 
     return c.json({
       message: 'Skill updated successfully',
-      skill: data,
+      skill,
     });
   } catch (error) {
     console.error('[Profile] Error updating skill:', error);
@@ -559,21 +601,19 @@ app.delete('/skills/:id', authenticateUser, async (c) => {
   const userId = getUserId(c);
   const skillId = c.req.param('id');
 
-  const supabase = createSupabaseAdmin(c.env);
-
   try {
-    const { error: deleteError } = await supabase
-      .from('skills')
-      .delete()
-      .eq('id', skillId)
-      .eq('user_id', userId);
+    const { meta } = await c.env.DB.prepare(
+      'DELETE FROM skills WHERE id = ? AND user_id = ?'
+    )
+      .bind(skillId, userId)
+      .run();
 
-    if (deleteError) {
-      throw new Error(`Failed to delete skill: ${deleteError.message}`);
+    if (meta.changes === 0) {
+      return c.json({ error: 'Skill not found or access denied' }, 404);
     }
 
     // Trigger background updates (embedding + cache invalidation)
-    triggerProfileChangeBackgroundUpdates(c, c.env, supabase, userId);
+    triggerProfileChangeBackgroundUpdates(c, c.env, userId);
     console.log(`[Profile] Deleted skill ${skillId} for user ${userId}, background updates queued`);
 
     return c.json({
@@ -601,18 +641,13 @@ app.delete('/skills/:id', authenticateUser, async (c) => {
  */
 app.get('/education', authenticateUser, async (c) => {
   const userId = getUserId(c);
-  const supabase = createSupabaseAdmin(c.env);
 
   try {
-    const { data: education, error: fetchError } = await supabase
-      .from('education')
-      .select('*')
-      .eq('user_id', userId)
-      .order('start_date', { ascending: false });
-
-    if (fetchError) {
-      throw new Error(`Failed to fetch education: ${fetchError.message}`);
-    }
+    const { results: education } = await c.env.DB.prepare(
+      'SELECT * FROM education WHERE user_id = ? ORDER BY start_date DESC'
+    )
+      .bind(userId)
+      .all();
 
     return c.json({
       message: 'Education fetched successfully',
@@ -646,39 +681,47 @@ app.post('/education', authenticateUser, async (c) => {
     );
   }
 
-  const supabase = createSupabaseAdmin(c.env);
-
   try {
+    const educationId = crypto.randomUUID();
     const timestamp = new Date().toISOString();
 
     // Transform frontend format to database format
-    const { data, error: insertError } = await supabase
-      .from('education')
-      .insert({
-        user_id: userId,
-        institution: parseResult.data.school,
-        degree: parseResult.data.degree || null,
-        field_of_study: parseResult.data.field || null,
-        start_date: parseResult.data.startDate || null,
-        end_date: parseResult.data.endDate || null,
-        description: parseResult.data.highlights?.join('\n') || null,
-        created_at: timestamp,
-        updated_at: timestamp,
-      })
-      .select()
-      .single();
+    await c.env.DB.prepare(
+      `INSERT INTO education (
+        id, user_id, institution, degree, field_of_study,
+        start_date, end_date, description, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    )
+      .bind(
+        educationId,
+        userId,
+        parseResult.data.school,
+        parseResult.data.degree || null,
+        parseResult.data.field || null,
+        parseResult.data.startDate || null,
+        parseResult.data.endDate || null,
+        parseResult.data.highlights?.join('\n') || null,
+        timestamp,
+        timestamp
+      )
+      .run();
 
-    if (insertError) {
-      throw new Error(`Failed to add education: ${insertError.message}`);
-    }
+    // Fetch inserted education
+    const { results } = await c.env.DB.prepare(
+      'SELECT * FROM education WHERE id = ?'
+    )
+      .bind(educationId)
+      .all();
+
+    const education = results[0];
 
     // Trigger background updates (embedding + cache invalidation)
-    triggerProfileChangeBackgroundUpdates(c, c.env, supabase, userId);
+    triggerProfileChangeBackgroundUpdates(c, c.env, userId);
     console.log(`[Profile] Added education for user ${userId}, background updates queued`);
 
     return c.json({
       message: 'Education added successfully',
-      education: data,
+      education,
     });
   } catch (error) {
     console.error('[Profile] Error adding education:', error);
@@ -709,60 +752,70 @@ app.patch('/education/:id', authenticateUser, async (c) => {
     );
   }
 
-  const supabase = createSupabaseAdmin(c.env);
-
   try {
     const timestamp = new Date().toISOString();
 
-    // Transform frontend format to database format
-    const updateData: Record<string, unknown> = {
-      updated_at: timestamp,
-    };
+    // Build dynamic UPDATE query with field mapping
+    const updateFields: string[] = [];
+    const values: any[] = [];
 
     if (parseResult.data.school !== undefined) {
-      updateData.institution = parseResult.data.school;
+      updateFields.push('institution = ?');
+      values.push(parseResult.data.school);
     }
     if (parseResult.data.degree !== undefined) {
-      updateData.degree = parseResult.data.degree || null;
+      updateFields.push('degree = ?');
+      values.push(parseResult.data.degree || null);
     }
     if (parseResult.data.field !== undefined) {
-      updateData.field_of_study = parseResult.data.field || null;
+      updateFields.push('field_of_study = ?');
+      values.push(parseResult.data.field || null);
     }
     if (parseResult.data.startDate !== undefined) {
-      updateData.start_date = parseResult.data.startDate || null;
+      updateFields.push('start_date = ?');
+      values.push(parseResult.data.startDate || null);
     }
     if (parseResult.data.endDate !== undefined) {
-      updateData.end_date = parseResult.data.endDate || null;
+      updateFields.push('end_date = ?');
+      values.push(parseResult.data.endDate || null);
     }
     if (parseResult.data.highlights !== undefined) {
-      updateData.description = parseResult.data.highlights?.join('\n') || null;
+      updateFields.push('description = ?');
+      values.push(parseResult.data.highlights?.join('\n') || null);
     }
 
-    const { data, error: updateError } = await supabase
-      .from('education')
-      .update(updateData)
-      .eq('id', educationId)
-      .eq('user_id', userId)
-      .select()
-      .single();
+    updateFields.push('updated_at = ?');
+    values.push(timestamp);
+    values.push(educationId, userId);
 
-    if (updateError) {
-      throw new Error(`Failed to update education: ${updateError.message}`);
-    }
+    const { meta } = await c.env.DB.prepare(
+      `UPDATE education SET ${updateFields.join(', ')} WHERE id = ? AND user_id = ?`
+    )
+      .bind(...values)
+      .run();
 
-    if (!data) {
+    if (meta.changes === 0) {
       return c.json({ error: 'Education not found or access denied' }, 404);
     }
 
+    // Fetch updated education
+    const { results } = await c.env.DB.prepare(
+      'SELECT * FROM education WHERE id = ? AND user_id = ?'
+    )
+      .bind(educationId, userId)
+      .all();
+
+    const education = results[0];
+
     // Trigger background updates (embedding + cache invalidation)
-    triggerProfileChangeBackgroundUpdates(c, c.env, supabase, userId);
+    triggerProfileChangeBackgroundUpdates(c, c.env, userId);
     console.log(
       `[Profile] Updated education ${educationId} for user ${userId}, background updates queued`
     );
 
     return c.json({
       message: 'Education updated successfully',
-      education: data,
+      education,
     });
   } catch (error) {
     console.error('[Profile] Error updating education:', error);
@@ -784,21 +837,19 @@ app.delete('/education/:id', authenticateUser, async (c) => {
   const userId = getUserId(c);
   const educationId = c.req.param('id');
 
-  const supabase = createSupabaseAdmin(c.env);
-
   try {
-    const { error: deleteError } = await supabase
-      .from('education')
-      .delete()
-      .eq('id', educationId)
-      .eq('user_id', userId);
+    const { meta } = await c.env.DB.prepare(
+      'DELETE FROM education WHERE id = ? AND user_id = ?'
+    )
+      .bind(educationId, userId)
+      .run();
 
-    if (deleteError) {
-      throw new Error(`Failed to delete education: ${deleteError.message}`);
+    if (meta.changes === 0) {
+      return c.json({ error: 'Education not found or access denied' }, 404);
     }
 
     // Trigger background updates (embedding + cache invalidation)
-    triggerProfileChangeBackgroundUpdates(c, c.env, supabase, userId);
+    triggerProfileChangeBackgroundUpdates(c, c.env, userId);
     console.log(
       `[Profile] Deleted education ${educationId} for user ${userId}, background updates queued`
     );
@@ -885,23 +936,28 @@ app.post('/avatar', authenticateUser, async (c) => {
     const downloadUrlResult = await getDownloadUrl(c.env.AVATARS, fileKey, 86400); // 24 hour expiry for avatars
 
     // Update user profile with avatar download URL (Phase 3.3: Using presigned URL)
-    const supabase = createSupabaseAdmin(c.env);
-    const { data: updatedProfile, error: updateError } = await supabase
-      .from('users')
-      .update({
-        photo_url: downloadUrlResult.url, // Phase 3.3: Presigned download URL
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', userId)
-      .select()
-      .single();
+    const timestamp = new Date().toISOString();
+    const { meta } = await c.env.DB.prepare(
+      'UPDATE users SET photo_url = ?, updated_at = ? WHERE id = ?'
+    )
+      .bind(downloadUrlResult.url, timestamp, userId)
+      .run();
 
-    if (updateError) {
-      console.error('[Profile] Failed to update profile with avatar URL:', updateError);
+    if (meta.changes === 0) {
+      console.error('[Profile] Failed to update profile with avatar URL - user not found');
       // Clean up uploaded file
       await deleteFile(c.env.AVATARS, fileKey);
       throw new Error('Failed to update profile');
     }
+
+    // Fetch updated profile
+    const { results } = await c.env.DB.prepare(
+      'SELECT * FROM users WHERE id = ?'
+    )
+      .bind(userId)
+      .all();
+
+    const updatedProfile = results[0];
 
     console.log(`[Profile] Avatar uploaded successfully for user ${userId}`);
 
@@ -937,35 +993,34 @@ app.delete('/avatar', authenticateUser, async (c) => {
   console.log(`[Profile] Avatar deletion request from user ${userId}`);
 
   try {
-    const supabase = createSupabaseAdmin(c.env);
-
     // Get current avatar URL
-    const { data: profile, error: fetchError } = await supabase
-      .from('users')
-      .select('photo_url')
-      .eq('id', userId)
-      .single();
+    const { results } = await c.env.DB.prepare(
+      'SELECT photo_url FROM users WHERE id = ?'
+    )
+      .bind(userId)
+      .all();
 
-    if (fetchError || !profile?.photo_url) {
+    const profile = results[0];
+
+    if (!profile || !profile.photo_url) {
       return c.json({ error: 'No avatar found' }, 404);
     }
 
-    const fileKey = profile.photo_url;
+    const fileKey = profile.photo_url as string;
 
     // Delete from R2
     await deleteFile(c.env.AVATARS, fileKey);
 
     // Update profile
-    const { error: updateError } = await supabase
-      .from('users')
-      .update({
-        photo_url: null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', userId);
+    const timestamp = new Date().toISOString();
+    const { meta } = await c.env.DB.prepare(
+      'UPDATE users SET photo_url = NULL, updated_at = ? WHERE id = ?'
+    )
+      .bind(timestamp, userId)
+      .run();
 
-    if (updateError) {
-      console.error('[Profile] Failed to update profile after avatar deletion:', updateError);
+    if (meta.changes === 0) {
+      console.error('[Profile] Failed to update profile after avatar deletion');
       throw new Error('Failed to update profile');
     }
 
