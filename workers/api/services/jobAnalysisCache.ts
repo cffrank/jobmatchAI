@@ -14,7 +14,6 @@
  */
 
 import type { JobCompatibilityAnalysis, Env } from '../types';
-import { createSupabaseAdmin } from './supabase';
 
 // =============================================================================
 // Configuration
@@ -176,7 +175,10 @@ export async function invalidateKVCacheForUser(
 // =============================================================================
 
 /**
- * Get analysis from database
+ * Get analysis from D1 database
+ *
+ * Migrated from Supabase to D1 on 2026-01-02
+ * Uses prepared statements with app-level RLS (WHERE user_id = ?)
  *
  * @returns Cached analysis or null if not found
  */
@@ -186,22 +188,22 @@ export async function getFromDatabase(
   jobId: string
 ): Promise<JobCompatibilityAnalysis | null> {
   try {
-    const supabase = createSupabaseAdmin(env);
+    const result = await env.DB.prepare(
+      `SELECT analysis, created_at
+       FROM job_compatibility_analyses
+       WHERE user_id = ? AND job_id = ?
+       LIMIT 1`
+    )
+      .bind(userId, jobId)
+      .first<{ analysis: string; created_at: string }>();
 
-    const { data, error } = await supabase
-      .from('job_compatibility_analyses')
-      .select('analysis, created_at')
-      .eq('user_id', userId)
-      .eq('job_id', jobId)
-      .single();
-
-    if (error || !data) {
-      console.log(`[JobAnalysisCache] Database cache MISS for user ${userId}, job ${jobId}`);
+    if (!result) {
+      console.log(`[JobAnalysisCache] D1 cache MISS for user ${userId}, job ${jobId}`);
 
       // Log database cache miss
       console.log(JSON.stringify({
         event: 'cache_lookup',
-        cache_type: 'database',
+        cache_type: 'd1',
         user_id: userId,
         job_id: jobId,
         result: 'miss',
@@ -211,27 +213,31 @@ export async function getFromDatabase(
       return null;
     }
 
-    console.log(`[JobAnalysisCache] ✓ Database cache HIT for user ${userId}, job ${jobId}`);
+    console.log(`[JobAnalysisCache] ✓ D1 cache HIT for user ${userId}, job ${jobId}`);
 
     // Log database cache hit
     console.log(JSON.stringify({
       event: 'cache_lookup',
-      cache_type: 'database',
+      cache_type: 'd1',
       user_id: userId,
       job_id: jobId,
       result: 'hit',
       timestamp: new Date().toISOString(),
     }));
 
-    return data.analysis as JobCompatibilityAnalysis;
+    // Parse JSON analysis from TEXT column
+    return JSON.parse(result.analysis) as JobCompatibilityAnalysis;
   } catch (error) {
-    console.error('[JobAnalysisCache] Error reading from database cache:', error);
+    console.error('[JobAnalysisCache] Error reading from D1 cache:', error);
     return null;
   }
 }
 
 /**
- * Store analysis in database (upsert to handle re-analysis)
+ * Store analysis in D1 database (upsert to handle re-analysis)
+ *
+ * Migrated from Supabase to D1 on 2026-01-02
+ * Uses INSERT OR REPLACE for upsert behavior
  */
 export async function storeInDatabase(
   env: Env,
@@ -240,37 +246,38 @@ export async function storeInDatabase(
   analysis: JobCompatibilityAnalysis
 ): Promise<void> {
   try {
-    const supabase = createSupabaseAdmin(env);
+    const now = new Date().toISOString();
 
-    const { error } = await supabase
-      .from('job_compatibility_analyses')
-      .upsert(
-        {
-          user_id: userId,
-          job_id: jobId,
-          analysis: analysis,
-          updated_at: new Date().toISOString(),
-        },
-        {
-          onConflict: 'user_id,job_id', // Update if exists
-        }
-      );
+    // SQLite upsert using INSERT OR REPLACE
+    // This will update if (user_id, job_id) already exists
+    await env.DB.prepare(
+      `INSERT INTO job_compatibility_analyses (user_id, job_id, analysis, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT(user_id, job_id)
+       DO UPDATE SET
+         analysis = excluded.analysis,
+         updated_at = excluded.updated_at`
+    )
+      .bind(
+        userId,
+        jobId,
+        JSON.stringify(analysis), // Store as JSON TEXT
+        now,
+        now
+      )
+      .run();
 
-    if (error) {
-      console.error('[JobAnalysisCache] Error storing in database:', error);
-      throw error;
-    }
-
-    console.log(`[JobAnalysisCache] Stored in database: user ${userId}, job ${jobId}`);
+    console.log(`[JobAnalysisCache] Stored in D1 database: user ${userId}, job ${jobId}`);
   } catch (error) {
-    console.error('[JobAnalysisCache] Failed to store in database:', error);
+    console.error('[JobAnalysisCache] Failed to store in D1 database:', error);
     // Fail gracefully - database write failure shouldn't break the request
   }
 }
 
 /**
- * Invalidate database cache for a user
+ * Invalidate D1 database cache for a user
  *
+ * Migrated from Supabase to D1 on 2026-01-02
  * Deletes all cached analyses for a user (called when profile changes significantly)
  */
 export async function invalidateDatabaseCacheForUser(
@@ -279,38 +286,30 @@ export async function invalidateDatabaseCacheForUser(
   jobIds?: string[]
 ): Promise<void> {
   try {
-    const supabase = createSupabaseAdmin(env);
-
     if (jobIds && jobIds.length > 0) {
       // Delete specific job analyses
-      const { error } = await supabase
-        .from('job_compatibility_analyses')
-        .delete()
-        .eq('user_id', userId)
-        .in('job_id', jobIds);
+      // Build IN clause with placeholders
+      const placeholders = jobIds.map(() => '?').join(',');
+      const sql = `DELETE FROM job_compatibility_analyses
+                   WHERE user_id = ? AND job_id IN (${placeholders})`;
 
-      if (error) {
-        console.error('[JobAnalysisCache] Error invalidating specific analyses:', error);
-        throw error;
-      }
+      await env.DB.prepare(sql)
+        .bind(userId, ...jobIds)
+        .run();
 
-      console.log(`[JobAnalysisCache] Invalidated ${jobIds.length} database entries for user ${userId}`);
+      console.log(`[JobAnalysisCache] Invalidated ${jobIds.length} D1 entries for user ${userId}`);
     } else {
       // Delete all analyses for user
-      const { error } = await supabase
-        .from('job_compatibility_analyses')
-        .delete()
-        .eq('user_id', userId);
+      await env.DB.prepare(
+        `DELETE FROM job_compatibility_analyses WHERE user_id = ?`
+      )
+        .bind(userId)
+        .run();
 
-      if (error) {
-        console.error('[JobAnalysisCache] Error invalidating all user analyses:', error);
-        throw error;
-      }
-
-      console.log(`[JobAnalysisCache] Invalidated ALL database entries for user ${userId}`);
+      console.log(`[JobAnalysisCache] Invalidated ALL D1 entries for user ${userId}`);
     }
   } catch (error) {
-    console.error('[JobAnalysisCache] Failed to invalidate database cache:', error);
+    console.error('[JobAnalysisCache] Failed to invalidate D1 cache:', error);
   }
 }
 
