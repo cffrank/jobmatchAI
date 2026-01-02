@@ -55,7 +55,7 @@ Examples:
 
 | # | Migration | Description |
 |---|-----------|-------------|
-| 0001 | `create_tracked_applications.sql` | Creates tracked_applications table with indexes and triggers |
+| 0001 | `initial_schema.sql` | Complete D1 schema migration from PostgreSQL (26 tables, 3 FTS5 virtual tables, 60+ indexes) |
 
 ## SQLite vs PostgreSQL Differences
 

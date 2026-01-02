@@ -1,0 +1,351 @@
+# Slack Notification Steps - Security-Hardened Template
+#
+# Add these steps to cloudflare-deploy.yml to enable Slack notifications
+#
+# SECURITY: All GitHub context variables are passed through env: to prevent injection
+#
+# SETUP REQUIRED:
+# 1. Create Slack webhook (see docs/SLACK_NOTIFICATIONS_SETUP.md)
+# 2. Add SLACK_WEBHOOK_URL to GitHub secrets
+# 3. Copy these steps into your workflow
+
+# ==============================================================================
+# ADD AFTER: "Run D1 Migrations" step
+# ==============================================================================
+
+      - name: Slack Notification - D1 Migration Success
+        if: success() && secrets.SLACK_WEBHOOK_URL != ''
+        working-directory: workers
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          DEPLOY_ENV: ${{ steps.env.outputs.environment }}
+          BRANCH_NAME: ${{ github.ref_name }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          COMMIT_SHORT="${COMMIT_SHA:0:7}"
+          MIGRATION_COUNT=$(find migrations -name "*.sql" 2>/dev/null | wc -l)
+
+          if [ "$MIGRATION_COUNT" -gt 0 ]; then
+            curl -X POST "$SLACK_WEBHOOK_URL" \
+              -H "Content-Type: application/json" \
+              -d "{
+                \"text\": \"✅ D1 Migrations Applied\",
+                \"blocks\": [
+                  {
+                    \"type\": \"section\",
+                    \"text\": {
+                      \"type\": \"mrkdwn\",
+                      \"text\": \"*✅ D1 Migrations Applied Successfully*\"
+                    }
+                  },
+                  {
+                    \"type\": \"section\",
+                    \"fields\": [
+                      {
+                        \"type\": \"mrkdwn\",
+                        \"text\": \"*Environment:*\n\`${DEPLOY_ENV}\`\"
+                      },
+                      {
+                        \"type\": \"mrkdwn\",
+                        \"text\": \"*Migrations:*\n${MIGRATION_COUNT} applied\"
+                      },
+                      {
+                        \"type\": \"mrkdwn\",
+                        \"text\": \"*Branch:*\n\`${BRANCH_NAME}\`\"
+                      },
+                      {
+                        \"type\": \"mrkdwn\",
+                        \"text\": \"*Commit:*\n\`${COMMIT_SHORT}\`\"
+                      }
+                    ]
+                  }
+                ]
+              }"
+          fi
+
+      - name: Slack Notification - D1 Migration Failure  
+        if: failure() && secrets.SLACK_WEBHOOK_URL != ''
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          DEPLOY_ENV: ${{ steps.env.outputs.environment }}
+          BRANCH_NAME: ${{ github.ref_name }}
+          GITHUB_REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          MENTION=""
+          if [ "$DEPLOY_ENV" == "production" ]; then
+            MENTION="<!channel> "
+          fi
+
+          curl -X POST "$SLACK_WEBHOOK_URL" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"text\": \"🚨 ${MENTION}D1 Migration Failed\",
+              \"blocks\": [
+                {
+                  \"type\": \"header\",
+                  \"text\": {
+                    \"type\": \"plain_text\",
+                    \"text\": \"🚨 D1 Migration Failed\"
+                  }
+                },
+                {
+                  \"type\": \"section\",
+                  \"fields\": [
+                    {
+                      \"type\": \"mrkdwn\",
+                      \"text\": \"*Environment:*\n\`${DEPLOY_ENV}\`\"
+                    },
+                    {
+                      \"type\": \"mrkdwn\",
+                      \"text\": \"*Branch:*\n\`${BRANCH_NAME}\`\"
+                    }
+                  ]
+                },
+                {
+                  \"type\": \"section\",
+                  \"text\": {
+                    \"type\": \"mrkdwn\",
+                    \"text\": \"⚠️ *Action Required:* Database schema may be incomplete.\"
+                  }
+                },
+                {
+                  \"type\": \"actions\",
+                  \"elements\": [
+                    {
+                      \"type\": \"button\",
+                      \"text\": {
+                        \"type\": \"plain_text\",
+                        \"text\": \"View Logs\"
+                      },
+                      \"url\": \"https://github.com/${GITHUB_REPO}/actions/runs/${RUN_ID}\"
+                    }
+                  ]
+                }
+              ]
+            }"
+
+# ==============================================================================
+# ADD AT END OF: "deploy-workers" job
+# ==============================================================================
+
+      - name: Slack Notification - Workers Deployment Success
+        if: success() && secrets.SLACK_WEBHOOK_URL != ''
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          DEPLOY_ENV: ${{ steps.env.outputs.environment }}
+          BRANCH_NAME: ${{ github.ref_name }}
+          COMMIT_SHA: ${{ github.sha }}
+          ACTOR: ${{ github.actor }}
+          GITHUB_REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          COMMIT_SHORT="${COMMIT_SHA:0:7}"
+          
+          # Get commit message safely
+          COMMIT_MSG=$(git log -1 --pretty=%B | head -1 | tr -d '\n\r' | cut -c1-100)
+
+          case "$DEPLOY_ENV" in
+            development)
+              WORKERS_URL="https://jobmatch-ai-dev.carl-f-frank.workers.dev"
+              ;;
+            staging)
+              WORKERS_URL="https://jobmatch-ai-staging.carl-f-frank.workers.dev"
+              ;;
+            production)
+              WORKERS_URL="https://jobmatch-ai-prod.carl-f-frank.workers.dev"
+              ;;
+          esac
+
+          curl -X POST "$SLACK_WEBHOOK_URL" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"text\": \"🚀 Workers Deployed to ${DEPLOY_ENV}\",
+              \"blocks\": [
+                {
+                  \"type\": \"header\",
+                  \"text\": {
+                    \"type\": \"plain_text\",
+                    \"text\": \"🚀 Workers Deployment Successful\"
+                  }
+                },
+                {
+                  \"type\": \"section\",
+                  \"fields\": [
+                    {
+                      \"type\": \"mrkdwn\",
+                      \"text\": \"*Environment:*\n\`${DEPLOY_ENV}\`\"
+                    },
+                    {
+                      \"type\": \"mrkdwn\",
+                      \"text\": \"*Author:*\n${ACTOR}\"
+                    },
+                    {
+                      \"type\": \"mrkdwn\",
+                      \"text\": \"*Branch:*\n\`${BRANCH_NAME}\`\"
+                    },
+                    {
+                      \"type\": \"mrkdwn\",
+                      \"text\": \"*Commit:*\n\`${COMMIT_SHORT}\`\"
+                    }
+                  ]
+                },
+                {
+                  \"type\": \"section\",
+                  \"text\": {
+                    \"type\": \"mrkdwn\",
+                    \"text\": \"*Message:* ${COMMIT_MSG}\"
+                  }
+                },
+                {
+                  \"type\": \"section\",
+                  \"text\": {
+                    \"type\": \"mrkdwn\",
+                    \"text\": \"*Workers URL:*\n${WORKERS_URL}\"
+                  }
+                },
+                {
+                  \"type\": \"context\",
+                  \"elements\": [
+                    {
+                      \"type\": \"mrkdwn\",
+                      \"text\": \"<https://github.com/${GITHUB_REPO}/actions/runs/${RUN_ID}|View Deployment Logs>\"
+                    }
+                  ]
+                }
+              ]
+            }"
+
+      - name: Slack Notification - Workers Deployment Failure
+        if: failure() && secrets.SLACK_WEBHOOK_URL != ''
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          DEPLOY_ENV: ${{ steps.env.outputs.environment }}
+          BRANCH_NAME: ${{ github.ref_name }}
+          GITHUB_REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          MENTION=""
+          if [ "$DEPLOY_ENV" == "production" ]; then
+            MENTION="<!channel> "
+          fi
+
+          curl -X POST "$SLACK_WEBHOOK_URL" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"text\": \"❌ ${MENTION}Workers Deployment Failed\",
+              \"blocks\": [
+                {
+                  \"type\": \"header\",
+                  \"text\": {
+                    \"type\": \"plain_text\",
+                    \"text\": \"❌ Workers Deployment Failed\"
+                  }
+                },
+                {
+                  \"type\": \"section\",
+                  \"fields\": [
+                    {
+                      \"type\": \"mrkdwn\",
+                      \"text\": \"*Environment:*\n\`${DEPLOY_ENV}\`\"
+                    },
+                    {
+                      \"type\": \"mrkdwn\",
+                      \"text\": \"*Branch:*\n\`${BRANCH_NAME}\`\"
+                    }
+                  ]
+                },
+                {
+                  \"type\": \"section\",
+                  \"text\": {
+                    \"type\": \"mrkdwn\",
+                    \"text\": \"⚠️ *Action Required:* Deployment failed. Check logs immediately.\"
+                  }
+                },
+                {
+                  \"type\": \"actions\",
+                  \"elements\": [
+                    {
+                      \"type\": \"button\",
+                      \"text\": {
+                        \"type\": \"plain_text\",
+                        \"text\": \"View Logs\"
+                      },
+                      \"url\": \"https://github.com/${GITHUB_REPO}/actions/runs/${RUN_ID}\"
+                    }
+                  ]
+                }
+              ]
+            }"
+
+# ==============================================================================
+# ADD AT END OF: "deploy-frontend" job
+# ==============================================================================
+
+      - name: Slack Notification - Full Deployment Success
+        if: success() && secrets.SLACK_WEBHOOK_URL != ''
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          DEPLOY_ENV: ${{ steps.env.outputs.environment }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          COMMIT_SHORT="${COMMIT_SHA:0:7}"
+
+          case "$DEPLOY_ENV" in
+            development)
+              FRONTEND_URL="https://jobmatch-ai-dev.pages.dev"
+              BACKEND_URL="https://jobmatch-ai-dev.carl-f-frank.workers.dev"
+              ;;
+            staging)
+              FRONTEND_URL="https://jobmatch-ai-staging.pages.dev"
+              BACKEND_URL="https://jobmatch-ai-staging.carl-f-frank.workers.dev"
+              ;;
+            production)
+              FRONTEND_URL="https://jobmatch-ai-production.pages.dev"
+              BACKEND_URL="https://jobmatch-ai-prod.carl-f-frank.workers.dev"
+              ;;
+          esac
+
+          curl -X POST "$SLACK_WEBHOOK_URL" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"text\": \"✅ Full Deployment Complete - ${DEPLOY_ENV}\",
+              \"blocks\": [
+                {
+                  \"type\": \"header\",
+                  \"text\": {
+                    \"type\": \"plain_text\",
+                    \"text\": \"✅ Deployment Complete\"
+                  }
+                },
+                {
+                  \"type\": \"section\",
+                  \"fields\": [
+                    {
+                      \"type\": \"mrkdwn\",
+                      \"text\": \"*Environment:*\n\`${DEPLOY_ENV}\`\"
+                    },
+                    {
+                      \"type\": \"mrkdwn\",
+                      \"text\": \"*Commit:*\n\`${COMMIT_SHORT}\`\"
+                    }
+                  ]
+                },
+                {
+                  \"type\": \"section\",
+                  \"text\": {
+                    \"type\": \"mrkdwn\",
+                    \"text\": \"*URLs:*\n• Frontend: ${FRONTEND_URL}\n• Backend: ${BACKEND_URL}\"
+                  }
+                },
+                {
+                  \"type\": \"context\",
+                  \"elements\": [
+                    {
+                      \"type\": \"mrkdwn\",
+                      \"text\": \"✅ Tests • ✅ Workers • ✅ Frontend • ✅ D1 Migrations\"
+                    }
+                  ]
+                }
+              ]
+            }"
