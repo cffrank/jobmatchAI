@@ -39,7 +39,7 @@ export function EducationForm() {
         startDate: existingEducation.startDate,
         endDate: existingEducation.endDate,
         gpa: existingEducation.gpa || '',
-        highlights: existingEducation.highlights.length > 0
+        highlights: (existingEducation.highlights?.length ?? 0) > 0
           ? existingEducation.highlights
           : [''],
       })
