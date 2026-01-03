@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Search, SlidersHorizontal, Bookmark, BookmarkCheck, Sparkles, MapPin, Briefcase, DollarSign, TrendingUp, AlertCircle, Plus } from 'lucide-react'
+import { Search, SlidersHorizontal, Bookmark, BookmarkCheck, Sparkles, MapPin, Briefcase, DollarSign, TrendingUp, AlertCircle, Plus, FileText } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import type { JobDiscoveryProps, JobFilters, Job } from '../types'
 
@@ -11,8 +11,9 @@ export function JobList({
   onUnsaveJob,
   onApply,
   onSearch,
-  onFilter
-}: JobDiscoveryProps) {
+  onFilter,
+  onImportFromText
+}: JobDiscoveryProps & { onImportFromText?: () => void }) {
   const navigate = useNavigate()
   const [searchQuery, setSearchQuery] = useState('')
   const [showFilters, setShowFilters] = useState(false)
@@ -87,6 +88,15 @@ export function JobList({
               </p>
             </div>
             <div className="hidden sm:flex items-center gap-3">
+              {onImportFromText && (
+                <button
+                  onClick={onImportFromText}
+                  className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-xl font-medium shadow-sm transition-colors"
+                >
+                  <FileText className="w-4 h-4" />
+                  Import from Text
+                </button>
+              )}
               <button
                 onClick={() => navigate('/jobs/add')}
                 className="flex items-center gap-2 px-4 py-2 bg-lime-500 hover:bg-lime-600 dark:bg-lime-600 dark:hover:bg-lime-700 text-white rounded-xl font-medium shadow-sm transition-colors"

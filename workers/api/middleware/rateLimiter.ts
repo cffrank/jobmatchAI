@@ -36,6 +36,9 @@ export const ENDPOINT_LIMITS: Record<string, RateLimitConfig> = {
   // Job scraping: 10 per hour (API costs)
   'POST:/api/jobs/scrape': { maxRequests: 10, windowMs: 60 * 60 * 1000 },
 
+  // Job posting parsing: 20 per hour (AI API costs)
+  'POST:/api/jobs/parse': { maxRequests: 20, windowMs: 60 * 60 * 1000 },
+
   // Resume parsing: 20 per hour (API costs)
   'POST:/api/resume/parse': { maxRequests: 20, windowMs: 60 * 60 * 1000 },
 

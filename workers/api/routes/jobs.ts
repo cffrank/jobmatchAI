@@ -59,6 +59,13 @@ const scrapeJobsSchema = z.object({
   sources: z.array(z.enum(['linkedin', 'indeed'])).default(['linkedin', 'indeed']),
 });
 
+const parseJobSchema = z.object({
+  text: z
+    .string()
+    .min(50, 'Job posting text must be at least 50 characters')
+    .max(10000, 'Job posting text must be less than 10,000 characters'),
+});
+
 const updateJobSchema = z.object({
   isSaved: z.boolean().optional(),
   isArchived: z.boolean().optional(),
@@ -247,6 +254,52 @@ app.get('/:id', authenticateUser, async (c) => {
   }
 
   return c.json(job);
+});
+
+/**
+ * POST /api/jobs/parse
+ * Parse unstructured job posting text into structured JSON
+ *
+ * Uses Cloudflare Workers AI (Llama 3.3 70B) with OpenAI GPT-4o-mini fallback.
+ * Rate limited to 20 requests per hour to control AI API costs.
+ *
+ * Input: { text: string } (50-10,000 characters)
+ * Output: { job: ParsedJobData, metadata: { confidence, aiModel, warnings } }
+ */
+app.post('/parse', authenticateUser, rateLimiter(), async (c) => {
+  const body = await c.req.json();
+
+  // Validate input
+  const parseResult = parseJobSchema.safeParse(body);
+  if (!parseResult.success) {
+    throw createValidationError(
+      'Invalid request body',
+      Object.fromEntries(
+        parseResult.error.errors.map((e) => [e.path.join('.'), e.message])
+      )
+    );
+  }
+
+  const { text } = parseResult.data;
+
+  console.log(`[Jobs] Parsing job posting (${text.length} chars)`);
+
+  try {
+    // Import and use the job parser service
+    const { parseJobPosting } = await import('../services/jobParser');
+
+    // Parse job posting
+    const result = await parseJobPosting(c.env, text);
+
+    console.log(
+      `[Jobs] Successfully parsed job posting (confidence: ${result.metadata.confidence}, model: ${result.metadata.aiModel})`
+    );
+
+    return c.json(result);
+  } catch (error) {
+    console.error('[Jobs] Parsing failed:', error);
+    throw error;
+  }
 });
 
 /**

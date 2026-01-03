@@ -618,3 +618,48 @@ export interface JobCompatibilityAnalysis {
 export interface AnalyzeJobCompatibilityRequest {
   jobId: string;
 }
+
+// =============================================================================
+// Job Parsing Types
+// =============================================================================
+
+/**
+ * Extracted job data from unstructured text
+ */
+export interface ParsedJobData {
+  title: string; // Required
+  company: string; // Required
+  location: string; // Required
+  workArrangement: 'Remote' | 'Hybrid' | 'On-site' | 'Unknown'; // Required
+  salaryMin?: number; // Optional (annual USD)
+  salaryMax?: number; // Optional (annual USD)
+  description: string; // Required (min 50 chars)
+  url?: string; // Optional
+  experienceLevel?: string; // Optional (e.g., "Entry Level", "Mid Level", "Senior")
+  requiredSkills: string[]; // Can be empty array
+  preferredSkills: string[]; // Can be empty array
+}
+
+/**
+ * Metadata about the parsing process
+ */
+export interface ParseMetadata {
+  confidence: number; // 0-100 score
+  aiModel: 'workers-ai' | 'openai'; // Which AI model was used
+  warnings: string[]; // Warnings about incomplete data
+}
+
+/**
+ * Complete result from job text parsing
+ */
+export interface ParsedJobResult {
+  job: ParsedJobData;
+  metadata: ParseMetadata;
+}
+
+/**
+ * Request to parse unstructured job posting text
+ */
+export interface ParseJobTextRequest {
+  text: string;
+}
