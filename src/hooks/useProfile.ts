@@ -117,7 +117,7 @@ export function useProfile() {
       converted[camelKey] = value
     })
 
-    return converted as User
+    return converted as unknown as User
   }
 
   /**
