@@ -307,6 +307,115 @@ return c.json({
 
 ---
 
+### 7. ✅ Profile Updates Not Saved (Field Name Mismatch)
+**Commit:** `7c35982`, `5046dd6`, `0fbcc0b` - "fix: convert camelCase/snake_case field names"
+
+**Problem:**
+- Profile update form submitted successfully (200 OK)
+- But changes weren't saved to database
+- No errors in browser console or backend logs
+- Form data appeared correct to users
+
+**Root Cause:**
+Frontend-backend field naming convention mismatch:
+
+**Frontend sends (camelCase):**
+```typescript
+{
+  firstName: "John",
+  lastName: "Doe",
+  headline: "Senior Software Engineer",
+  summary: "Experienced developer...",
+  linkedInUrl: "linkedin.com/in/johndoe"
+}
+```
+
+**Workers API expects (snake_case):**
+```typescript
+{
+  first_name: "John",
+  last_name: "Doe",
+  current_title: "Senior Software Engineer",
+  professional_summary: "Experienced developer...",
+  linkedin_url: "linkedin.com/in/johndoe"
+}
+```
+
+The Workers API's dynamic UPDATE query builder only recognized snake_case fields. When it received camelCase fields, it ignored them all, resulting in an UPDATE with no fields to update:
+
+```sql
+-- What was generated:
+UPDATE users SET updated_at = ? WHERE id = ?
+-- (No actual changes - everything silently ignored)
+
+-- What should have been generated:
+UPDATE users SET first_name = ?, last_name = ?, current_title = ?,
+  professional_summary = ?, linkedin_url = ?, updated_at = ? WHERE id = ?
+```
+
+**Fix:**
+Added bidirectional field name conversion in `src/hooks/useProfile.ts`:
+
+1. **When updating (frontend → API):**
+```typescript
+const convertToSnakeCase = (data: Record<string, unknown>) => {
+  const fieldMap: Record<string, string> = {
+    firstName: 'first_name',
+    lastName: 'last_name',
+    headline: 'current_title',
+    summary: 'professional_summary',
+    linkedInUrl: 'linkedin_url',
+    streetAddress: 'street_address',
+    postalCode: 'postal_code',
+    profileImageUrl: 'photo_url',
+  }
+  // ... conversion logic
+}
+
+// In updateProfile():
+const snakeCaseData = convertToSnakeCase(data)
+await fetch('/api/profile', {
+  method: 'PATCH',
+  body: JSON.stringify(snakeCaseData),  // ✅ Correct field names
+})
+```
+
+2. **When fetching (API → frontend):**
+```typescript
+const convertToCamelCase = (data: Record<string, unknown>): User => {
+  const fieldMap: Record<string, string> = {
+    first_name: 'firstName',
+    last_name: 'lastName',
+    current_title: 'headline',
+    professional_summary: 'summary',
+    linkedin_url: 'linkedInUrl',
+    street_address: 'streetAddress',
+    postal_code: 'postalCode',
+    photo_url: 'photoUrl',
+    created_at: 'createdAt',
+    updated_at: 'updatedAt',
+  }
+  // ... conversion logic
+}
+
+// When fetching:
+const { profile: fetchedProfile } = await response.json()
+const camelCaseProfile = convertToCamelCase(fetchedProfile)  // ✅ UI-friendly names
+setProfile(camelCaseProfile)
+```
+
+**Benefits:**
+- Profile updates now persist to database correctly
+- Maintains frontend/backend separation of concerns
+- Consistent naming conventions on each layer
+- No breaking changes to either API or UI
+- TypeScript type safety preserved
+
+**Files modified:**
+- `src/hooks/useProfile.ts` (bidirectional field conversion)
+
+---
+
 ## Complete Authentication Flow (After Fixes)
 
 ### 1. User Login
@@ -394,8 +503,9 @@ API request succeeds
 4. WorkersAPI token extraction (`2acdf6a`)
 5. Database FTS schema fix (`62ba9ea`)
 6. API response field name fix (`585697d`)
+7. Profile update field name conversion (`7c35982`, `5046dd6`, `0fbcc0b`)
 
-**GitHub Actions:** ✅ Deployment completed at 2026-01-03 04:24 UTC
+**GitHub Actions:** ✅ Deployment completed at 2026-01-03 04:35 UTC
 
 ---
 
@@ -511,8 +621,8 @@ Since they're not used, clean up the dashboard:
 
 ---
 
-**Last Updated:** 2026-01-03 04:24 UTC
-**Deployment:** ✅ Complete (all 6 fixes deployed)
+**Last Updated:** 2026-01-03 04:35 UTC
+**Deployment:** ✅ Complete (all 7 fixes deployed)
 **Next:** Test authentication and profile functionality end-to-end
 
 ---
@@ -527,5 +637,6 @@ Since they're not used, clean up the dashboard:
 | 4 | 401 on all API calls | WorkersAPI sent full session JSON as token | Extract `access_token` field from session | `2acdf6a` |
 | 5 | 500 on profile update | FTS virtual table column mismatch | Remove `content=` parameter, make standalone FTS | `62ba9ea` |
 | 6 | React crash on login | API returned `experiences` but frontend expected `workExperience` | Rename response field to match frontend | `585697d` |
+| 7 | Profile updates not saved | Frontend sent camelCase but API expected snake_case | Add bidirectional field name conversion | `7c35982`, `5046dd6`, `0fbcc0b` |
 
-**All fixes deployed:** ✅ Successfully deployed at 2026-01-03 04:24 UTC
+**All fixes deployed:** ✅ Successfully deployed at 2026-01-03 04:35 UTC
