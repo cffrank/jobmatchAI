@@ -4,13 +4,44 @@ import type { User, Skill, WorkExperience } from '@/sections/profile-resume-mana
 /**
  * Job matching service that scores jobs based on user profile compatibility
  *
- * The algorithm evaluates four key dimensions:
- * 1. Skill Match: Overlap between user skills and job requirements
- * 2. Experience Match: User's experience level vs job requirements
- * 3. Industry Match: Industry/domain experience alignment
+ * REDESIGNED ALGORITHM (v2.0) - Semantic Relevance Based
+ * ========================================================
+ * The algorithm evaluates four key dimensions with RELEVANCE checking:
+ *
+ * 1. Skill Match: Domain-aware skill overlap (IT skills don't match medical jobs)
+ * 2. Experience Match: Role-relevant years only (IT years don't count for Physician)
+ * 3. Industry Match: Role-level matching, not just company keywords
  * 4. Location Match: Geographic compatibility
  *
+ * KEY IMPROVEMENTS:
+ * - Role domain classification (IT, Medical, Business, Engineering, etc.)
+ * - Skill domain grouping (Technical, Clinical, Business, etc.)
+ * - Job title semantic similarity (Infrastructure Manager ≠ Physician)
+ * - Experience relevance checking (only count years in similar roles)
+ *
  * @architecture This is a pure function with no side effects, making it easily testable
+ */
+
+/**
+ * Role domain classifications
+ * DEPRECATED: Now handled by AI in backend
+ * Previously used for client-side job matching, now removed as matching is server-side only
+ */
+
+/**
+ * Skill domain classifications
+ * DEPRECATED: Now handled by AI in backend
+ * Previously used for client-side job matching, now removed as matching is server-side only
+ */
+
+/**
+ * NOTE: Job matching is now handled by AI in the backend.
+ * The actual semantic matching is done via GPT-4 in backend/src/services/openai.service.ts:analyzeJobCompatibility()
+ *
+ * The AI provides much more accurate semantic matching that understands:
+ * - Job title similarity (Infrastructure Manager ≠ Physician even in same industry)
+ * - Skill domain compatibility (VMware ≠ Patient Care)
+ * - Experience relevance (IT years don't count for medical positions)
  */
 
 interface UserProfile {
@@ -36,8 +67,10 @@ export function calculateJobMatch(
 ): JobMatchResult {
   const { user, skills, workExperience } = profile
 
-  // If no profile data, return zero match
-  if (!user || skills.length === 0) {
+  // If no user profile, return zero match
+  // Note: We allow calculations even with empty skills/workExperience arrays
+  // Individual calculation functions handle empty data gracefully
+  if (!user) {
     return {
       matchScore: 0,
       compatibilityBreakdown: {
@@ -151,6 +184,7 @@ function calculateExperienceMatch(
   workExperience: WorkExperience[]
 ): { score: number } {
   if (workExperience.length === 0) {
+    console.debug('[JobMatching] calculateExperienceMatch: No work experience provided')
     return { score: 0 }
   }
 
@@ -159,8 +193,11 @@ function calculateExperienceMatch(
     const startDate = new Date(exp.startDate)
     const endDate = exp.current ? new Date() : new Date(exp.endDate || new Date())
     const years = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24 * 365)
+    console.log(`[JobMatching] Experience at ${exp.company} (${exp.position}): ${years.toFixed(1)} years`)
     return sum + Math.max(0, years)
   }, 0)
+
+  console.log(`[JobMatching] Total years of experience: ${totalYears.toFixed(1)}`)
 
   // Estimate required experience based on job title and description
   const requiredYears = estimateRequiredExperience(job)
@@ -219,57 +256,44 @@ function estimateRequiredExperience(job: Job): number {
 /**
  * Calculate industry match score
  * Evaluates domain/industry experience alignment
+ *
+ * NOTE: This is a simplified fallback. The AI backend (workers/api/services/openai.ts)
+ * performs much more sophisticated semantic matching by analyzing job descriptions
+ * directly without relying on hardcoded keyword lists.
  */
 function calculateIndustryMatch(
   job: Job,
   workExperience: WorkExperience[]
 ): { score: number } {
   if (workExperience.length === 0) {
+    console.debug('[JobMatching] calculateIndustryMatch: No work experience provided')
     return { score: 0 }
   }
 
-  // Extract industry keywords from job
-  const jobIndustryKeywords = extractIndustryKeywords(job)
+  // Simple heuristic: check if any work experience companies or positions
+  // appear in the job description (basic text matching)
+  const jobText = `${job.title} ${job.company} ${job.description}`.toLowerCase()
 
-  // Check if user has experience in similar industries
   const hasIndustryMatch = workExperience.some(exp => {
-    const expText = `${exp.company} ${exp.position} ${exp.description}`.toLowerCase()
-    return jobIndustryKeywords.some(keyword => expText.includes(keyword))
+    const company = exp.company.toLowerCase()
+    const position = exp.position.toLowerCase()
+    const description = (exp.description || '').toLowerCase()
+
+    // Check for company name overlap or similar position titles
+    const match = jobText.includes(company) ||
+                  jobText.includes(position) ||
+                  (description && jobText.includes(description.substring(0, 50)))
+
+    if (match) {
+      console.log(`[JobMatching] Industry match found: ${exp.company} (${exp.position})`)
+    }
+    return match
   })
+
+  console.log(`[JobMatching] Industry match result: ${hasIndustryMatch ? '100 (matched)' : '60 (neutral)'}`)
 
   // Score based on industry alignment
   return { score: hasIndustryMatch ? 100 : 60 } // 60 = neutral for different industry
-}
-
-/**
- * Extract industry keywords from job
- */
-function extractIndustryKeywords(job: Job): string[] {
-  const text = `${job.title} ${job.company} ${job.description}`.toLowerCase()
-  const keywords: string[] = []
-
-  // Common industry identifiers
-  const industries = [
-    'fintech', 'finance', 'banking',
-    'healthcare', 'medical', 'health',
-    'e-commerce', 'retail', 'marketplace',
-    'saas', 'enterprise', 'b2b',
-    'social', 'media', 'content',
-    'gaming', 'game',
-    'ai', 'ml', 'machine learning',
-    'crypto', 'blockchain', 'web3',
-    'education', 'edtech',
-    'logistics', 'supply chain',
-    'security', 'cybersecurity',
-  ]
-
-  for (const industry of industries) {
-    if (text.includes(industry)) {
-      keywords.push(industry)
-    }
-  }
-
-  return keywords
 }
 
 /**

@@ -100,7 +100,7 @@ export function EducationList({
                 </div>
 
                 {/* Highlights */}
-                {edu.highlights.length > 0 && (
+                {(edu.highlights?.length ?? 0) > 0 && (
                   <ul className="space-y-1.5 mt-4">
                     {edu.highlights.map((highlight, i) => (
                       <li

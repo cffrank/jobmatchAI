@@ -43,9 +43,7 @@ interface ErrorResponse {
 export const errorHandler: ErrorRequestHandler = (
   err: Error,
   req: Request,
-  res: Response,
-   
-  _next: NextFunction
+  res: Response
 ): void => {
   // Log error with request context
   console.error('Error occurred:', {

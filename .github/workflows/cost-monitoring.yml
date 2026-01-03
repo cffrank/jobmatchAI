@@ -7,11 +7,11 @@ on:
   workflow_dispatch:
 
 env:
-  FIREBASE_PROJECT_ID: 'ai-career-os-139db'
+  SUPABASE_PROJECT_ID: 'lrzhpnsykasqrousgmdh'
 
 jobs:
-  check-firebase-usage:
-    name: Check Firebase Usage
+  check-supabase-usage:
+    name: Check Supabase Usage
     runs-on: ubuntu-latest
 
     steps:
@@ -23,51 +23,84 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install Firebase CLI
-        run: npm install -g firebase-tools
+      - name: Install Supabase CLI
+        run: npm install -g supabase
 
-      - name: Authenticate to Firebase
+      - name: Generate Supabase Usage Report
         env:
-          FIREBASE_TOKEN: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          PROJECT_REF: ${{ env.SUPABASE_PROJECT_ID }}
         run: |
-          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > $HOME/service-account.json
-          export GOOGLE_APPLICATION_CREDENTIALS=$HOME/service-account.json
+          echo "# Supabase Usage Report - $(date +%Y-%m-%d)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
 
-      - name: Generate Usage Report
+          if [ -z "$SUPABASE_ACCESS_TOKEN" ]; then
+            echo "⚠️ **SUPABASE_ACCESS_TOKEN not configured**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "To enable automated monitoring:" >> $GITHUB_STEP_SUMMARY
+            echo "1. Generate a personal access token: https://supabase.com/dashboard/account/tokens" >> $GITHUB_STEP_SUMMARY
+            echo "2. Add to GitHub secrets as SUPABASE_ACCESS_TOKEN" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "## Manual Checks" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Visit Supabase Dashboard to monitor usage:" >> $GITHUB_STEP_SUMMARY
+            echo "- **Project URL**: https://supabase.com/dashboard/project/$PROJECT_REF" >> $GITHUB_STEP_SUMMARY
+            echo "- **Usage & Billing**: https://supabase.com/dashboard/project/$PROJECT_REF/settings/billing" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Key Metrics to Monitor:" >> $GITHUB_STEP_SUMMARY
+            echo "- Database size and storage usage" >> $GITHUB_STEP_SUMMARY
+            echo "- Auth active users" >> $GITHUB_STEP_SUMMARY
+            echo "- Storage bandwidth" >> $GITHUB_STEP_SUMMARY
+            echo "- Edge function invocations" >> $GITHUB_STEP_SUMMARY
+            echo "- Database egress" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## Supabase Project Status" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Project Reference**: $PROJECT_REF" >> $GITHUB_STEP_SUMMARY
+            echo "**Dashboard**: https://supabase.com/dashboard/project/$PROJECT_REF" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+
+            # Note: The Supabase CLI doesn't expose usage metrics directly
+            # Users should monitor via the dashboard or use the Management API
+            echo "### Usage Monitoring" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Monitor your Supabase usage at:" >> $GITHUB_STEP_SUMMARY
+            echo "- [Billing & Usage](https://supabase.com/dashboard/project/$PROJECT_REF/settings/billing)" >> $GITHUB_STEP_SUMMARY
+            echo "- [Database Reports](https://supabase.com/dashboard/project/$PROJECT_REF/reports/database)" >> $GITHUB_STEP_SUMMARY
+            echo "- [API Reports](https://supabase.com/dashboard/project/$PROJECT_REF/reports/api)" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Check Database Health
         env:
-          PROJECT_ID: ${{ env.FIREBASE_PROJECT_ID }}
-        run: |
-          echo "# Firebase Usage Report - $(date +%Y-%m-%d)" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-
-          echo "## Services Status" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "This is a placeholder for Firebase usage monitoring." >> $GITHUB_STEP_SUMMARY
-          echo "Manual checks recommended:" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "1. **Firebase Console**: https://console.firebase.google.com/project/$PROJECT_ID/usage" >> $GITHUB_STEP_SUMMARY
-          echo "2. **Check the following metrics**:" >> $GITHUB_STEP_SUMMARY
-          echo "   - Hosting bandwidth usage" >> $GITHUB_STEP_SUMMARY
-          echo "   - Cloud Functions invocations" >> $GITHUB_STEP_SUMMARY
-          echo "   - Firestore read/write operations" >> $GITHUB_STEP_SUMMARY
-          echo "   - Storage usage and bandwidth" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "## Cost Thresholds" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Set up billing alerts in Firebase Console:" >> $GITHUB_STEP_SUMMARY
-          echo "- Go to Project Settings > Usage and Billing" >> $GITHUB_STEP_SUMMARY
-          echo "- Set up budget alerts for cost monitoring" >> $GITHUB_STEP_SUMMARY
-          echo "- Recommended thresholds: 50%, 80%, 100% of monthly budget" >> $GITHUB_STEP_SUMMARY
-
-      - name: Check Recent Deployments
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "## Recent Deployment Activity" >> $GITHUB_STEP_SUMMARY
+          echo "## Database Health" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Check deployment frequency and success rate:" >> $GITHUB_STEP_SUMMARY
-          echo "- Recent deploys impact quota usage" >> $GITHUB_STEP_SUMMARY
-          echo "- Monitor function cold starts" >> $GITHUB_STEP_SUMMARY
-          echo "- Review error rates in Firebase Console" >> $GITHUB_STEP_SUMMARY
+
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "⚠️ **Supabase credentials not configured in GitHub secrets**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Required secrets:" >> $GITHUB_STEP_SUMMARY
+            echo "- SUPABASE_URL" >> $GITHUB_STEP_SUMMARY
+            echo "- SUPABASE_SERVICE_ROLE_KEY" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "See docs/GITHUB_SECRETS_SETUP.md for setup instructions" >> $GITHUB_STEP_SUMMARY
+          else
+            # Simple health check - verify connection
+            HEALTH_CHECK=$(curl -s -w "%{http_code}" -o /dev/null "$SUPABASE_URL/rest/v1/" \
+              -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+              -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY") || echo "000"
+
+            if [ "$HEALTH_CHECK" = "200" ]; then
+              echo "✅ **Database Connection**: Healthy" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "❌ **Database Connection**: Failed (HTTP $HEALTH_CHECK)" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "Check your Supabase project status in the dashboard" >> $GITHUB_STEP_SUMMARY
+            fi
+          fi
 
       - name: Security Recommendations
         run: |
@@ -75,26 +108,178 @@ jobs:
           echo "## Security Checks" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "Regular security maintenance:" >> $GITHUB_STEP_SUMMARY
-          echo "- [ ] Review Firebase security rules (last 30 days)" >> $GITHUB_STEP_SUMMARY
+          echo "- [ ] Review Row Level Security (RLS) policies (last 30 days)" >> $GITHUB_STEP_SUMMARY
           echo "- [ ] Check for unusual authentication patterns" >> $GITHUB_STEP_SUMMARY
-          echo "- [ ] Verify service account permissions" >> $GITHUB_STEP_SUMMARY
-          echo "- [ ] Review Cloud Functions access logs" >> $GITHUB_STEP_SUMMARY
-          echo "- [ ] Rotate secrets if 90+ days old" >> $GITHUB_STEP_SUMMARY
+          echo "- [ ] Verify service role key is properly secured" >> $GITHUB_STEP_SUMMARY
+          echo "- [ ] Review database access logs" >> $GITHUB_STEP_SUMMARY
+          echo "- [ ] Rotate API keys if 90+ days old" >> $GITHUB_STEP_SUMMARY
+          echo "- [ ] Check Edge Function security settings" >> $GITHUB_STEP_SUMMARY
 
       - name: Performance Metrics
         run: |
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "## Performance Monitoring" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Key metrics to monitor:" >> $GITHUB_STEP_SUMMARY
-          echo "- **Frontend**: Check Core Web Vitals in Firebase Performance" >> $GITHUB_STEP_SUMMARY
-          echo "- **Functions**: Monitor execution time and memory usage" >> $GITHUB_STEP_SUMMARY
-          echo "- **Firestore**: Review query performance and index usage" >> $GITHUB_STEP_SUMMARY
-          echo "- **Storage**: Check download speeds and CDN hit rates" >> $GITHUB_STEP_SUMMARY
+          echo "Key metrics to monitor in Supabase Dashboard:" >> $GITHUB_STEP_SUMMARY
+          echo "- **Database**: Query performance and connection pooling" >> $GITHUB_STEP_SUMMARY
+          echo "- **Storage**: Download speeds and bandwidth usage" >> $GITHUB_STEP_SUMMARY
+          echo "- **Auth**: Login latency and success rates" >> $GITHUB_STEP_SUMMARY
+          echo "- **Edge Functions**: Execution time and error rates" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📊 [View Reports Dashboard](https://supabase.com/dashboard/project/${{ env.SUPABASE_PROJECT_ID }}/reports)" >> $GITHUB_STEP_SUMMARY
 
-      - name: Clean up
-        if: always()
-        run: rm -f $HOME/service-account.json
+  check-railway-costs:
+    name: Check Railway Costs
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Generate Railway Cost Report
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          echo "# Railway Deployment Report - $(date +%Y-%m-%d)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ -z "$RAILWAY_TOKEN" ]; then
+            echo "⚠️ **RAILWAY_TOKEN not configured**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "To enable automated monitoring:" >> $GITHUB_STEP_SUMMARY
+            echo "1. Generate a project token in Railway Dashboard" >> $GITHUB_STEP_SUMMARY
+            echo "2. Add to GitHub secrets as RAILWAY_TOKEN" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "## Manual Checks" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Visit Railway Dashboard to monitor:" >> $GITHUB_STEP_SUMMARY
+            echo "- **Project Dashboard**: https://railway.app/dashboard" >> $GITHUB_STEP_SUMMARY
+            echo "- **Usage & Billing**: Check monthly credits and usage" >> $GITHUB_STEP_SUMMARY
+            echo "- **Deployments**: Monitor build status and logs" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## Railway Status" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+
+            # Note: Railway CLI has limited monitoring commands
+            # Most detailed info requires dashboard access
+            echo "### Deployment Monitoring" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Monitor your Railway deployments at:" >> $GITHUB_STEP_SUMMARY
+            echo "- [Project Dashboard](https://railway.app/dashboard)" >> $GITHUB_STEP_SUMMARY
+            echo "- [Usage & Billing](https://railway.app/account/usage)" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Cost Optimization Tips" >> $GITHUB_STEP_SUMMARY
+            echo "- Monitor CPU and memory usage" >> $GITHUB_STEP_SUMMARY
+            echo "- Review build times and optimize if needed" >> $GITHUB_STEP_SUMMARY
+            echo "- Check for unnecessary deployments" >> $GITHUB_STEP_SUMMARY
+            echo "- Consider sleep mode for development environments" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Backend Health Check - All Environments
+        env:
+          RAILWAY_TOKEN_PRODUCTION: ${{ secrets.RAILWAY_TOKEN_PRODUCTION }}
+          RAILWAY_TOKEN_STAGING: ${{ secrets.RAILWAY_TOKEN_STAGING }}
+          RAILWAY_TOKEN_DEVELOPMENT: ${{ secrets.RAILWAY_TOKEN_DEVELOPMENT }}
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Backend Health Check" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Function to check health of a specific environment
+          check_environment() {
+            local ENV_NAME=$1
+            local ENV_LABEL=$2
+            local TOKEN_VAR=$3
+
+            echo "### $ENV_LABEL Environment" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+
+            if [ -z "$TOKEN_VAR" ]; then
+              echo "⚠️ Cannot get backend URL - RAILWAY_TOKEN_${ENV_NAME^^} not configured" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              return
+            fi
+
+            # Get backend URL from Railway for specific environment
+            cd backend
+
+            # Try railway domain first (simpler command)
+            BACKEND_URL=$(RAILWAY_TOKEN="$TOKEN_VAR" railway domain 2>/dev/null | head -1 || echo "")
+
+            # Fallback: try status without service/environment flags
+            if [ -z "$BACKEND_URL" ]; then
+              BACKEND_URL=$(RAILWAY_TOKEN="$TOKEN_VAR" railway status --json 2>/dev/null | jq -r '.deployments[0].url // empty' || echo "")
+            fi
+
+            cd ..
+
+            if [ -z "$BACKEND_URL" ]; then
+              echo "⚠️ **Status**: Environment not found or not deployed" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              return
+            fi
+
+            echo "**URL**: $BACKEND_URL" >> $GITHUB_STEP_SUMMARY
+
+            # Check if backend is responding
+            HEALTH_STATUS=$(curl -s -w "%{http_code}" -o /dev/null "$BACKEND_URL/health") || echo "000"
+
+            if [ "$HEALTH_STATUS" = "200" ]; then
+              echo "**Status**: ✅ Healthy (HTTP $HEALTH_STATUS)" >> $GITHUB_STEP_SUMMARY
+
+              # Get detailed health info
+              HEALTH_INFO=$(curl -s "$BACKEND_URL/health" | jq -r '.' 2>/dev/null || echo "{}")
+              if [ -n "$HEALTH_INFO" ] && [ "$HEALTH_INFO" != "{}" ]; then
+                echo "" >> $GITHUB_STEP_SUMMARY
+                echo "\`\`\`json" >> $GITHUB_STEP_SUMMARY
+                echo "$HEALTH_INFO" >> $GITHUB_STEP_SUMMARY
+                echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+              fi
+            elif [ "$HEALTH_STATUS" = "502" ]; then
+              echo "**Status**: ❌ Bad Gateway (HTTP 502)" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "Possible causes:" >> $GITHUB_STEP_SUMMARY
+              echo "- Railway deployment failed" >> $GITHUB_STEP_SUMMARY
+              echo "- Backend service crashed" >> $GITHUB_STEP_SUMMARY
+              echo "- Configuration error" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "**Status**: ❌ Unreachable (HTTP $HEALTH_STATUS)" >> $GITHUB_STEP_SUMMARY
+            fi
+
+            echo "" >> $GITHUB_STEP_SUMMARY
+          }
+
+          # Check all three environments
+          check_environment "production" "🚀 Production" "$RAILWAY_TOKEN_PRODUCTION"
+          check_environment "staging" "🎭 Staging" "$RAILWAY_TOKEN_STAGING"
+          check_environment "development" "🔧 Development" "$RAILWAY_TOKEN_DEVELOPMENT"
+
+          # Show tip if any tokens are missing
+          MISSING_TOKENS=0
+          [ -z "$RAILWAY_TOKEN_PRODUCTION" ] && MISSING_TOKENS=$((MISSING_TOKENS + 1))
+          [ -z "$RAILWAY_TOKEN_STAGING" ] && MISSING_TOKENS=$((MISSING_TOKENS + 1))
+          [ -z "$RAILWAY_TOKEN_DEVELOPMENT" ] && MISSING_TOKENS=$((MISSING_TOKENS + 1))
+
+          if [ "$MISSING_TOKENS" -gt 0 ]; then
+            echo "---" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "💡 **Tip**: Add Railway project tokens to GitHub secrets for automated environment URL lookup" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Required secrets (one token per environment):" >> $GITHUB_STEP_SUMMARY
+            [ -z "$RAILWAY_TOKEN_PRODUCTION" ] && echo "- RAILWAY_TOKEN_PRODUCTION" >> $GITHUB_STEP_SUMMARY
+            [ -z "$RAILWAY_TOKEN_STAGING" ] && echo "- RAILWAY_TOKEN_STAGING" >> $GITHUB_STEP_SUMMARY
+            [ -z "$RAILWAY_TOKEN_DEVELOPMENT" ] && echo "- RAILWAY_TOKEN_DEVELOPMENT" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Generate tokens at: https://railway.app/dashboard → Project → Settings → Tokens" >> $GITHUB_STEP_SUMMARY
+          fi
 
   dependency-health:
     name: Dependency Health Check
@@ -116,14 +301,14 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "Run \`npm outdated\` locally to see detailed version information" >> $GITHUB_STEP_SUMMARY
 
-      - name: Check Functions Dependencies
-        working-directory: functions
+      - name: Check Backend Dependencies
+        working-directory: backend
         run: |
           npm outdated || true
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "## Cloud Functions Dependencies" >> $GITHUB_STEP_SUMMARY
+          echo "## Backend Dependencies" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Run \`npm outdated\` in functions/ to see detailed version information" >> $GITHUB_STEP_SUMMARY
+          echo "Run \`npm outdated\` in backend/ to see detailed version information" >> $GITHUB_STEP_SUMMARY
 
       - name: Security Audit
         run: |
@@ -140,21 +325,41 @@ jobs:
           echo "- Critical: $FRONTEND_CRITICAL" >> $GITHUB_STEP_SUMMARY
           echo "- High: $FRONTEND_HIGH" >> $GITHUB_STEP_SUMMARY
 
-          # Functions audit
-          cd functions
-          FUNCTIONS_AUDIT=$(npm audit --json 2>&1 || true)
-          FUNCTIONS_CRITICAL=$(echo "$FUNCTIONS_AUDIT" | jq -r '.metadata.vulnerabilities.critical // 0' 2>/dev/null || echo "0")
-          FUNCTIONS_HIGH=$(echo "$FUNCTIONS_AUDIT" | jq -r '.metadata.vulnerabilities.high // 0' 2>/dev/null || echo "0")
+          # Backend audit
+          cd backend
+          BACKEND_AUDIT=$(npm audit --json 2>&1 || true)
+          BACKEND_CRITICAL=$(echo "$BACKEND_AUDIT" | jq -r '.metadata.vulnerabilities.critical // 0' 2>/dev/null || echo "0")
+          BACKEND_HIGH=$(echo "$BACKEND_AUDIT" | jq -r '.metadata.vulnerabilities.high // 0' 2>/dev/null || echo "0")
 
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Cloud Functions**:" >> $GITHUB_STEP_SUMMARY
-          echo "- Critical: $FUNCTIONS_CRITICAL" >> $GITHUB_STEP_SUMMARY
-          echo "- High: $FUNCTIONS_HIGH" >> $GITHUB_STEP_SUMMARY
+          echo "**Backend**:" >> $GITHUB_STEP_SUMMARY
+          echo "- Critical: $BACKEND_CRITICAL" >> $GITHUB_STEP_SUMMARY
+          echo "- High: $BACKEND_HIGH" >> $GITHUB_STEP_SUMMARY
 
           # Alert if critical vulnerabilities found
-          TOTAL_CRITICAL=$((FRONTEND_CRITICAL + FUNCTIONS_CRITICAL))
+          TOTAL_CRITICAL=$((FRONTEND_CRITICAL + BACKEND_CRITICAL))
           if [ "$TOTAL_CRITICAL" -gt 0 ]; then
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "⚠️ **ACTION REQUIRED**: $TOTAL_CRITICAL critical vulnerabilities found" >> $GITHUB_STEP_SUMMARY
-            echo "Run \`npm audit fix\` to resolve" >> $GITHUB_STEP_SUMMARY
+            echo "Run \`npm audit fix\` in frontend and backend to resolve" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Legacy Code Check
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Legacy Code Notice" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ -d "functions" ]; then
+            echo "⚠️ **Firebase Functions folder detected**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "The \`functions/\` folder contains legacy Firebase Cloud Functions code." >> $GITHUB_STEP_SUMMARY
+            echo "This code is no longer used since migrating to Supabase + Railway." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Consider removing this folder to:" >> $GITHUB_STEP_SUMMARY
+            echo "- Reduce repository size" >> $GITHUB_STEP_SUMMARY
+            echo "- Eliminate dependency security warnings" >> $GITHUB_STEP_SUMMARY
+            echo "- Prevent confusion about active codebase" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "✅ No legacy Firebase code detected" >> $GITHUB_STEP_SUMMARY
           fi

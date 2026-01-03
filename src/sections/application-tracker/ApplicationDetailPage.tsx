@@ -8,8 +8,25 @@ export default function ApplicationDetailPage() {
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
 
+  const foundApp = data.trackedApplications.find(app => app.id === id)
   const [application, setApplication] = useState<TrackedApplication | undefined>(
-    data.trackedApplications.find(app => app.id === id)
+    foundApp ? {
+      ...foundApp,
+      status: foundApp.status as ApplicationStatus,
+      statusHistory: foundApp.statusHistory.map(h => ({
+        ...h,
+        status: h.status as ApplicationStatus
+      })),
+      activityLog: foundApp.activityLog.map(a => ({
+        ...a,
+        type: a.type as 'status_change' | 'follow_up' | 'note' | 'email' | 'call'
+      })),
+      followUpActions: foundApp.followUpActions.map(f => ({
+        ...f,
+        type: f.type as 'reminder' | 'action_item',
+        priority: f.priority as 'low' | 'medium' | 'high'
+      }))
+    } : undefined
   )
 
   if (!application) {
@@ -38,18 +55,25 @@ export default function ApplicationDetailPage() {
   }
 
   const handleUpdateStatus = (status: ApplicationStatus, note?: string) => {
+    const newHistoryEntry = {
+      status,
+      date: new Date().toISOString(),
+      note
+    }
+
     setApplication({
       ...application,
       status,
       lastUpdated: new Date().toISOString(),
+      statusChangedAt: new Date().toISOString(),
+      statusHistory: [...application.statusHistory, newHistoryEntry],
       activityLog: [
         ...application.activityLog,
         {
           id: `activity-${Date.now()}`,
-          timestamp: new Date().toISOString(),
+          date: new Date().toISOString(),
           type: 'status_change',
-          description: `Status changed to ${status}${note ? `: ${note}` : ''}`,
-          metadata: { previousStatus: application.status, newStatus: status, note }
+          description: `Status changed to ${status}${note ? `: ${note}` : ''}`
         }
       ]
     })
@@ -59,15 +83,14 @@ export default function ApplicationDetailPage() {
   const handleAddNote = (note: string) => {
     setApplication({
       ...application,
-      notes: [...application.notes, note],
+      notes: application.notes ? application.notes + '\n' + note : note,
       activityLog: [
         ...application.activityLog,
         {
           id: `activity-${Date.now()}`,
-          timestamp: new Date().toISOString(),
+          date: new Date().toISOString(),
           type: 'note',
-          description: note,
-          metadata: {}
+          description: note
         }
       ]
     })
@@ -81,7 +104,7 @@ export default function ApplicationDetailPage() {
     }
     setApplication({
       ...application,
-      followUps: [...application.followUps, newAction]
+      followUpActions: [...application.followUpActions, newAction]
     })
     console.log('Add follow-up:', newAction)
   }
@@ -98,10 +121,9 @@ export default function ApplicationDetailPage() {
         ...application.activityLog,
         {
           id: `activity-${Date.now()}`,
-          timestamp: new Date().toISOString(),
-          type: 'interview',
-          description: `Interview scheduled: ${interview.round}`,
-          metadata: { interview: newInterview }
+          date: new Date().toISOString(),
+          type: 'status_change',
+          description: `Interview scheduled: ${interview.round}`
         }
       ]
     })

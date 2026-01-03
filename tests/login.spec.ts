@@ -1,9 +1,14 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Login Flow', () => {
-  const BASE_URL = 'https://jobmatchai-production.up.railway.app';
-  const TEST_EMAIL = 'cffrank@yahoo.com';
-  const TEST_PASSWORD = 'Pass@word123';
+  // Use Cloudflare Pages (not Railway)
+  const BASE_URL = process.env.FRONTEND_URL || 'https://jobmatch-ai-dev.pages.dev';
+
+  // Generate unique test credentials for each run
+  const timestamp = Date.now();
+  const TEST_EMAIL = `test-login-${timestamp}@example.com`;
+  const TEST_PASSWORD = 'TestPassword123!';
+  const TEST_NAME = 'Test User';
 
   test('should successfully log in and navigate to home page', async ({ page }) => {
     // Track console errors
@@ -13,6 +18,40 @@ test.describe('Login Flow', () => {
         consoleErrors.push(msg.text());
       }
     });
+
+    // STEP 1: Create a fresh account via signup
+    console.log('📝 Creating fresh test account...');
+    await page.goto(BASE_URL + '/signup', { waitUntil: 'networkidle' });
+    await expect(page).toHaveURL(/.*\/signup/);
+
+    const nameInput = page.locator('input[name="name"], input[type="text"]').first();
+    const signupEmailInput = page.locator('input[type="email"]');
+    const signupPasswordInput = page.locator('input[type="password"]').first();
+    const confirmPasswordInput = page.locator('input[type="password"]').last();
+
+    await nameInput.fill(TEST_NAME);
+    await signupEmailInput.fill(TEST_EMAIL);
+    await signupPasswordInput.fill(TEST_PASSWORD);
+
+    // Fill confirm password if it exists
+    const confirmPasswordCount = await page.locator('input[type="password"]').count();
+    if (confirmPasswordCount > 1) {
+      await confirmPasswordInput.fill(TEST_PASSWORD);
+    }
+
+    const signupButton = page.locator('button[type="submit"]', { hasText: /sign up|create account|register/i });
+    await signupButton.click();
+
+    // Wait for signup to complete
+    await page.waitForURL((url) => !url.pathname.includes('/signup'), { timeout: 15000 });
+    console.log('✅ Test account created');
+
+    // STEP 2: Logout (if auto-logged in)
+    const signupUrl = page.url();
+    if (!signupUrl.includes('/login')) {
+      // Navigate to login page (may trigger logout or already logged out)
+      await page.goto(BASE_URL + '/login', { waitUntil: 'networkidle' });
+    }
 
     // Navigate to login page
     console.log('📍 Navigating to login page...');
@@ -62,10 +101,10 @@ test.describe('Login Flow', () => {
     // Wait a bit for the page to fully load
     await page.waitForLoadState('networkidle');
 
-    // Check for session initialization in console
-    const sessionLogs = await page.evaluate(() => {
-      return (window as any).__sessionLogs || [];
-    });
+    // Check for session initialization in console (for debugging if needed)
+    // const sessionLogs = await page.evaluate(() => {
+    //   return (window as Record<string, unknown>).__sessionLogs || [];
+    // });
 
     // Verify no critical console errors
     const criticalErrors = consoleErrors.filter(err =>
@@ -121,9 +160,34 @@ test.describe('Login Flow', () => {
       }
     });
 
+    // Create a unique account for this test
+    const testEmail = `test-session-${Date.now()}@example.com`;
+
+    // Signup first
+    await page.goto(BASE_URL + '/signup', { waitUntil: 'networkidle' });
+    const nameInput = page.locator('input[name="name"], input[type="text"]').first();
+    const signupEmailInput = page.locator('input[type="email"]');
+    const signupPasswordInput = page.locator('input[type="password"]').first();
+    const confirmPasswordInput = page.locator('input[type="password"]').last();
+
+    await nameInput.fill(TEST_NAME);
+    await signupEmailInput.fill(testEmail);
+    await signupPasswordInput.fill(TEST_PASSWORD);
+
+    const confirmPasswordCount = await page.locator('input[type="password"]').count();
+    if (confirmPasswordCount > 1) {
+      await confirmPasswordInput.fill(TEST_PASSWORD);
+    }
+
+    const signupButton = page.locator('button[type="submit"]', { hasText: /sign up|create account|register/i });
+    await signupButton.click();
+    await page.waitForURL((url) => !url.pathname.includes('/signup'), { timeout: 15000 });
+
+    // Go back to login
+    await page.goto(BASE_URL + '/login', { waitUntil: 'networkidle' });
+
     // Login
-    await page.goto(BASE_URL + '/login');
-    await page.locator('input[type="email"]').fill(TEST_EMAIL);
+    await page.locator('input[type="email"]').fill(testEmail);
     await page.locator('input[type="password"]').fill(TEST_PASSWORD);
     await page.locator('button[type="submit"]', { hasText: /sign in/i }).click();
 

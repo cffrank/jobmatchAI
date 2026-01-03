@@ -1,9 +1,11 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom'
 import AppLayout from '@/components/AppLayout'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
+import { ErrorFallback } from '@/components/ErrorFallback'
 import LoginPage from '@/pages/LoginPage'
 import SignupPage from '@/pages/SignupPage'
 import AuthCallbackPage from '@/pages/AuthCallbackPage'
+import NotificationsPage from '@/pages/NotificationsPage'
 
 // Profile & Resume Management
 import ProfileOverviewPage from '@/sections/profile-resume-management/ProfileOverviewPage'
@@ -36,14 +38,17 @@ export const router = createBrowserRouter([
   {
     path: '/login',
     element: <LoginPage />,
+    errorElement: <ErrorFallback />,
   },
   {
     path: '/signup',
     element: <SignupPage />,
+    errorElement: <ErrorFallback />,
   },
   {
     path: '/auth/callback',
     element: <AuthCallbackPage />,
+    errorElement: <ErrorFallback />,
   },
   {
     path: '/',
@@ -52,6 +57,7 @@ export const router = createBrowserRouter([
         <AppLayout />
       </ProtectedRoute>
     ),
+    errorElement: <ErrorFallback />,
     children: [
       {
         index: true,
@@ -128,6 +134,10 @@ export const router = createBrowserRouter([
       {
         path: 'settings',
         element: <SettingsPage />,
+      },
+      {
+        path: 'notifications',
+        element: <NotificationsPage />,
       },
     ],
   },

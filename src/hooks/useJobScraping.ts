@@ -24,10 +24,10 @@ interface UseJobScrapingReturn {
  * Hook for scraping jobs from LinkedIn and Indeed
  */
 export function useJobScraping(): UseJobScrapingReturn {
-  const [loading, setLoading] = useState(false);
+  const { user } = useAuth();
+  const [loading, setLoading] = useState(!user);
   const [error, setError] = useState<string | null>(null);
   const [lastSearchId, setLastSearchId] = useState<string | null>(null);
-  const { user } = useAuth();
 
   const scrapeJobs = useCallback(
     async (params: JobSearchParams): Promise<JobSearchResult | null> => {
@@ -47,8 +47,8 @@ export function useJobScraping(): UseJobScrapingReturn {
           throw new Error('Please sign in to scrape jobs');
         }
 
-        // Call the Railway backend API
-        const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+        // Call the Cloudflare Workers backend API
+        const backendUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
         const response = await fetch(`${backendUrl}/api/jobs/scrape`, {
           method: 'POST',
           headers: {
@@ -113,48 +113,26 @@ interface JobSearch {
 
 /**
  * Hook for fetching user's job search history
+ * Note: job_searches table doesn't exist in schema - this is a placeholder
  */
 export function useJobSearchHistory(): UseJobSearchHistoryReturn {
-  const [searches, setSearches] = useState<JobSearch[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [user] = useAuthState(getAuth());
+  const [searches] = useState<JobSearch[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error] = useState<string | null>(null);
+  const { user } = useAuth();
 
   useEffect(() => {
-    if (!user) {
-      setLoading(false);
-      return;
-    }
-
-    const db = getFirestore();
-    const searchesRef = collection(db, `users/${user.uid}/jobSearches`);
-    const q = query(searchesRef, orderBy('createdAt', 'desc'), limit(10));
-
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const searchData = snapshot.docs.map((doc) => {
-          const data = doc.data();
-          return {
-            id: doc.id,
-            createdAt: data.createdAt?.toDate() || new Date(),
-            jobCount: data.jobCount || 0,
-          };
-        });
-        queueMicrotask(() => {
-          setSearches(searchData);
-          setLoading(false);
-        });
-      },
-      (err) => {
-        queueMicrotask(() => {
-          setError(err.message);
-          setLoading(false);
-        });
+    // TODO: Implement when job_searches table is added to schema
+    // For now, we just set loading to false after checking user
+    const timeoutId = setTimeout(() => {
+      if (!user) {
+        setLoading(false);
+      } else {
+        setLoading(false);
       }
-    );
+    }, 0);
 
-    return () => unsubscribe();
+    return () => clearTimeout(timeoutId);
   }, [user]);
 
   return { searches, loading, error };
@@ -175,7 +153,7 @@ export function useSavedJobs(): UseSavedJobsReturn {
   const [savedJobs, setSavedJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [user] = useAuthState(getAuth());
+  const { user } = useAuth();
 
   const saveJob = useCallback(
     async (job: Job) => {
@@ -183,14 +161,27 @@ export function useSavedJobs(): UseSavedJobsReturn {
         throw new Error('You must be logged in to save jobs');
       }
 
-      const db = getFirestore();
-      const savedJobRef = doc(db, `users/${user.uid}/savedJobs/${job.id}`);
+      // Insert or update the job in the jobs table with is_saved flag
+      const { error: saveError } = await supabase
+        .from('jobs')
+        .upsert({
+          id: job.id,
+          user_id: user.id,
+          title: job.title,
+          company: job.company,
+          location: job.location,
+          description: job.description,
+          url: job.url,
+          source: job.source,
+          salary_min: job.salaryMin,
+          salary_max: job.salaryMax,
+          saved: true,
+          added_at: new Date().toISOString(),
+        });
 
-      await setDoc(savedJobRef, {
-        ...job,
-        isSaved: true,
-        savedAt: Timestamp.now(),
-      });
+      if (saveError) {
+        throw saveError;
+      }
     },
     [user]
   );
@@ -201,12 +192,15 @@ export function useSavedJobs(): UseSavedJobsReturn {
         throw new Error('You must be logged in to unsave jobs');
       }
 
-      const db = getFirestore();
-      const savedJobRef = doc(db, `users/${user.uid}/savedJobs/${jobId}`);
+      const { error: unsaveError } = await supabase
+        .from('jobs')
+        .update({ saved: false })
+        .eq('id', jobId)
+        .eq('user_id', user.id);
 
-      await updateDoc(savedJobRef, {
-        isSaved: false,
-      });
+      if (unsaveError) {
+        throw unsaveError;
+      }
     },
     [user]
   );
@@ -217,35 +211,66 @@ export function useSavedJobs(): UseSavedJobsReturn {
       return;
     }
 
-    const db = getFirestore();
-    const savedJobsRef = collection(db, `users/${user.uid}/savedJobs`);
-    const q = query(savedJobsRef, orderBy('savedAt', 'desc'));
+    // Fetch saved jobs from Supabase
+    const fetchSavedJobs = async () => {
+      try {
+        const { data, error: fetchError } = await supabase
+          .from('jobs')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('saved', true)
+          .order('added_at', { ascending: false });
 
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const jobs = snapshot.docs.map((doc) => {
-          const data = doc.data();
-          return {
-            id: doc.id,
-            ...data,
-            scrapedAt: data.scrapedAt?.toDate(),
-          } as Job;
-        });
-        queueMicrotask(() => {
-          setSavedJobs(jobs.filter(job => job.isSaved));
-          setLoading(false);
-        });
-      },
-      (err) => {
-        queueMicrotask(() => {
-          setError(err.message);
-          setLoading(false);
-        });
+        if (fetchError) throw fetchError;
+
+        const jobs = (data || []).map((row) => ({
+          id: row.id,
+          title: row.title,
+          company: row.company,
+          companyLogo: '',
+          location: row.location || '',
+          workArrangement: 'Unknown' as const,
+          salaryMin: row.salary_min || 0,
+          salaryMax: row.salary_max || 0,
+          postedDate: row.created_at,
+          description: row.description || '',
+          isSaved: row.saved || false,
+          url: row.url || undefined,
+          source: row.source as 'linkedin' | 'indeed' | 'manual' | undefined,
+          scrapedAt: row.created_at ? new Date(row.created_at) : undefined,
+        })) as Job[];
+
+        setSavedJobs(jobs);
+        setLoading(false);
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to fetch saved jobs';
+        setError(errorMessage);
+        setLoading(false);
       }
-    );
+    };
 
-    return () => unsubscribe();
+    void fetchSavedJobs();
+
+    // Subscribe to real-time updates
+    const channel = supabase
+      .channel('saved_jobs_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'jobs',
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          void fetchSavedJobs();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
   }, [user]);
 
   return { savedJobs, loading, error, saveJob, unsaveJob };

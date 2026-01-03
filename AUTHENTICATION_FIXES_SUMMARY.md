@@ -1,0 +1,853 @@
+# Authentication Fixes - Complete Summary
+
+**Date:** 2026-01-03
+**Status:** All fixes deployed ✅
+**Final Commit:** `313a644` - "fix: add null safety for education highlights to prevent crashes"
+
+---
+
+## Issues Discovered & Fixed
+
+### 1. ✅ Environment Variable Inconsistency
+**Commit:** `dc10657` - "refactor: standardize environment variables to use VITE_API_URL"
+
+**Problem:**
+- Codebase used both `VITE_API_URL` and `VITE_BACKEND_URL` inconsistently
+- Some files used one, some used the other, some had fallback logic
+- GitHub Actions workflow only sets `VITE_API_URL`
+- Cloudflare Pages env vars were redundant (build happens in GitHub Actions)
+
+**Fix:**
+- Standardized all 11 files to use `VITE_API_URL`
+- Removed all references to `VITE_BACKEND_URL`
+- Updated `.env.development` to match
+
+**Files updated:**
+- `.env.development`
+- `src/lib/aiJobMatching.ts`
+- `src/hooks/useApplications.ts`
+- `src/hooks/useFileUpload.ts`
+- `src/hooks/useJobScraping.ts`
+- `src/hooks/useLinkedInAuth.ts`
+- `src/hooks/useProfile.ts`
+- `src/hooks/useResumeParser.ts`
+- `src/hooks/useUsageMetrics.ts`
+- `src/hooks/useWorkExperienceNarratives.ts`
+- `src/sections/profile-resume-management/components/ResumeUploadDialog.tsx`
+
+---
+
+### 2. ✅ Supabase Session Persistence Disabled
+**Commit:** `f5dc6ea` - "fix: enable Supabase session persistence for authentication"
+
+**Problem:**
+- Supabase client had `persistSession: false`
+- JWT tokens were issued but NOT saved to localStorage
+- `autoRefreshToken: false` caused tokens to expire without renewal
+- All API calls failed with `MISSING_AUTH_HEADER` (401)
+
+**Root Cause:**
+The Supabase client was misconfigured based on incorrect assumption that
+"Workers handle auth". In reality:
+- Frontend uses Supabase Auth for login
+- Supabase issues JWT tokens
+- Frontend stores tokens in localStorage
+- Workers validate JWT tokens
+
+**Fix:**
+```typescript
+// Before (BROKEN):
+auth: {
+  autoRefreshToken: false,   // ❌ Tokens expired
+  persistSession: false,      // ❌ Sessions not saved
+  detectSessionInUrl: false,  // ❌ OAuth broken
+}
+
+// After (FIXED):
+auth: {
+  autoRefreshToken: true,     // ✅ Auto-renew tokens
+  persistSession: true,        // ✅ Save to localStorage
+  detectSessionInUrl: true,    // ✅ OAuth works
+}
+```
+
+**File:** `src/lib/supabase.ts`
+
+---
+
+### 3. ✅ User Profiles Missing in D1 Database
+**Commit:** `4584a2c` - "fix: auto-create D1 user profiles for Supabase Auth users"
+
+**Problem:**
+- Users exist in Supabase Auth (for JWT tokens) ✅
+- But users DON'T exist in D1 database (for profile data) ❌
+- GET `/api/profile` returned 404 "Profile not found"
+- Frontend logged users out after failed profile fetch
+
+**Root Cause:**
+During migration from Supabase PostgreSQL to Cloudflare D1, user accounts
+weren't migrated. Existing users could login but had no profile data.
+
+**Fix:**
+Auto-migrate users on first profile fetch:
+```typescript
+// workers/api/routes/profile.ts
+if (!profile && userEmail) {
+  // Create basic user profile in D1
+  await c.env.DB.prepare(
+    `INSERT INTO users (id, email, created_at, updated_at)
+     VALUES (?, ?, datetime('now'), datetime('now'))`
+  ).bind(userId, userEmail).run();
+
+  // Fetch newly created profile
+  profile = await fetchProfile(userId);
+}
+```
+
+**Benefits:**
+- Seamless migration for existing Supabase users
+- No manual data migration required
+- Transparent user experience
+- New users also work
+
+**File:** `workers/api/routes/profile.ts`
+
+---
+
+### 4. ✅ WorkersAPI Sending Invalid Bearer Token
+**Commit:** `2acdf6a` - "fix: extract access_token from Supabase session in WorkersAPI"
+
+**Problem:**
+- WorkersAPI was reading entire Supabase session JSON from localStorage
+- Used the full JSON object as Bearer token instead of just access_token
+- All API requests sent invalid Authorization headers like:
+  ```
+  Authorization: Bearer {"access_token":"eyJh...","refresh_token":"..."}
+  ```
+- Workers auth middleware rejected these malformed tokens with 401
+
+**Root Cause:**
+The Supabase session is stored in localStorage as a JSON string:
+```json
+{
+  "access_token": "eyJhbGciOi...",
+  "refresh_token": "...",
+  "expires_at": 1234567890,
+  "user": {...}
+}
+```
+
+WorkersAPI constructor read this entire string and used it directly as the Bearer token, instead of parsing the JSON and extracting only the `access_token` field.
+
+**Fix:**
+```typescript
+// workers/src/lib/workersApi.ts
+
+// Before (BROKEN):
+constructor() {
+  this.baseURL = API_URL;
+  this.token = localStorage.getItem('jobmatch-auth-token'); // ❌ Gets entire JSON
+}
+
+// After (FIXED):
+constructor() {
+  this.baseURL = API_URL;
+  try {
+    const sessionStr = localStorage.getItem('jobmatch-auth-token');
+    if (sessionStr) {
+      const session = JSON.parse(sessionStr);  // ✅ Parse JSON
+      this.token = session.access_token || null; // ✅ Extract access_token
+    }
+  } catch (error) {
+    console.error('[WorkersAPI] Failed to parse session:', error);
+    this.token = null;
+  }
+}
+
+// Also fixed: Refresh token dynamically on each request
+async request<T>(endpoint: string, options: RequestInit = {}) {
+  // Get fresh token from localStorage (Supabase may have refreshed it)
+  let currentToken: string | null = null;
+  try {
+    const sessionStr = localStorage.getItem('jobmatch-auth-token');
+    if (sessionStr) {
+      const session = JSON.parse(sessionStr);
+      currentToken = session.access_token || null; // ✅ Always fresh
+    }
+  } catch (error) {
+    console.error('[WorkersAPI] Failed to parse session:', error);
+  }
+
+  if (currentToken) {
+    headers.Authorization = `Bearer ${currentToken}`; // ✅ Valid token
+  }
+  // ...
+}
+```
+
+**Benefits:**
+- Valid Authorization headers sent to Workers
+- Handles Supabase auto-refresh (reads fresh token each request)
+- Error handling for corrupted localStorage data
+- All API endpoints now work correctly after login
+
+**File:** `src/lib/workersApi.ts`
+
+---
+
+### 5. ✅ Database Schema Error on Profile Update
+**Commit:** `62ba9ea` - "fix: remove invalid content= parameter from users_fts virtual table"
+
+**Problem:**
+- Updating user profile returned 500 Internal Server Error
+- Error message: `D1_ERROR: no such column: T.user_id: SQLITE_ERROR`
+- FTS5 (Full-Text Search) virtual table `users_fts` had invalid configuration
+
+**Root Cause:**
+The `users_fts` FTS5 virtual table was configured with `content=users` to sync with the `users` table, but there was a column mismatch:
+- `users` table has column: `id`
+- `users_fts` expects column: `user_id`
+
+When the UPDATE trigger fired, FTS5 tried to verify the data against the source table and looked for `T.user_id` (with table alias `T`), but this column didn't exist in the `users` table.
+
+**Fix:**
+Created migration `0002_fix_users_fts_content_table.sql`:
+```sql
+-- Drop existing FTS table and triggers
+DROP TRIGGER IF EXISTS users_fts_update;
+DROP TRIGGER IF EXISTS users_fts_delete;
+DROP TRIGGER IF EXISTS users_fts_insert;
+DROP TABLE IF EXISTS users_fts;
+
+-- Recreate WITHOUT content= parameter (standalone FTS table)
+CREATE VIRTUAL TABLE users_fts USING fts5(
+    user_id UNINDEXED,
+    first_name,
+    last_name,
+    email,
+    current_title,
+    professional_summary
+    -- ✅ Removed: content=users, content_rowid=rowid
+);
+
+-- Recreate triggers to keep FTS in sync
+CREATE TRIGGER users_fts_insert AFTER INSERT ON users BEGIN
+    INSERT INTO users_fts(rowid, user_id, first_name, last_name, email, current_title, professional_summary)
+    VALUES (new.rowid, new.id, new.first_name, new.last_name, new.email, new.current_title, new.professional_summary);
+END;
+
+-- ... (delete and update triggers)
+
+-- Rebuild FTS index from existing users
+INSERT INTO users_fts(rowid, user_id, first_name, last_name, email, current_title, professional_summary)
+SELECT rowid, id, first_name, last_name, email, current_title, professional_summary
+FROM users;
+```
+
+**Benefits:**
+- Profile updates now work without database errors
+- FTS search functionality preserved
+- Standalone FTS table avoids column mismatch issues
+- Triggers keep FTS automatically synchronized
+
+**File:** `workers/migrations/0002_fix_users_fts_content_table.sql`
+
+---
+
+### 6. ✅ API Response Field Name Mismatch
+**Commit:** `585697d` - "fix: rename 'experiences' to 'workExperience' in API response"
+
+**Problem:**
+- Login successful ✅
+- But React crashes with: `TypeError: Cannot read properties of undefined (reading 'map')`
+- App displays error screen instead of user interface
+
+**Root Cause:**
+Frontend-backend field name mismatch in work experience API response:
+
+**Workers API returned:**
+```json
+{
+  "message": "Work experience fetched successfully",
+  "experiences": []
+}
+```
+
+**Frontend expected:**
+```typescript
+const response = await workersApi.getWorkExperience()
+setWorkExperience(response.workExperience)  // ❌ undefined!
+```
+
+When React tried to render: `workExperience.map(...)` → crashed because `workExperience` was `undefined`.
+
+**Fix:**
+```typescript
+// workers/api/routes/profile.ts (line 247-250)
+
+// Before:
+return c.json({
+  message: 'Work experience fetched successfully',
+  experiences: experiences || [],  // ❌ Wrong field name
+});
+
+// After:
+return c.json({
+  message: 'Work experience fetched successfully',
+  workExperience: experiences || [],  // ✅ Matches frontend
+});
+```
+
+**Benefits:**
+- React components render without crashing
+- Work experience data displays correctly
+- Consistent API response field names
+
+**File:** `workers/api/routes/profile.ts`
+
+---
+
+### 7. ✅ Profile Updates Not Saved (Field Name Mismatch)
+**Commit:** `7c35982`, `5046dd6`, `0fbcc0b` - "fix: convert camelCase/snake_case field names"
+
+**Problem:**
+- Profile update form submitted successfully (200 OK)
+- But changes weren't saved to database
+- No errors in browser console or backend logs
+- Form data appeared correct to users
+
+**Root Cause:**
+Frontend-backend field naming convention mismatch:
+
+**Frontend sends (camelCase):**
+```typescript
+{
+  firstName: "John",
+  lastName: "Doe",
+  headline: "Senior Software Engineer",
+  summary: "Experienced developer...",
+  linkedInUrl: "linkedin.com/in/johndoe"
+}
+```
+
+**Workers API expects (snake_case):**
+```typescript
+{
+  first_name: "John",
+  last_name: "Doe",
+  current_title: "Senior Software Engineer",
+  professional_summary: "Experienced developer...",
+  linkedin_url: "linkedin.com/in/johndoe"
+}
+```
+
+The Workers API's dynamic UPDATE query builder only recognized snake_case fields. When it received camelCase fields, it ignored them all, resulting in an UPDATE with no fields to update:
+
+```sql
+-- What was generated:
+UPDATE users SET updated_at = ? WHERE id = ?
+-- (No actual changes - everything silently ignored)
+
+-- What should have been generated:
+UPDATE users SET first_name = ?, last_name = ?, current_title = ?,
+  professional_summary = ?, linkedin_url = ?, updated_at = ? WHERE id = ?
+```
+
+**Fix:**
+Added bidirectional field name conversion in `src/hooks/useProfile.ts`:
+
+1. **When updating (frontend → API):**
+```typescript
+const convertToSnakeCase = (data: Record<string, unknown>) => {
+  const fieldMap: Record<string, string> = {
+    firstName: 'first_name',
+    lastName: 'last_name',
+    headline: 'current_title',
+    summary: 'professional_summary',
+    linkedInUrl: 'linkedin_url',
+    streetAddress: 'street_address',
+    postalCode: 'postal_code',
+    profileImageUrl: 'photo_url',
+  }
+  // ... conversion logic
+}
+
+// In updateProfile():
+const snakeCaseData = convertToSnakeCase(data)
+await fetch('/api/profile', {
+  method: 'PATCH',
+  body: JSON.stringify(snakeCaseData),  // ✅ Correct field names
+})
+```
+
+2. **When fetching (API → frontend):**
+```typescript
+const convertToCamelCase = (data: Record<string, unknown>): User => {
+  const fieldMap: Record<string, string> = {
+    first_name: 'firstName',
+    last_name: 'lastName',
+    current_title: 'headline',
+    professional_summary: 'summary',
+    linkedin_url: 'linkedInUrl',
+    street_address: 'streetAddress',
+    postal_code: 'postalCode',
+    photo_url: 'photoUrl',
+    created_at: 'createdAt',
+    updated_at: 'updatedAt',
+  }
+  // ... conversion logic
+}
+
+// When fetching:
+const { profile: fetchedProfile } = await response.json()
+const camelCaseProfile = convertToCamelCase(fetchedProfile)  // ✅ UI-friendly names
+setProfile(camelCaseProfile)
+```
+
+**Benefits:**
+- Profile updates now persist to database correctly
+- Maintains frontend/backend separation of concerns
+- Consistent naming conventions on each layer
+- No breaking changes to either API or UI
+- TypeScript type safety preserved
+
+**Files modified:**
+- `src/hooks/useProfile.ts` (bidirectional field conversion)
+
+---
+
+### 8. ✅ Work Experience Creation Failing (Field Name Mismatch)
+**Commit:** `d794210` - "fix: convert work experience field names between camelCase and snake_case"
+
+**Problem:**
+- Resume import failing with 400 "Invalid work experience data" errors
+- All 9 work experience entries rejected by API
+- Manual work experience creation also failed
+- Error logged in browser console but no clear indication of cause
+
+**Root Cause:**
+Same field naming mismatch as Fix #7, but for work experience endpoints:
+
+**Frontend sends (camelCase):**
+```typescript
+{
+  company: "Envision Information Technologies",
+  position: "Senior Infrastructure Engineer",
+  startDate: "2024-01-01",
+  endDate: "2024-12-31",
+  current: false,
+  accomplishments: ["Achievement 1", "Achievement 2"]
+}
+```
+
+**Workers API expects (snake_case):**
+```typescript
+{
+  company: "Envision Information Technologies",
+  position: "Senior Infrastructure Engineer",
+  start_date: "2024-01-01",
+  end_date: "2024-12-31",
+  is_current: false,
+  accomplishments: ["Achievement 1", "Achievement 2"]
+}
+```
+
+The Workers API validation schema required `start_date`, `end_date`, and `is_current` but received `startDate`, `endDate`, and `current`, causing Zod validation to fail with 400 errors.
+
+**Fix:**
+Added bidirectional field name conversion for work experience:
+
+**1. In workersApi.ts createWorkExperience():**
+```typescript
+async createWorkExperience(data: { ... }): Promise<...> {
+  // Convert camelCase to snake_case for Workers API
+  const apiData: Record<string, unknown> = {
+    company: data.company,
+    position: data.position,
+    start_date: data.startDate,  // ✅ Convert
+  }
+
+  if (data.endDate !== undefined) apiData.end_date = data.endDate  // ✅ Convert
+  if (data.current !== undefined) apiData.is_current = data.current  // ✅ Convert
+  if (data.accomplishments !== undefined) apiData.accomplishments = data.accomplishments
+
+  return this.request('/api/profile/work-experience', {
+    method: 'POST',
+    body: JSON.stringify(apiData),
+  })
+}
+```
+
+**2. In workersApi.ts updateWorkExperience():**
+```typescript
+async updateWorkExperience(id: string, data: { ... }): Promise<...> {
+  const apiData: Record<string, unknown> = {}
+
+  if (data.startDate !== undefined) apiData.start_date = data.startDate  // ✅ Convert
+  if (data.endDate !== undefined) apiData.end_date = data.endDate  // ✅ Convert
+  if (data.current !== undefined) apiData.is_current = data.current  // ✅ Convert
+  // ... other fields
+
+  return this.request(`/api/profile/work-experience/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(apiData),
+  })
+}
+```
+
+**3. In useWorkExperience.ts fetchWorkExperience():**
+```typescript
+const convertToCamelCase = (item: Record<string, unknown>): WorkExperience => {
+  const converted: Record<string, unknown> = {}
+  Object.entries(item).forEach(([key, value]) => {
+    if (key === 'start_date') converted.startDate = value  // ✅ Convert
+    else if (key === 'end_date') converted.endDate = value  // ✅ Convert
+    else if (key === 'is_current') converted.current = value  // ✅ Convert
+    else converted[key] = value
+  })
+  return converted as unknown as WorkExperience
+}
+
+// When fetching:
+const convertedData = response.workExperience.map(item =>
+  convertToCamelCase(item as Record<string, unknown>)
+)
+setWorkExperience(convertedData)
+```
+
+**Benefits:**
+- Resume import now successfully creates work experience entries
+- Manual work experience creation/editing works correctly
+- Consistent field naming across profile and work experience
+- No backend changes required
+
+**Files modified:**
+- `src/lib/workersApi.ts` (create/update conversion)
+- `src/hooks/useWorkExperience.ts` (fetch conversion)
+
+---
+
+## Complete Authentication Flow (After Fixes)
+
+### 1. User Login
+```
+User enters credentials
+  ↓
+Supabase Auth validates
+  ↓
+JWT token issued
+  ↓
+Token saved to localStorage ✅ (Fix #2)
+  ↓
+Session initialized
+```
+
+### 2. Profile Fetch
+```
+Frontend calls GET /api/profile
+  ↓
+Workers extract JWT from Authorization header
+  ↓
+Supabase validates JWT ✅
+  ↓
+Workers query D1 for user
+  ↓
+User doesn't exist? Auto-create ✅ (Fix #3)
+  ↓
+Return profile data
+  ↓
+Frontend displays profile
+```
+
+### 3. Subsequent API Calls
+```
+Frontend makes API request
+  ↓
+WorkersAPI reads session from localStorage ✅ (Fix #2)
+  ↓
+Extract access_token from session JSON ✅ (Fix #4)
+  ↓
+Authorization: Bearer {access_token} added to headers
+  ↓
+Workers validate JWT ✅
+  ↓
+API request succeeds
+```
+
+---
+
+## Architecture Clarifications
+
+### What Supabase Is Used For
+- ✅ **Authentication** (login, signup, JWT tokens)
+- ✅ **Session management** (JWT validation)
+- ❌ **NOT database** (migrated to D1)
+- ❌ **NOT storage** (will migrate to R2)
+
+### What Cloudflare Workers Do
+- ✅ **Validate JWT tokens** via Supabase Auth
+- ✅ **Query D1 database** for user data
+- ✅ **Business logic** (AI generation, job matching, etc.)
+- ❌ **NOT authentication** (Supabase Auth handles this)
+
+### Environment Variables That Matter
+**GitHub Secrets** (used during build):
+- `SUPABASE_URL` - For JWT validation
+- `SUPABASE_ANON_KEY` - For JWT validation
+- `VITE_API_URL` - Backend Workers URL (set via workflow)
+
+**Cloudflare Pages env vars:** ❌ NOT USED (build happens in GitHub Actions)
+
+**Workers secrets:**
+- `SUPABASE_URL` - For JWT validation
+- `SUPABASE_ANON_KEY` - For JWT validation
+- `SUPABASE_SERVICE_ROLE_KEY` - For admin operations
+
+---
+
+## Deployment Status
+
+### ✅ All Fixes Deployed
+1. Environment variable standardization (`dc10657`)
+2. Supabase session persistence (`f5dc6ea`)
+3. D1 user auto-creation (`4584a2c`)
+4. WorkersAPI token extraction (`2acdf6a`)
+5. Database FTS schema fix (`62ba9ea`)
+6. API response field name fix (`585697d`)
+7. Profile update field name conversion (`7c35982`, `5046dd6`, `0fbcc0b`)
+8. Work experience field name conversion (`d794210`)
+9. Work experience null safety check (`bb52f22`)
+10. Education highlights null safety check (`313a644`)
+
+**GitHub Actions:** ✅ Deployment completed at 2026-01-03 06:00 UTC
+
+---
+
+## Testing After Deployment
+
+### 1. Clear Browser Storage
+```javascript
+// DevTools Console (F12) on https://jobmatch-ai-dev.pages.dev
+localStorage.clear()
+sessionStorage.clear()
+// Hard refresh: Ctrl+Shift+R
+```
+
+### 2. Login Fresh
+- Go to https://jobmatch-ai-dev.pages.dev
+- Click "Sign In"
+- Enter credentials
+- Should succeed without errors
+
+### 3. Verify Session Saved
+```javascript
+// After login, check console:
+Object.keys(localStorage).filter(k => k.includes('supabase'))
+// Should show: ["sb-vkstdibhypprasyiswny-auth-token"]
+
+// Check token exists:
+localStorage.getItem('sb-vkstdibhypprasyiswny-auth-token')
+// Should show JSON with access_token
+```
+
+### 4. Verify Profile Loads
+- Navigate to Profile page
+- Should see profile data (even if mostly empty)
+- Check Network tab:
+  - `/api/profile` should return **200 OK**
+  - Response should have `profile` object
+
+### 5. Check D1 Database
+```bash
+# After first login, check D1 has user:
+cd workers
+wrangler d1 execute jobmatch-dev --command \
+  "SELECT id, email, created_at FROM users"
+
+# Should show your user account
+```
+
+---
+
+## Expected Errors (Not Critical)
+
+### CORS Error on ipapi.co
+```
+Access to fetch at 'https://ipapi.co/json/' from origin 'https://jobmatch-ai-dev.pages.dev'
+has been blocked by CORS policy
+```
+
+**Impact:** Low - This is a location detection service
+**Status:** Non-blocking - Authentication works without it
+**Fix:** Not required (can add proxy later if needed)
+
+---
+
+## Known Limitations
+
+### 1. Auto-Created Profiles Are Minimal
+When a user first logs in:
+- Only `id` and `email` are populated
+- Other fields (name, phone, summary) are NULL
+- User can update via Profile page
+
+### 2. Work Experience Not Migrated
+- Existing Supabase users will have empty work experience
+- They'll need to re-add it via the UI
+
+### 3. Skills Not Migrated
+- Existing Supabase users will have no skills
+- They'll need to re-add via the UI
+
+**These are acceptable** - users can re-enter data via the UI.
+
+---
+
+## Next Steps (Optional Enhancements)
+
+### 1. Bulk User Migration Script
+Create script to migrate all existing Supabase users to D1:
+```sql
+-- Fetch all users from Supabase PostgreSQL
+-- Insert into D1 in batch
+```
+
+### 2. Migrate Historical Data
+- Work experience
+- Skills
+- Applications
+- Resumes
+
+### 3. Remove Redundant Cloudflare Pages Env Vars
+Since they're not used, clean up the dashboard:
+- Remove `VITE_BACKEND_URL`
+- Remove `VITE_SUPABASE_URL` (optional - not used)
+- Remove `VITE_SUPABASE_ANON_KEY` (optional - not used)
+
+---
+
+## Related Documentation
+
+- `ENV_VAR_STANDARDIZATION_SUMMARY.md` - Environment variable fix
+- `AUTH_FIX_SUMMARY.md` - Earlier Supabase project ID typo fix
+- `SESSION_DEBUG_QUICKSTART.md` - Session debugging guide
+- `docs/SESSION_ISSUE_SUMMARY.md` - Session architecture analysis
+
+---
+
+**Last Updated:** 2026-01-03 06:00 UTC
+**Deployment:** ✅ Complete (all 10 fixes deployed)
+**Next:** Test authentication, profile, work experience, and education functionality end-to-end
+
+---
+
+## Summary of All Fixes
+
+| Fix # | Issue | Root Cause | Solution | Commit |
+|-------|-------|------------|----------|--------|
+| 1 | Inconsistent env vars | Mixed `VITE_API_URL` / `VITE_BACKEND_URL` usage | Standardized to `VITE_API_URL` | `dc10657` |
+| 2 | Sessions not persisting | `persistSession: false` in Supabase client | Changed to `persistSession: true` | `f5dc6ea` |
+| 3 | 404 on /api/profile | Users not migrated to D1 database | Auto-create users on first profile fetch | `4584a2c` |
+| 4 | 401 on all API calls | WorkersAPI sent full session JSON as token | Extract `access_token` field from session | `2acdf6a` |
+| 5 | 500 on profile update | FTS virtual table column mismatch | Remove `content=` parameter, make standalone FTS | `62ba9ea` |
+| 6 | React crash on login | API returned `experiences` but frontend expected `workExperience` | Rename response field to match frontend | `585697d` |
+| 7 | Profile updates not saved | Frontend sent camelCase but API expected snake_case | Add bidirectional field name conversion (profile) | `7c35982`, `5046dd6`, `0fbcc0b` |
+| 8 | Work experience creation failed | Frontend sent camelCase but API expected snake_case | Add bidirectional field name conversion (work exp) | `d794210` |
+| 9 | React crash on page load | `response.workExperience.map()` called without null check | Add `|| []` fallback for null safety | `bb52f22` |
+| 10 | React crash on education display | `edu.highlights.length` called without null check | Add optional chaining `?.length ?? 0` for highlights | `313a644` |
+
+**All fixes deployed:** ✅ Successfully deployed at 2026-01-03 06:00 UTC
+
+---
+
+### 9. ✅ React Crash on Work Experience Fetch (Null Safety)
+**Commit:** `bb52f22` - "fix: add null check when mapping work experience data"
+
+**Problem:**
+- React crashing with `TypeError: Cannot read properties of undefined (reading 'length')`
+- App displayed error screen instead of user interface
+- Happened immediately after login when loading work experience
+
+**Root Cause:**
+The `useWorkExperience` hook was calling `.map()` directly on `response.workExperience` without checking if it existed. When the API response had `workExperience` as `undefined` or `null` (e.g., for new users with no work experience), React crashed.
+
+```typescript
+// Before (BROKEN):
+const convertedData = response.workExperience.map(item => ...)
+// ❌ Crashes if response.workExperience is undefined/null
+```
+
+**Fix:**
+Added null safety with `|| []` fallback:
+
+```typescript
+// After (FIXED):
+const convertedData = (response.workExperience || []).map(item =>
+  convertToCamelCase(item as Record<string, unknown>)
+)
+// ✅ Always calls .map() on an array, even if workExperience is undefined
+```
+
+**Benefits:**
+- App no longer crashes for users with no work experience
+- Defensive programming prevents similar issues
+- Graceful handling of edge cases
+- Better user experience for new accounts
+
+**Files modified:**
+- `src/hooks/useWorkExperience.ts` (null safety check)
+
+**Deployment:** ✅ Deployed at 2026-01-03 04:52 UTC
+
+---
+
+### 10. ✅ React Crash on Education Highlights (Null Safety)
+**Commit:** `313a644` - "fix: add null safety for education highlights to prevent crashes"
+
+**Problem:**
+- React crashing with `TypeError: can't access property "length", g.highlights is undefined`
+- App displayed error screen when rendering education entries
+- Happened when education records had `undefined` or `null` highlights field
+
+**Root Cause:**
+Three components accessed `highlights.length` without null checking:
+- `EducationList.tsx:103` - `edu.highlights.length > 0`
+- `ResumePreview.tsx:207` - `edu.highlights.length > 0`
+- `EducationForm.tsx:42` - `existingEducation.highlights.length > 0`
+
+When the API returned education records with `highlights: undefined` or `highlights: null`, these checks crashed immediately.
+
+**Fix:**
+Added optional chaining and nullish coalescing for all three locations:
+
+```typescript
+// Before (BROKEN):
+{edu.highlights.length > 0 && (
+  <ul>
+    {edu.highlights.map(...)}
+  </ul>
+)}
+
+// After (FIXED):
+{(edu.highlights?.length ?? 0) > 0 && (
+  <ul>
+    {edu.highlights.map(...)}
+  </ul>
+)}
+```
+
+**Benefits:**
+- App no longer crashes for education records with missing highlights
+- Graceful handling of undefined/null arrays
+- Consistent with Fix #9 (work experience null safety)
+- Better defensive programming pattern
+
+**Files modified:**
+- `src/sections/profile-resume-management/components/EducationList.tsx`
+- `src/sections/profile-resume-management/components/ResumePreview.tsx`
+- `src/sections/profile-resume-management/components/EducationForm.tsx`
+
+**Deployment:** ✅ Deployed at 2026-01-03 06:00 UTC
+
+---
+

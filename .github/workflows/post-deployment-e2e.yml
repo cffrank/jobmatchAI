@@ -1,0 +1,151 @@
+name: Post-Deployment E2E Tests
+
+on:
+  # DISABLED: E2E tests now run within cloudflare-deploy.yml workflow
+  # This prevents duplicate workflow runs on develop branch pushes
+  #
+  # push:
+  #   branches: [develop]
+
+  # Allow manual trigger only
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to test'
+        required: true
+        default: 'development'
+        type: choice
+        options:
+          - development
+          - production
+
+env:
+  NODE_VERSION: '22.x'
+
+jobs:
+  wait-for-deployment:
+    name: Wait for Cloudflare Pages Deployment
+    runs-on: ubuntu-latest
+    outputs:
+      deployment_url: ${{ steps.get_deployment.outputs.url }}
+
+    steps:
+      - name: Wait for Cloudflare Pages to deploy
+        run: |
+          echo "Waiting 90 seconds for Cloudflare Pages to build and deploy..."
+          sleep 90
+
+      - name: Get latest deployment URL
+        id: get_deployment
+        run: |
+          # Development environment URL (static - always the same)
+          DEV_URL="https://jobmatch-ai-dev.pages.dev"
+
+          echo "url=$DEV_URL" >> $GITHUB_OUTPUT
+          echo "Testing deployment at: $DEV_URL"
+
+      - name: Verify deployment is live
+        run: |
+          URL="${{ steps.get_deployment.outputs.url }}"
+          MAX_RETRIES=10
+          RETRY_COUNT=0
+
+          echo "Checking if $URL is responding..."
+
+          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$URL" || echo "000")
+
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "✅ Deployment is live! (HTTP $HTTP_CODE)"
+              exit 0
+            fi
+
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+            echo "⏳ Attempt $RETRY_COUNT/$MAX_RETRIES - HTTP $HTTP_CODE - Retrying in 10s..."
+            sleep 10
+          done
+
+          echo "❌ Deployment not responding after $MAX_RETRIES attempts"
+          exit 1
+
+  run-e2e-tests:
+    name: Run Playwright E2E Tests
+    needs: wait-for-deployment
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run critical auth test (fail fast)
+        id: critical_auth_test
+        run: npx playwright test tests/e2e/post-deployment-auth.spec.ts --reporter=list
+        env:
+          # Test the actual Cloudflare Pages deployment
+          FRONTEND_URL: ${{ needs.wait-for-deployment.outputs.deployment_url }}
+          BACKEND_URL: https://jobmatch-ai-dev.carl-f-frank.workers.dev
+          # Cloudflare Pages development environment
+          TEST_ENVIRONMENT: development
+
+      - name: Alert on critical auth test failure
+        if: failure() && steps.critical_auth_test.conclusion == 'failure'
+        run: |
+          echo "::error::🚨 CRITICAL: Authentication test failed!"
+          echo "::error::Users CANNOT sign up or log in to the deployed site"
+          echo "::error::Deployment URL: ${{ needs.wait-for-deployment.outputs.deployment_url }}"
+          echo "::error::This is a blocking issue - authentication is broken!"
+
+      - name: Run full E2E test suite
+        if: success()
+        run: npm run test:e2e
+        env:
+          # Test the actual Cloudflare Pages deployment
+          FRONTEND_URL: ${{ needs.wait-for-deployment.outputs.deployment_url }}
+          BACKEND_URL: https://jobmatch-ai-dev.carl-f-frank.workers.dev
+          # Cloudflare Pages development environment
+          TEST_ENVIRONMENT: development
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-e2e-results-${{ github.sha }}
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 7
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report-${{ github.sha }}
+          path: playwright-report/
+          retention-days: 7
+
+      - name: Post test summary
+        if: always()
+        run: |
+          if [ -f playwright-report/index.html ]; then
+            echo "📊 Playwright test report generated"
+            echo "View artifacts to see detailed results"
+          fi
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "::error::E2E tests failed against deployed site ${{ needs.wait-for-deployment.outputs.deployment_url }}"
+          echo "::error::Check test results in artifacts"

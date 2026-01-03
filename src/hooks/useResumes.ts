@@ -1,19 +1,19 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
-import type { Database } from '@/lib/database.types'
-import type { Resume } from '@/sections/profile-resume-management/types'
+import { API_URL } from '@/lib/config'
+import type { Database } from '@/types/supabase'
+import type { Resume, ResumeSections } from '@/sections/profile-resume-management/types'
 
 type DbResume = Database['public']['Tables']['resumes']['Row']
 
 /**
- * Hook to manage resumes in Supabase
- * Table: resumes
- *
- * ⚠️ NOTE: This table must be created before using this hook.
- * Migration file: supabase/migrations/002_resumes_table.sql
- *
- * To apply: Run the migration via Supabase Dashboard > SQL Editor
+ * Hook to manage resumes via Workers API
+ * Endpoints:
+ * - GET /api/resume - Fetch all resumes
+ * - POST /api/resume - Create new resume
+ * - PATCH /api/resume/:id - Update resume
+ * - DELETE /api/resume/:id - Delete resume
  */
 export function useResumes() {
   const { user } = useAuth()
@@ -33,17 +33,31 @@ export function useResumes() {
 
     let subscribed = true
 
-    // Fetch initial resumes
+    // Fetch initial resumes via Workers API
     const fetchResumes = async () => {
       try {
         setLoading(true)
-        const { data, error: fetchError } = await supabase
-          .from('resumes')
-          .select('*')
-          .eq('user_id', userId)
-          .order('updated_at', { ascending: false })
 
-        if (fetchError) throw fetchError
+        // Get auth session for API call
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session) {
+          throw new Error('No active session')
+        }
+
+        const response = await fetch(`${API_URL}/api/resume`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ message: 'Failed to fetch resumes' }))
+          throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`)
+        }
+
+        const data = await response.json() as DbResume[]
 
         if (subscribed && data) {
           setResumes(data.map(mapDbResume))
@@ -96,62 +110,110 @@ export function useResumes() {
   }, [userId])
 
   /**
-   * Add new resume
+   * Add new resume via Workers API
    */
   const addResume = async (data: Omit<Resume, 'id' | 'createdAt' | 'updatedAt'>) => {
     if (!userId) throw new Error('User not authenticated')
 
-    const now = new Date().toISOString()
-    const { error: insertError } = await supabase.from('resumes').insert({
-      user_id: userId,
-      type: data.type,
-      title: data.title,
-      sections: data.sections as any, // JSONB field
-      formats: data.formats,
-      created_at: now,
-      updated_at: now,
+    // Get auth session for API call
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) {
+      throw new Error('No active session')
+    }
+
+    const response = await fetch(`${API_URL}/api/resume`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({
+        type: data.type,
+        title: data.title,
+        sections: data.sections,
+        formats: data.formats,
+      }),
     })
 
-    if (insertError) throw insertError
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: 'Failed to create resume' }))
+      throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`)
+    }
+
+    const newResume = await response.json() as DbResume
+
+    // Update local state optimistically
+    setResumes((current) => [mapDbResume(newResume), ...current])
   }
 
   /**
-   * Update existing resume
+   * Update existing resume via Workers API
    */
   const updateResume = async (id: string, data: Partial<Omit<Resume, 'id' | 'userId' | 'createdAt'>>) => {
     if (!userId) throw new Error('User not authenticated')
 
-    const updateData: Partial<Database['public']['Tables']['resumes']['Update']> = {
-      updated_at: new Date().toISOString(),
+    // Get auth session for API call
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) {
+      throw new Error('No active session')
     }
 
+    const updateData: Record<string, unknown> = {}
     if (data.type !== undefined) updateData.type = data.type
     if (data.title !== undefined) updateData.title = data.title
-    if (data.sections !== undefined) updateData.sections = data.sections as any
+    if (data.sections !== undefined) updateData.sections = data.sections
     if (data.formats !== undefined) updateData.formats = data.formats
 
-    const { error: updateError } = await supabase
-      .from('resumes')
-      .update(updateData)
-      .eq('id', id)
-      .eq('user_id', userId)
+    const response = await fetch(`${API_URL}/api/resume/${id}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify(updateData),
+    })
 
-    if (updateError) throw updateError
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: 'Failed to update resume' }))
+      throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`)
+    }
+
+    const updatedResume = await response.json() as DbResume
+
+    // Update local state
+    setResumes((current) =>
+      current.map((resume) =>
+        resume.id === id ? mapDbResume(updatedResume) : resume
+      )
+    )
   }
 
   /**
-   * Delete resume
+   * Delete resume via Workers API
    */
   const deleteResume = async (id: string) => {
     if (!userId) throw new Error('User not authenticated')
 
-    const { error: deleteError } = await supabase
-      .from('resumes')
-      .delete()
-      .eq('id', id)
-      .eq('user_id', userId)
+    // Get auth session for API call
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) {
+      throw new Error('No active session')
+    }
 
-    if (deleteError) throw deleteError
+    const response = await fetch(`${API_URL}/api/resume/${id}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: 'Failed to delete resume' }))
+      throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`)
+    }
+
+    // Update local state
+    setResumes((current) => current.filter((resume) => resume.id !== id))
   }
 
   /**
@@ -191,7 +253,7 @@ function mapDbResume(dbResume: DbResume): Resume {
     title: dbResume.title,
     createdAt: dbResume.created_at,
     updatedAt: dbResume.updated_at,
-    sections: (dbResume.sections as any) || {
+    sections: (dbResume.sections as unknown as ResumeSections) || {
       header: { name: '', title: '', contact: { email: '', phone: '', location: '', linkedIn: '' } },
       summary: '',
       experience: [],

@@ -204,7 +204,7 @@ export function ResumePreview({
                             )}
                           </div>
                         </div>
-                        {edu.highlights.length > 0 && (
+                        {(edu.highlights?.length ?? 0) > 0 && (
                           <ul className="mt-2 space-y-1">
                             {edu.highlights.map((highlight, i) => (
                               <li

@@ -34,6 +34,11 @@ export interface UserProfile {
   lastName?: string;
   phone?: string;
   location?: string;
+  streetAddress?: string;
+  city?: string;
+  state?: string;
+  postalCode?: string;
+  country?: string;
   summary?: string;
   headline?: string;
   profileImageUrl?: string;
@@ -118,7 +123,7 @@ export interface Job {
   postedDate: string;
   description: string;
   url: string;
-  source: 'linkedin' | 'indeed' | 'manual';
+  source: 'linkedin' | 'indeed' | 'manual' | 'jsearch' | 'remoteok';
   requiredSkills?: string[];
   preferredSkills?: string[];
   experienceLevel?: string;
@@ -134,6 +139,7 @@ export interface Job {
   scrapedAt?: string;
   createdAt: string;
   updatedAt: string;
+  metadata?: Record<string, unknown>;
 }
 
 export interface MatchBreakdown {
@@ -278,7 +284,7 @@ export interface ScrapeJobsRequest {
   salaryMin?: number;
   salaryMax?: number;
   maxResults?: number;
-  sources?: ('linkedin' | 'indeed')[];
+  sources?: ('linkedin' | 'indeed' | 'remoteok')[];
 }
 
 export interface ScrapeJobsResponse {
@@ -373,7 +379,7 @@ export interface ScrapedJob {
   salary?: string;
   postedDate?: string;
   url: string;
-  source: 'linkedin' | 'indeed';
+  source: 'linkedin' | 'indeed' | 'jsearch' | 'remoteok';
   jobType?: string;
   experienceLevel?: string;
   workArrangement?: string;
@@ -409,6 +415,189 @@ export class HttpError extends Error {
       statusCode: this.statusCode,
     };
   }
+}
+
+// =============================================================================
+// Job Deduplication Types
+// =============================================================================
+
+export interface JobDuplicate {
+  id: string;
+  canonicalJobId: string;
+  duplicateJobId: string;
+  titleSimilarity: number;
+  companySimilarity: number;
+  locationSimilarity: number;
+  descriptionSimilarity: number;
+  overallSimilarity: number;
+  confidenceLevel: 'high' | 'medium' | 'low';
+  detectionMethod: 'fuzzy_match' | 'url_match' | 'manual';
+  detectionDate: string;
+  manuallyConfirmed: boolean;
+  confirmedBy?: string;
+  confirmedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CanonicalJobMetadata {
+  jobId: string;
+  completenessScore: number;
+  sourceReliabilityScore: number;
+  freshnessScore: number;
+  overallQualityScore: number;
+  fieldCount: number;
+  descriptionLength: number;
+  hasSalaryRange: boolean;
+  hasUrl: boolean;
+  sourceType: string;
+  isCanonical: boolean;
+  duplicateCount: number;
+  calculatedAt: string;
+  updatedAt: string;
+}
+
+export interface DeduplicationResult {
+  totalJobsProcessed: number;
+  duplicatesFound: number;
+  canonicalJobsIdentified: number;
+  processingTimeMs: number;
+}
+
+export interface MergeDuplicatesRequest {
+  canonicalJobId: string;
+  duplicateJobId: string;
+}
+
+export interface MergeDuplicatesResponse {
+  success: boolean;
+  canonicalJobId: string;
+  duplicateJobId: string;
+  message: string;
+}
+
+export interface GetDuplicatesResponse {
+  job: Job;
+  duplicates: Job[];
+  duplicateMetadata: JobDuplicate[];
+  totalDuplicates: number;
+}
+
+// =============================================================================
+// Automated Search Types (Phase 1)
+// =============================================================================
+
+export interface SearchPreferences {
+  id: string;
+  userId: string;
+  desiredRoles: string[];
+  locations: string[];
+  salaryMin?: number;
+  salaryMax?: number;
+  remotePreference: 'remote' | 'hybrid' | 'on-site' | 'any';
+  employmentTypes: string[];
+  experienceLevel?: 'entry' | 'mid' | 'senior' | 'executive';
+  industries?: string[];
+  companySizes?: ('startup' | 'small' | 'medium' | 'large' | 'enterprise')[];
+  companyBlacklist: string[];
+  keywordBlacklist: string[];
+  enabledSources: Record<string, boolean>;
+  searchFrequency: 'daily' | 'weekly' | 'manual';
+  autoSearchEnabled: boolean;
+  notificationEmail: boolean;
+  notificationInApp: boolean;
+  matchScoreThreshold: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SearchHistory {
+  id: string;
+  userId: string;
+  searchType: 'automated' | 'manual' | 'template';
+  templateId?: string;
+  criteria: Record<string, unknown>;
+  jobsFound: number;
+  jobsSaved: number;
+  highMatches: number;
+  sourcesUsed: string[];
+  searchFingerprint?: string;
+  durationMs?: number;
+  errors?: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface SearchTemplate {
+  id: string;
+  userId: string;
+  name: string;
+  description?: string;
+  criteria: Record<string, unknown>;
+  useCount: number;
+  lastUsedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SearchHistoryStats {
+  totalSearches: number;
+  totalJobsFound: number;
+  totalJobsSaved: number;
+  averageMatchesPerSearch: number;
+  mostUsedSources: string[];
+  periodStart: string;
+  periodEnd: string;
+}
+
+export interface CreatePreferencesData {
+  desiredRoles?: string[];
+  locations?: string[];
+  salaryMin?: number;
+  salaryMax?: number;
+  remotePreference?: 'remote' | 'hybrid' | 'on-site' | 'any';
+  employmentTypes?: string[];
+  experienceLevel?: 'entry' | 'mid' | 'senior' | 'executive';
+  industries?: string[];
+  companySizes?: ('startup' | 'small' | 'medium' | 'large' | 'enterprise')[];
+  companyBlacklist?: string[];
+  keywordBlacklist?: string[];
+  enabledSources?: Record<string, boolean>;
+  searchFrequency?: 'daily' | 'weekly' | 'manual';
+  autoSearchEnabled?: boolean;
+  notificationEmail?: boolean;
+  notificationInApp?: boolean;
+  matchScoreThreshold?: number;
+}
+
+/**
+ * Update preferences data - extends creation data with all optional fields
+ * Represents a partial update to existing search preferences
+ */
+export type UpdatePreferencesData = Partial<CreatePreferencesData>;
+
+export interface RecordSearchData {
+  searchType: 'automated' | 'manual' | 'template';
+  templateId?: string;
+  criteria: Record<string, unknown>;
+  jobsFound: number;
+  jobsSaved?: number;
+  highMatches?: number;
+  sourcesUsed: string[];
+  searchFingerprint?: string;
+  durationMs?: number;
+  errors?: Record<string, unknown>;
+}
+
+export interface CreateTemplateData {
+  name: string;
+  description?: string;
+  criteria: Record<string, unknown>;
+}
+
+export interface UpdateTemplateData {
+  name?: string;
+  description?: string;
+  criteria?: Record<string, unknown>;
 }
 
 // =============================================================================

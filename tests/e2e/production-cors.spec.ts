@@ -11,8 +11,9 @@
 
 import { test, expect, type Request, type Response } from '@playwright/test';
 
-const PRODUCTION_URL = 'https://jobmatchai-production.up.railway.app';
-const BACKEND_URL = 'https://intelligent-celebration-production-57e4.up.railway.app';
+// Cloudflare deployment URLs (not Railway)
+const PRODUCTION_URL = process.env.FRONTEND_URL || 'https://jobmatch-ai-dev.pages.dev';
+const BACKEND_URL = process.env.BACKEND_URL || 'https://jobmatch-ai-dev.carl-f-frank.workers.dev';
 
 test.describe('Production CORS Validation', () => {
   test.beforeEach(async ({ page }) => {
@@ -304,7 +305,7 @@ test.describe('Backend Direct Testing (via Playwright)', () => {
     console.log('\n=== Direct OPTIONS Test ===');
     console.log('Status:', response.status(), response.statusText());
 
-    const headers = await response.allHeaders();
+    const headers = response.headers();
     console.log('\n--- All Response Headers ---');
     Object.entries(headers).forEach(([key, value]) => {
       console.log(`${key}: ${value}`);
@@ -321,6 +322,9 @@ test.describe('Backend Direct Testing (via Playwright)', () => {
   });
 
   test('should test health endpoint accessibility', async ({ request }) => {
+    // Skip environment check when running against local Express backend
+    test.skip(BACKEND_URL.includes('localhost'), 'This test requires Cloudflare Workers backend');
+
     const response = await request.get(`${BACKEND_URL}/health`);
 
     console.log('\n=== Health Check ===');
@@ -332,10 +336,18 @@ test.describe('Backend Direct Testing (via Playwright)', () => {
     console.log('Response:', data);
 
     expect(data.status).toBe('healthy');
-    expect(data.environment).toBe('production');
+
+    // Environment should match the backend URL being tested
+    const expectedEnvironment = BACKEND_URL.includes('-dev.') ? 'development' :
+                                 BACKEND_URL.includes('-staging.') ? 'staging' :
+                                 'production';
+    expect(data.environment).toBe(expectedEnvironment);
   });
 
   test('should test GET request with CORS headers', async ({ request }) => {
+    // Skip CORS origin reflection test when running against local Express backend
+    test.skip(BACKEND_URL.includes('localhost'), 'This test requires Cloudflare Workers backend');
+
     const response = await request.get(`${BACKEND_URL}/health`, {
       headers: {
         'Origin': PRODUCTION_URL,
@@ -345,7 +357,7 @@ test.describe('Backend Direct Testing (via Playwright)', () => {
     console.log('\n=== GET with Origin ===');
     console.log('Status:', response.status());
 
-    const headers = await response.allHeaders();
+    const headers = response.headers();
     console.log('CORS Header:', headers['access-control-allow-origin']);
 
     expect(headers['access-control-allow-origin']).toBe(PRODUCTION_URL);
@@ -370,7 +382,7 @@ test.describe('Backend Direct Testing (via Playwright)', () => {
         },
       });
 
-      const headers = await response.allHeaders();
+      const headers = response.headers();
       const corsOrigin = headers['access-control-allow-origin'];
 
       console.log(`${endpoint}:`);

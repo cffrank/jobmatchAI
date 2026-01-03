@@ -1,0 +1,297 @@
+# JobMatch AI - Cloudflare Workers Configuration
+# https://developers.cloudflare.com/workers/wrangler/configuration/
+
+name = "jobmatch-ai"
+main = "api/index.ts"
+compatibility_date = "2024-12-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Build configuration
+[build]
+command = "npm install"
+
+# Workers AI binding for embeddings
+# Uses @cf/baai/bge-base-en-v1.5 model (768-dimensional vectors)
+# Free tier: Included in Workers plan
+# Docs: https://developers.cloudflare.com/workers-ai/
+[ai]
+binding = "AI"
+
+# Environment-specific configurations
+# Development
+[env.development]
+name = "jobmatch-ai-dev"
+
+[env.development.vars]
+ENVIRONMENT = "development"
+AI_GATEWAY_SLUG = "jobmatch-ai-gateway-dev"
+CLOUDFLARE_ACCOUNT_ID = "280c58ea17d9fe3235c33bd0a52a256b"
+
+# Workers AI binding for development
+[env.development.ai]
+binding = "AI"
+
+# Staging
+[env.staging]
+name = "jobmatch-ai-staging"
+
+[env.staging.vars]
+ENVIRONMENT = "staging"
+AI_GATEWAY_SLUG = "jobmatch-ai-gateway-dev"
+CLOUDFLARE_ACCOUNT_ID = "280c58ea17d9fe3235c33bd0a52a256b"
+
+# Workers AI binding for staging
+[env.staging.ai]
+binding = "AI"
+
+# Production
+[env.production]
+name = "jobmatch-ai-prod"
+
+[env.production.vars]
+ENVIRONMENT = "production"
+AI_GATEWAY_SLUG = "jobmatch-ai-gateway-dev"
+CLOUDFLARE_ACCOUNT_ID = "280c58ea17d9fe3235c33bd0a52a256b"
+
+# Workers AI binding for production
+[env.production.ai]
+binding = "AI"
+
+# Scheduled Jobs (Cron Triggers) - DISABLED due to account limit
+# https://developers.cloudflare.com/workers/configuration/cron-triggers/
+# Note: Account already has 5+ cron triggers from other workers
+# Cleanup tasks can be triggered manually via API if needed
+# [env.production.triggers]
+# crons = [
+#   # Hourly cleanup (rate limits, OAuth states, failed logins, unlock accounts)
+#   "0 * * * *",
+#   # Daily at 3 AM UTC - archive old jobs
+#   "0 3 * * *"
+# ]
+
+# KV Namespaces
+# Note: Create namespace with: wrangler kv namespace create JOB_ANALYSIS_CACHE
+# For production: wrangler kv namespace create JOB_ANALYSIS_CACHE --env production
+
+# Job Compatibility Analysis Cache
+# - Stores expensive AI-generated compatibility analyses
+# - 7-day TTL to balance freshness vs. cost savings
+# - Key format: job-analysis:{userId}:{jobId}
+
+# Development environment KV namespaces (6 total)
+[[env.development.kv_namespaces]]
+binding = "JOB_ANALYSIS_CACHE"
+id = "fce1eb2547c14cd0811521246fec5c76"
+
+[[env.development.kv_namespaces]]
+binding = "SESSIONS"
+id = "8b8cb591b4864e51a5e14c0d551e2d88"
+
+[[env.development.kv_namespaces]]
+binding = "RATE_LIMITS"
+id = "cd10223d4b3f43fa9a815a92d4dd4c85"
+
+[[env.development.kv_namespaces]]
+binding = "OAUTH_STATES"
+id = "198251d9852c4fe1a90f1efe7261964e"
+
+[[env.development.kv_namespaces]]
+binding = "EMBEDDINGS_CACHE"
+id = "3cb4d50925174898b60e01aee12a0a9f"
+
+[[env.development.kv_namespaces]]
+binding = "AI_GATEWAY_CACHE"
+id = "6fa55dddbe554c629764958e01501f4c"
+
+# Staging environment KV namespaces (6 total)
+[[env.staging.kv_namespaces]]
+binding = "JOB_ANALYSIS_CACHE"
+id = "60895c2026b64aeba70df8e10418304c"
+
+[[env.staging.kv_namespaces]]
+binding = "SESSIONS"
+id = "4acc943274c349dd9a5ce7decf338dfd"
+
+[[env.staging.kv_namespaces]]
+binding = "RATE_LIMITS"
+id = "0050a045db96492596ed08d2465f13fd"
+
+[[env.staging.kv_namespaces]]
+binding = "OAUTH_STATES"
+id = "71b6492d60ba458db2c0a6b4fb4f40f9"
+
+[[env.staging.kv_namespaces]]
+binding = "EMBEDDINGS_CACHE"
+id = "68265fc49a074a80b0cabfac847e967c"
+
+[[env.staging.kv_namespaces]]
+binding = "AI_GATEWAY_CACHE"
+id = "d9d4b5a70d8546e48e83e5386649df53"
+
+# Production environment KV namespaces (6 total)
+[[env.production.kv_namespaces]]
+binding = "JOB_ANALYSIS_CACHE"
+id = "ddf67274fee544da85ccbf61b1ff8253"
+
+[[env.production.kv_namespaces]]
+binding = "SESSIONS"
+id = "a7352191f17942f9a5e557be72671ea0"
+
+[[env.production.kv_namespaces]]
+binding = "RATE_LIMITS"
+id = "77e3e79d2f8f4ea28f41f85f388641f4"
+
+[[env.production.kv_namespaces]]
+binding = "OAUTH_STATES"
+id = "3f9555fec5b9490ca2f6f7d74c689d63"
+
+[[env.production.kv_namespaces]]
+binding = "EMBEDDINGS_CACHE"
+id = "2d9ca2b3ac4643f5889fbd398c18d8cd"
+
+[[env.production.kv_namespaces]]
+binding = "AI_GATEWAY_CACHE"
+id = "a4a404f61aab4c08be7086ff52f65d94"
+
+# D1 Databases - SQLite at the edge
+# - Development: 8140efd5-9912-4e31-981d-0566f1efe9dc
+# - Staging: 84b09169-503f-4e40-91c1-b3828272c2e3
+# - Production: 06159734-6a06-4c4c-89f6-267e47cb8d30
+# Each environment has its own isolated database
+
+# Development D1 Database
+[[env.development.d1_databases]]
+binding = "DB"
+database_name = "jobmatch-dev"
+database_id = "8140efd5-9912-4e31-981d-0566f1efe9dc"
+
+# Staging D1 Database
+[[env.staging.d1_databases]]
+binding = "DB"
+database_name = "jobmatch-staging"
+database_id = "84b09169-503f-4e40-91c1-b3828272c2e3"
+
+# Production D1 Database
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "jobmatch-prod"
+database_id = "06159734-6a06-4c4c-89f6-267e47cb8d30"
+
+# Vectorize Indexes - Vector database for job embeddings
+# Uses Workers AI BGE-base-en-v1.5 (768 dimensions)
+# Cosine similarity metric for semantic search
+
+# Development Vectorize Index
+[[env.development.vectorize]]
+binding = "VECTORIZE"
+index_name = "jobmatch-ai-dev"
+
+# Staging Vectorize Index
+[[env.staging.vectorize]]
+binding = "VECTORIZE"
+index_name = "jobmatch-ai-staging"
+
+# Production Vectorize Index
+[[env.production.vectorize]]
+binding = "VECTORIZE"
+index_name = "jobmatch-ai-prod"
+
+# R2 Storage Buckets - Object storage for files
+#
+# Security Model: Presigned URLs (Option 3 - Most Secure)
+# - All buckets remain PRIVATE (no public access configured)
+# - Workers generate temporary presigned URLs on-demand
+# - URLs expire after set time (e.g., 1 hour for downloads, 15 min for uploads)
+# - More secure than permanent public access
+# - Full access control in application code
+#
+# Usage in Workers:
+#   // Generate presigned URL for avatar download (1 hour expiry)
+#   const url = await env.AVATARS.createSignedUrl(objectKey, { expiresIn: 3600 });
+#
+#   // Upload file with presigned URL
+#   const uploadUrl = await env.RESUMES.createSignedUrl(objectKey, {
+#     expiresIn: 900,
+#     method: 'PUT'
+#   });
+#
+# Development buckets (avatars, resumes, exports)
+[[env.development.r2_buckets]]
+binding = "AVATARS"
+bucket_name = "jobmatch-ai-dev-avatars"
+
+[[env.development.r2_buckets]]
+binding = "RESUMES"
+bucket_name = "jobmatch-ai-dev-resumes"
+
+[[env.development.r2_buckets]]
+binding = "EXPORTS"
+bucket_name = "jobmatch-ai-dev-exports"
+
+# Staging buckets (avatars, resumes, exports)
+[[env.staging.r2_buckets]]
+binding = "AVATARS"
+bucket_name = "jobmatch-ai-staging-avatars"
+
+[[env.staging.r2_buckets]]
+binding = "RESUMES"
+bucket_name = "jobmatch-ai-staging-resumes"
+
+[[env.staging.r2_buckets]]
+binding = "EXPORTS"
+bucket_name = "jobmatch-ai-staging-exports"
+
+# Production buckets (avatars, resumes, exports)
+[[env.production.r2_buckets]]
+binding = "AVATARS"
+bucket_name = "jobmatch-ai-prod-avatars"
+
+[[env.production.r2_buckets]]
+binding = "RESUMES"
+bucket_name = "jobmatch-ai-prod-resumes"
+
+[[env.production.r2_buckets]]
+binding = "EXPORTS"
+bucket_name = "jobmatch-ai-prod-exports"
+
+# Durable Objects (for distributed rate limiting - future)
+# [[durable_objects.bindings]]
+# name = "RATE_LIMITER"
+# class_name = "RateLimiter"
+
+# Secrets (configure via wrangler secret put)
+# Required secrets:
+# - SUPABASE_URL
+# - SUPABASE_ANON_KEY
+# - SUPABASE_SERVICE_ROLE_KEY
+# - OPENAI_API_KEY
+# - SENDGRID_API_KEY
+# - LINKEDIN_CLIENT_ID
+# - LINKEDIN_CLIENT_SECRET
+# - LINKEDIN_REDIRECT_URI
+# - APIFY_API_TOKEN
+# - APP_URL
+#
+# AI Gateway secrets (optional, enables caching and cost reduction):
+# - CLOUDFLARE_ACCOUNT_ID (your Cloudflare account ID)
+# - AI_GATEWAY_SLUG (AI Gateway name, e.g., "jobmatch-ai-gateway")
+#
+# When AI Gateway is configured, all OpenAI requests are automatically
+# routed through Cloudflare AI Gateway for:
+# - Automatic response caching (60-80% cost reduction)
+# - Request analytics and monitoring
+# - Rate limiting and cost controls
+# - No code changes required - transparent proxy
+#
+# See docs/AI_GATEWAY_ROLLOUT_PLAN.md for deployment instructions
+
+# Worker Limits
+# - 10ms CPU time (paid plans: 50ms)
+# - 128MB memory
+# - 1MB request/response body
+# - 30 second request duration (paid: 300s)
+
+# Performance Tips:
+# 1. Use c.executionCtx.waitUntil() for background tasks
+# 2. Keep cold start fast by lazy-loading heavy modules
+# 3. Use caches.default for response caching

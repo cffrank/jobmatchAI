@@ -1,11 +1,13 @@
-import { ArrowLeft, Calendar, Mail, Phone, Building2, MapPin, DollarSign, TrendingUp, Users, Clock, CheckCircle2, Circle, Trash2, Plus, ExternalLink, Sparkles } from 'lucide-react'
+import { ArrowLeft, Calendar, Mail, Phone, Building2, MapPin, DollarSign, TrendingUp, Users, Clock, CheckCircle2, Circle, Trash2, Plus, ExternalLink, Sparkles, Edit2 } from 'lucide-react'
 import { useState } from 'react'
-import type { ApplicationDetailProps, ApplicationStatus, InterviewEntry, FollowUpAction } from '../types'
+import type { ApplicationDetailProps, InterviewEntry, FollowUpAction } from '../types'
+import { getStatusColor, getStatusLabel, formatDate } from '../utils/statusHelpers'
+import { StatusUpdateDialog } from './StatusUpdateDialog'
 
 export function ApplicationDetail({
   application,
   onBack,
-  // onUpdateStatus: placeholder for future implementation
+  onUpdateStatus,
   onAddNote,
   // onAddFollowUp: placeholder for future implementation
   onCompleteAction,
@@ -19,48 +21,8 @@ export function ApplicationDetail({
   const [activeTab, setActiveTab] = useState<'overview' | 'interviews' | 'notes' | 'timeline'>('overview')
   const [isAddingNote, setIsAddingNote] = useState(false)
   const [noteText, setNoteText] = useState('')
+  const [showStatusDialog, setShowStatusDialog] = useState(false)
 
-  const getStatusColor = (status: ApplicationStatus) => {
-    switch (status) {
-      case 'accepted':
-      case 'offer':
-        return 'bg-emerald-100 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-800'
-      case 'interview_completed':
-      case 'interview_scheduled':
-        return 'bg-blue-100 dark:bg-blue-950/30 text-blue-700 dark:text-blue-400 border-blue-300 dark:border-blue-800'
-      case 'screening':
-      case 'applied':
-        return 'bg-slate-100 dark:bg-slate-800/50 text-slate-700 dark:text-slate-400 border-slate-300 dark:border-slate-700'
-      case 'rejected':
-        return 'bg-red-100 dark:bg-red-950/30 text-red-700 dark:text-red-400 border-red-300 dark:border-red-800'
-      case 'withdrawn':
-        return 'bg-orange-100 dark:bg-orange-950/30 text-orange-700 dark:text-orange-400 border-orange-300 dark:border-orange-800'
-      default:
-        return 'bg-slate-100 dark:bg-slate-800/50 text-slate-700 dark:text-slate-400 border-slate-300 dark:border-slate-700'
-    }
-  }
-
-  const getStatusLabel = (status: ApplicationStatus) => {
-    const labels = {
-      'applied': 'Applied',
-      'screening': 'Screening',
-      'interview_scheduled': 'Interview Scheduled',
-      'interview_completed': 'Interview Completed',
-      'offer': 'Offer',
-      'accepted': 'Accepted',
-      'rejected': 'Rejected',
-      'withdrawn': 'Withdrawn'
-    }
-    return labels[status] || status
-  }
-
-  const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
-    })
-  }
 
   const handleAddNote = () => {
     if (noteText.trim()) {
@@ -73,8 +35,9 @@ export function ApplicationDetail({
   const pendingActions = application.followUpActions.filter(a => !a.completed)
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/20 to-slate-50 dark:from-slate-950 dark:via-blue-950/10 dark:to-slate-950">
-      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/20 to-slate-50 dark:from-slate-950 dark:via-blue-950/10 dark:to-slate-950">
+        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-6">
           <button
@@ -92,9 +55,13 @@ export function ApplicationDetail({
                   <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-50">
                     {application.jobTitle}
                   </h1>
-                  <div className={`px-3 py-1 rounded-lg border text-sm font-medium ${getStatusColor(application.status)}`}>
-                    {getStatusLabel(application.status)}
-                  </div>
+                  <button
+                    onClick={() => setShowStatusDialog(true)}
+                    className={`inline-flex items-center gap-2 px-3 py-1 rounded-lg border text-sm font-medium transition-all hover:shadow-md ${getStatusColor(application.status)}`}
+                  >
+                    <span>{getStatusLabel(application.status)}</span>
+                    <Edit2 className="w-3 h-3" />
+                  </button>
                 </div>
                 <div className="flex items-center gap-4 text-slate-600 dark:text-slate-400 mb-4">
                   <div className="flex items-center gap-2 font-semibold text-lg">
@@ -433,6 +400,22 @@ export function ApplicationDetail({
         </div>
       </div>
     </div>
+
+      {/* Status Update Dialog */}
+      {showStatusDialog && (
+        <StatusUpdateDialog
+        currentStatus={application.status}
+        applicationTitle={`${application.jobTitle} at ${application.company}`}
+        onUpdate={async (newStatus, note) => {
+          if (onUpdateStatus) {
+            await onUpdateStatus(newStatus, note)
+            setShowStatusDialog(false)
+          }
+        }}
+        onClose={() => setShowStatusDialog(false)}
+        />
+      )}
+    </>
   )
 }
 

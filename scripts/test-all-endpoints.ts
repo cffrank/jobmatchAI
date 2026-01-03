@@ -6,8 +6,8 @@
  * This helps isolate issues with specific functionality (e.g., AI generation).
  */
 
-const BACKEND_URL = process.env.BACKEND_URL || 'https://intelligent-celebration-production-57e4.up.railway.app';
-const FRONTEND_URL = process.env.FRONTEND_URL || 'https://jobmatchai-production.up.railway.app';
+const BACKEND_URL = process.env.BACKEND_URL || 'https://jobmatch-ai-prod.carl-f-frank.workers.dev';
+const FRONTEND_URL = process.env.FRONTEND_URL || 'https://jobmatch-ai-prod.pages.dev';
 
 // Colors for output
 const colors = {
@@ -46,7 +46,7 @@ async function testEndpoint(
   method: string = 'GET',
   options: {
     requiresAuth?: boolean;
-    body?: any;
+    body?: unknown;
     description?: string;
     expectedStatus?: number;
     testCORS?: boolean;
@@ -107,7 +107,7 @@ async function testEndpoint(
       if (text) {
         responseBody = text.length > 500 ? text.substring(0, 500) + '...' : text;
       }
-    } catch (e) {
+    } catch {
       // Ignore parsing errors
     }
 

@@ -1,14 +1,13 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
-import type { Database } from '@/lib/database.types'
 import type { User } from '@/sections/profile-resume-management/types'
 
-type DbUser = Database['public']['Tables']['users']['Row']
+// Get backend URL from environment
+const BACKEND_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 
 /**
- * Hook to manage user profile data in Supabase
- * Table: users
+ * Hook to manage user profile data via Workers API
  */
 export function useProfile() {
   const { user } = useAuth()
@@ -28,27 +27,34 @@ export function useProfile() {
 
     let subscribed = true
 
-    // Fetch initial profile
+    // Fetch initial profile via Workers API
     const fetchProfile = async () => {
       try {
         setLoading(true)
-        const { data, error: fetchError } = await supabase
-          .from('users')
-          .select('*')
-          .eq('id', userId)
-          .single()
 
-        if (fetchError) {
-          // If profile doesn't exist yet, that's okay
-          if (fetchError.code !== 'PGRST116') {
-            throw fetchError
-          }
-          if (subscribed) {
-            setProfile(null)
-            setError(null)
-          }
-        } else if (subscribed && data) {
-          setProfile(mapDbUserToUser(data))
+        // Get JWT token for authentication
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session?.access_token) {
+          throw new Error('No authentication token available')
+        }
+
+        const response = await fetch(`${BACKEND_URL}/api/profile`, {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+        })
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch profile: ${response.statusText}`)
+        }
+
+        const { profile: fetchedProfile } = await response.json()
+
+        if (subscribed) {
+          // Convert snake_case from API to camelCase for frontend
+          const camelCaseProfile = fetchedProfile ? convertToCamelCase(fetchedProfile) : null
+          setProfile(camelCaseProfile)
           setError(null)
         }
       } catch (err) {
@@ -64,7 +70,7 @@ export function useProfile() {
 
     fetchProfile()
 
-    // Set up real-time subscription
+    // Set up real-time subscription for profile updates
     const channel = supabase
       .channel(`profile:${userId}`)
       .on(
@@ -75,12 +81,9 @@ export function useProfile() {
           table: 'users',
           filter: `id=eq.${userId}`,
         },
-        (payload) => {
-          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-            setProfile(mapDbUserToUser(payload.new as DbUser))
-          } else if (payload.eventType === 'DELETE') {
-            setProfile(null)
-          }
+        () => {
+          // Refetch profile when changes are detected
+          fetchProfile()
         }
       )
       .subscribe()
@@ -92,44 +95,83 @@ export function useProfile() {
   }, [userId])
 
   /**
-   * Create or update user profile
+   * Convert snake_case field names from API to camelCase for frontend
+   */
+  const convertToCamelCase = (data: Record<string, unknown>): User => {
+    const fieldMap: Record<string, string> = {
+      first_name: 'firstName',
+      last_name: 'lastName',
+      linkedin_url: 'linkedInUrl',
+      photo_url: 'photoUrl',
+      current_title: 'headline',
+      professional_summary: 'summary',
+      street_address: 'streetAddress',
+      postal_code: 'postalCode',
+      created_at: 'createdAt',
+      updated_at: 'updatedAt',
+    }
+
+    const converted: Record<string, unknown> = {}
+    Object.entries(data).forEach(([key, value]) => {
+      const camelKey = fieldMap[key] || key
+      converted[camelKey] = value
+    })
+
+    return converted as unknown as User
+  }
+
+  /**
+   * Convert camelCase field names to snake_case for Workers API
+   */
+  const convertToSnakeCase = (data: Record<string, unknown>): Record<string, unknown> => {
+    const fieldMap: Record<string, string> = {
+      firstName: 'first_name',
+      lastName: 'last_name',
+      linkedInUrl: 'linkedin_url',
+      photoUrl: 'photo_url',
+      headline: 'current_title',
+      summary: 'professional_summary',
+      streetAddress: 'street_address',
+      postalCode: 'postal_code',
+      profileImageUrl: 'photo_url',
+    }
+
+    const converted: Record<string, unknown> = {}
+    Object.entries(data).forEach(([key, value]) => {
+      const snakeKey = fieldMap[key] || key
+      converted[snakeKey] = value
+    })
+
+    return converted
+  }
+
+  /**
+   * Create or update user profile via Workers API
    */
   const updateProfile = async (data: Partial<Omit<User, 'id'>>) => {
     if (!userId) throw new Error('User not authenticated')
 
-    const timestamp = new Date().toISOString()
+    // Get JWT token for authentication
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session?.access_token) {
+      throw new Error('No authentication token available')
+    }
 
-    // Check if profile exists
-    const { data: existingProfile } = await supabase
-      .from('users')
-      .select('id')
-      .eq('id', userId)
-      .single()
+    // Convert camelCase to snake_case for Workers API
+    const snakeCaseData = convertToSnakeCase(data as Record<string, unknown>)
 
-    if (existingProfile) {
-      // Update existing profile
-      const { error: updateError } = await supabase
-        .from('users')
-        .update({
-          ...mapUserToDbUser(data),
-          updated_at: timestamp,
-        })
-        .eq('id', userId)
+    const response = await fetch(`${BACKEND_URL}/api/profile`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(snakeCaseData),
+    })
 
-      if (updateError) throw updateError
-    } else {
-      // Create new profile
-      const { error: insertError } = await supabase
-        .from('users')
-        .insert({
-          id: userId,
-          email: user?.email || '',
-          ...mapUserToDbUser(data),
-          created_at: timestamp,
-          updated_at: timestamp,
-        })
-
-      if (insertError) throw insertError
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: response.statusText }))
+      throw new Error(errorData.message || 'Failed to update profile')
     }
   }
 
@@ -138,43 +180,5 @@ export function useProfile() {
     loading,
     error,
     updateProfile,
-  }
-}
-
-/**
- * Map database user to app User type
- * Maps actual schema fields: first_name, last_name, phone, location, photo_url,
- * current_title, professional_summary, years_of_experience, linkedin_url
- */
-function mapDbUserToUser(dbUser: DbUser): User {
-  return {
-    id: dbUser.id,
-    email: dbUser.email,
-    firstName: dbUser.first_name || '',
-    lastName: dbUser.last_name || '',
-    phone: dbUser.phone || '',
-    location: dbUser.location || '',
-    linkedInUrl: (dbUser as any).linkedin_url || '',
-    profileImageUrl: dbUser.photo_url || null,
-    headline: dbUser.current_title || '',
-    summary: dbUser.professional_summary || '',
-  }
-}
-
-/**
- * Map app User type to database user (for updates/inserts)
- * Only maps fields that exist in our schema
- */
-function mapUserToDbUser(user: Partial<Omit<User, 'id'>>): Partial<Database['public']['Tables']['users']['Update']> {
-  return {
-    first_name: user.firstName,
-    last_name: user.lastName,
-    phone: user.phone,
-    location: user.location,
-    photo_url: user.profileImageUrl || undefined,
-    current_title: user.headline,
-    professional_summary: user.summary,
-    linkedin_url: user.linkedInUrl,
-    // Note: jobPreferences, searchSettings not in database schema
   }
 }

@@ -1,0 +1,29 @@
+{
+  "name": "jobmatch-ai-e2e-tests",
+  "version": "1.0.0",
+  "description": "E2E tests using Cloudflare Browser Rendering",
+  "main": "index.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "deploy:production": "wrangler deploy --env production",
+    "test": "wrangler dev --test-scheduled",
+    "run-tests": "curl -X POST http://localhost:8787/run-tests"
+  },
+  "keywords": [
+    "cloudflare",
+    "workers",
+    "browser-rendering",
+    "e2e-testing"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@cloudflare/puppeteer": "^0.0.10"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20241127.0",
+    "wrangler": "^3.99.0",
+    "typescript": "^5.7.2"
+  }
+}

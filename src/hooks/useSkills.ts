@@ -1,14 +1,19 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
-import type { Database } from '@/lib/database.types'
+import { API_URL } from '@/lib/config'
+import type { Database } from '@/types/supabase'
 import type { Skill } from '@/sections/profile-resume-management/types'
 
 type DbSkill = Database['public']['Tables']['skills']['Row']
 
 /**
- * Hook to manage user skills in Supabase
- * Table: skills
+ * Hook to manage user skills via Workers API
+ * Endpoints:
+ * - GET /api/skills - Fetch user skills
+ * - POST /api/skills - Create new skill
+ * - PATCH /api/skills/:id - Update skill
+ * - DELETE /api/skills/:id - Delete skill
  */
 export function useSkills() {
   const { user } = useAuth()
@@ -28,20 +33,34 @@ export function useSkills() {
 
     let subscribed = true
 
-    // Fetch initial skills
+    // Fetch initial skills from Workers API
     const fetchSkills = async () => {
       try {
         setLoading(true)
-        const { data, error: fetchError } = await supabase
-          .from('skills')
-          .select('*')
-          .eq('user_id', userId)
-          .order('name', { ascending: true })
 
-        if (fetchError) throw fetchError
+        // Get JWT token for authentication
+        const { data: { session } } = await supabase.auth.getSession()
 
-        if (subscribed && data) {
-          setSkills(data.map(mapDbSkillToSkill))
+        if (!session?.access_token) {
+          throw new Error('No authentication token available')
+        }
+
+        const response = await fetch(`${API_URL}/api/skills`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+        })
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch skills: ${response.statusText}`)
+        }
+
+        const data = await response.json()
+
+        if (subscribed) {
+          setSkills(data.skills || [])
           setError(null)
         }
       } catch (err) {
@@ -57,7 +76,7 @@ export function useSkills() {
 
     fetchSkills()
 
-    // Set up real-time subscription
+    // Set up real-time subscription for live updates
     const channel = supabase
       .channel(`skills:${userId}`)
       .on(
@@ -91,53 +110,96 @@ export function useSkills() {
   }, [userId])
 
   /**
-   * Add new skill
+   * Add new skill via Workers API
    */
   const addSkill = async (data: Omit<Skill, 'id'>) => {
     if (!userId) throw new Error('User not authenticated')
 
-    const { error: insertError } = await supabase.from('skills').insert({
-      user_id: userId,
-      name: data.name,
-      proficiency_level: 'intermediate', // Default proficiency
-      endorsed_count: data.endorsements || 0,
+    const { data: { session } } = await supabase.auth.getSession()
+
+    if (!session?.access_token) {
+      throw new Error('No authentication token available')
+    }
+
+    const response = await fetch(`${API_URL}/api/skills`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        name: data.name,
+        endorsements: data.endorsements || 0,
+      }),
     })
 
-    if (insertError) throw insertError
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: 'Failed to add skill' }))
+      throw new Error(errorData.error || 'Failed to add skill')
+    }
+
+    const result = await response.json()
+    return result.skill
   }
 
   /**
-   * Update existing skill
+   * Update existing skill via Workers API
    */
   const updateSkill = async (id: string, data: Partial<Omit<Skill, 'id'>>) => {
     if (!userId) throw new Error('User not authenticated')
 
+    const { data: { session } } = await supabase.auth.getSession()
+
+    if (!session?.access_token) {
+      throw new Error('No authentication token available')
+    }
+
     const updateData: Record<string, unknown> = {}
     if (data.name !== undefined) updateData.name = data.name
-    if (data.endorsements !== undefined) updateData.endorsed_count = data.endorsements
+    if (data.endorsements !== undefined) updateData.endorsements = data.endorsements
 
-    const { error: updateError } = await supabase
-      .from('skills')
-      .update(updateData)
-      .eq('id', id)
-      .eq('user_id', userId)
+    const response = await fetch(`${API_URL}/api/skills/${id}`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(updateData),
+    })
 
-    if (updateError) throw updateError
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: 'Failed to update skill' }))
+      throw new Error(errorData.error || 'Failed to update skill')
+    }
+
+    const result = await response.json()
+    return result.skill
   }
 
   /**
-   * Delete skill
+   * Delete skill via Workers API
    */
   const deleteSkill = async (id: string) => {
     if (!userId) throw new Error('User not authenticated')
 
-    const { error: deleteError } = await supabase
-      .from('skills')
-      .delete()
-      .eq('id', id)
-      .eq('user_id', userId)
+    const { data: { session } } = await supabase.auth.getSession()
 
-    if (deleteError) throw deleteError
+    if (!session?.access_token) {
+      throw new Error('No authentication token available')
+    }
+
+    const response = await fetch(`${API_URL}/api/skills/${id}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`,
+        'Content-Type': 'application/json',
+      },
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: 'Failed to delete skill' }))
+      throw new Error(errorData.error || 'Failed to delete skill')
+    }
   }
 
   return {

@@ -27,9 +27,9 @@ interface UseLinkedInAuthReturn {
  * ```
  *
  * The hook will:
- * 1. Call the Railway backend API to get the OAuth URL
+ * 1. Call the Cloudflare Workers backend API to get the OAuth URL
  * 2. Redirect the user to LinkedIn for authorization
- * 3. LinkedIn will redirect back to the Railway backend callback endpoint
+ * 3. LinkedIn will redirect back to the Cloudflare Workers backend callback endpoint
  * 4. The callback endpoint will import the profile data
  * 5. User is redirected back to the app with success/error status
  */
@@ -62,7 +62,7 @@ export function useLinkedInAuth(): UseLinkedInAuthReturn {
 
   /**
    * Initiate the LinkedIn OAuth flow
-   * Calls the Railway backend API and redirects to LinkedIn
+   * Calls the Cloudflare Workers backend API and redirects to LinkedIn
    */
   const initiateLinkedInAuth = async () => {
     if (!user) {
@@ -83,8 +83,8 @@ export function useLinkedInAuth(): UseLinkedInAuthReturn {
         throw new Error('Please log in to connect your LinkedIn account')
       }
 
-      // Call the Railway backend API
-      const backendUrl = import.meta.env.VITE_BACKEND_URL
+      // Call the Cloudflare Workers backend API
+      const backendUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000'
       const response = await fetch(`${backendUrl}/api/auth/linkedin`, {
         method: 'GET',
         headers: {
@@ -105,7 +105,7 @@ export function useLinkedInAuth(): UseLinkedInAuthReturn {
       }
 
       // Redirect to LinkedIn authorization page
-      // LinkedIn will redirect back to our Railway backend callback endpoint
+      // LinkedIn will redirect back to our Cloudflare Workers backend callback endpoint
       window.location.href = authUrl
 
     } catch (err: unknown) {

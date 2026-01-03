@@ -1,7 +1,7 @@
 /**
  * Production API Direct Testing
  *
- * These tests hit the ACTUAL DEPLOYED Railway backend to diagnose CORS issues.
+ * These tests hit the ACTUAL DEPLOYED Cloudflare Workers backend to diagnose CORS issues.
  * DO NOT RUN IN CI - these are for manual debugging only.
  *
  * Usage:
@@ -10,8 +10,8 @@
 
 import { describe, it, expect } from 'vitest';
 
-const BACKEND_URL = 'https://intelligent-celebration-production-57e4.up.railway.app';
-const FRONTEND_ORIGIN = 'https://jobmatchai-production.up.railway.app';
+const BACKEND_URL = 'https://jobmatch-ai-prod.carl-f-frank.workers.dev';
+const FRONTEND_ORIGIN = 'https://jobmatch-ai-prod.pages.dev';
 const EVIL_ORIGIN = 'https://evil.com';
 
 // Skip these tests in CI - they test live production backend
@@ -281,23 +281,23 @@ describe.skipIf(shouldSkip)('Production Backend Direct Tests', () => {
     });
   });
 
-  describe('Railway Specific Tests', () => {
-    it('should detect if Railway is properly routing requests', async () => {
+  describe('Cloudflare Workers Specific Tests', () => {
+    it('should detect Cloudflare Workers headers', async () => {
       const response = await fetch(`${BACKEND_URL}/health`);
 
-      console.log('\n=== Railway Routing Check ===');
+      console.log('\n=== Cloudflare Workers Routing Check ===');
       console.log('Server Header:', response.headers.get('server'));
-      console.log('X-Powered-By:', response.headers.get('x-powered-by'));
+      console.log('CF-Ray:', response.headers.get('cf-ray'));
       console.log('Connection:', response.headers.get('connection'));
 
-      // Railway typically adds its own headers
+      // Cloudflare typically adds its own headers
       const headers = Object.fromEntries(response.headers.entries());
       console.log('All Headers:', headers);
 
       expect(response.status).toBe(200);
     });
 
-    it('should check if OPTIONS is being handled by Express or Railway proxy', async () => {
+    it('should check if OPTIONS is being handled by Hono or Cloudflare', async () => {
       const response = await fetch(`${BACKEND_URL}/api/applications/generate`, {
         method: 'OPTIONS',
         headers: {
@@ -310,17 +310,17 @@ describe.skipIf(shouldSkip)('Production Backend Direct Tests', () => {
       console.log('Server:', response.headers.get('server'));
       console.log('Content-Length:', response.headers.get('content-length'));
 
-      // Check if it's returning Express default or custom response
+      // Check if it's returning Hono CORS or custom response
       const text = await response.text();
       console.log('Response Body:', text.substring(0, 200));
       console.log('Body Length:', text.length);
 
-      // If body is empty and status is 204, it's likely Express CORS middleware
-      // If body has content, might be Railway or another proxy
+      // If body is empty and status is 204, it's likely CORS middleware
+      // If body has content, might be Cloudflare or error
       if (text.length === 0) {
-        console.log('✅ Likely Express CORS middleware responding');
+        console.log('✅ Likely CORS middleware responding');
       } else {
-        console.log('⚠️  Response has body - might be proxy or error');
+        console.log('⚠️  Response has body - might be error');
       }
     });
   });
@@ -328,9 +328,9 @@ describe.skipIf(shouldSkip)('Production Backend Direct Tests', () => {
 
 describe('Production Frontend Origin Variations', () => {
   const variations = [
-    'https://jobmatchai-production.up.railway.app',
-    'https://jobmatchai-production.up.railway.app/',
-    'https://JOBMATCHAI-PRODUCTION.up.railway.app', // case variation
+    'https://jobmatch-ai-prod.pages.dev',
+    'https://jobmatch-ai-prod.pages.dev/',
+    'https://JOBMATCH-AI-PROD.pages.dev', // case variation
   ];
 
   variations.forEach(origin => {

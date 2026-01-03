@@ -3,12 +3,12 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ApplicationEditor } from './components/ApplicationEditor'
 import { useApplication, useApplications } from '@/hooks/useApplications'
 import { useJob } from '@/hooks/useJobs'
+import { useTrackedApplications } from '@/hooks/useTrackedApplications'
 import { generateApplicationVariants } from '@/lib/aiGenerator'
 import { exportApplication, ExportError } from '@/lib/exportApplication'
 import { EmailDialog } from './components/EmailDialog'
 import { toast } from 'sonner'
 import { Sparkles } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
 import type { GeneratedApplication } from './types'
 
 export default function ApplicationEditorPage() {
@@ -24,62 +24,18 @@ export default function ApplicationEditorPage() {
   const [generating, setGenerating] = useState(false)
   const [generatedApp, setGeneratedApp] = useState<GeneratedApplication | null>(null)
 
-  // State for email dialog
+  // State for email dialog (reserved for future implementation)
   const [emailDialogOpen, setEmailDialogOpen] = useState(false)
-  const [currentApplicationId, setCurrentApplicationId] = useState<string | null>(null)
+   
+  const [_currentApplicationId, setCurrentApplicationId] = useState<string | null>(null)
 
-  // Use Firestore hook to fetch application (skip if creating new)
+  // Use Supabase hook to fetch application (skip if creating new)
   const { application, loading, error } = useApplication(isNewApplication ? undefined : id)
   const { updateApplication } = useApplications()
+  const { addTrackedApplication } = useTrackedApplications()
 
   // Fetch job details if generating new application
   const { job, loading: jobLoading } = useJob(jobId || undefined)
-
-  // Email sending function (shared between new and existing applications)
-  const _handleSendEmail = async (recipientEmail: string) => {
-    if (!currentApplicationId) {
-      throw new Error('No application selected')
-    }
-
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) {
-      throw new Error('You must be signed in to send emails')
-    }
-
-    try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL
-      const response = await fetch(`${backendUrl}/api/emails/send`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          applicationId: currentApplicationId,
-          recipientEmail
-        })
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.message || 'Failed to send email')
-      }
-
-      const data = await response.json() as { success: boolean; message: string; emailId?: string }
-
-      if (data.success) {
-        toast.success('Email sent successfully!')
-      } else {
-        throw new Error(data.message || 'Failed to send email')
-      }
-    } catch (error: unknown) {
-      console.error('Email send error:', error)
-      // Extract user-friendly error message
-      const err = error as { message?: string }
-      const errorMessage = err.message || 'Failed to send email. Please try again.'
-      throw new Error(errorMessage)
-    }
-  }
 
   // Generate application when data is ready
   useEffect(() => {
@@ -170,8 +126,30 @@ export default function ApplicationEditorPage() {
       )
     }
 
-    // If we have generated app, use that instead of fetching from Firestore
+    // If we have generated app, use that instead of fetching from database
     if (generatedApp) {
+      // Safety check: ensure variants exist
+      if (!generatedApp.variants || generatedApp.variants.length === 0) {
+        return (
+          <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center">
+            <div className="text-center max-w-md">
+              <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2">
+                No Variants Available
+              </h1>
+              <p className="text-slate-600 dark:text-slate-400 mb-4">
+                This application doesn't have any resume/cover letter variants.
+              </p>
+              <button
+                onClick={() => navigate('/applications')}
+                className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-colors"
+              >
+                Back to Applications
+              </button>
+            </div>
+          </div>
+        )
+      }
+
       const selectedVariant = generatedApp.variants.find(
         v => v.id === generatedApp.selectedVariantId
       ) || generatedApp.variants[0]
@@ -325,6 +303,28 @@ export default function ApplicationEditorPage() {
     )
   }
 
+  // Safety check: ensure variants exist
+  if (!application.variants || application.variants.length === 0) {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center">
+        <div className="text-center max-w-md">
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2">
+            No Variants Available
+          </h1>
+          <p className="text-slate-600 dark:text-slate-400 mb-4">
+            This application doesn't have any resume/cover letter variants. Please try regenerating the application.
+          </p>
+          <button
+            onClick={() => navigate('/applications')}
+            className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-colors"
+          >
+            Back to Applications
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   const selectedVariant = application.variants.find(
     v => v.id === application.selectedVariantId
   ) || application.variants[0]
@@ -401,11 +401,41 @@ export default function ApplicationEditorPage() {
 
   const handleSubmit = async () => {
     try {
+      // Update application status to submitted
       await updateApplication(application.id, {
         status: 'submitted',
         submittedAt: new Date().toISOString()
       })
-      toast.success('Application submitted!')
+
+      // Create tracked application for status tracking
+      await addTrackedApplication({
+        jobId: application.jobId || '',
+        applicationId: application.id,
+        company: application.company,
+        jobTitle: application.jobTitle,
+        location: job?.location || '',
+        matchScore: job?.matchScore || 0,
+        status: 'applied',
+        appliedDate: new Date().toISOString(),
+        statusHistory: [{
+          status: 'applied',
+          date: new Date().toISOString(),
+          note: 'Application submitted'
+        }],
+        activityLog: [{
+          id: crypto.randomUUID(),
+          date: new Date().toISOString(),
+          type: 'status_change',
+          description: 'Application submitted',
+          details: `Submitted application for ${application.jobTitle} at ${application.company}`
+        }],
+        notes: '',
+        archived: false,
+        interviews: [],
+        followUpActions: []
+      })
+
+      toast.success('Application submitted and added to tracker!')
       navigate('/tracker')
     } catch (error) {
       toast.error('Failed to submit application')

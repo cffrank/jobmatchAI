@@ -135,10 +135,16 @@ export const TABLES = {
   JOB_SEARCHES: 'job_searches',
   APPLICATIONS: 'applications',
   APPLICATION_VARIANTS: 'application_variants',
+  TRACKED_APPLICATIONS: 'tracked_applications',
+  RESUMES: 'resumes',
+  USAGE_LIMITS: 'usage_limits',
   EMAILS: 'emails',
   RATE_LIMITS: 'rate_limits',
   OAUTH_STATES: 'oauth_states',
   NOTIFICATIONS: 'notifications',
+  SUBSCRIPTIONS: 'subscriptions',
+  INVOICES: 'invoices',
+  PAYMENT_METHODS: 'payment_methods',
 } as const;
 
 // =============================================================================

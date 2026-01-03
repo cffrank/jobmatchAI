@@ -1,11 +1,9 @@
-import { useState, useEffect } from 'react'
-import { User, Shield, Lock, CreditCard } from 'lucide-react'
-import { ProfileSettings } from './components/ProfileSettings'
+import { useState, useEffect, useMemo } from 'react'
+import { Shield, Lock, CreditCard } from 'lucide-react'
 import { SecurityTab } from './components/SecurityTab'
 import { PrivacyTab } from './components/PrivacyTab'
 import { SubscriptionOverview } from './components/SubscriptionOverview'
 import { useProfile } from '@/hooks/useProfile'
-import { useProfilePhoto } from '@/hooks/useProfilePhoto'
 import { useSecuritySettings } from '@/hooks/useSecuritySettings'
 import { useSubscription, useUsageLimits } from '@/hooks/useSubscription'
 import { useUsageMetrics } from '@/hooks/useUsageMetrics'
@@ -13,46 +11,48 @@ import { useAuth } from '@/contexts/AuthContext'
 import data from './data.json'
 import type {
   UserProfile,
-  NotificationPreferences,
   PrivacySettings,
   Subscription,
+  SubscriptionPlan,
   UsageLimits,
   BillingCycle,
   PlanTier
 } from './types'
 
 export default function SettingsPage() {
-  const [activeView, setActiveView] = useState<'profile' | 'security' | 'privacy' | 'subscription'>('profile')
+  const [activeView, setActiveView] = useState<'security' | 'privacy' | 'subscription'>('security')
   const { user } = useAuth()
-  const { profile: firestoreProfile, loading: profileLoading, updateProfile: updateFirestoreProfile } = useProfile()
-  const { uploadProfilePhoto, uploading: photoUploading, error: photoError } = useProfilePhoto()
+  const { profile: userProfile, loading: profileLoading, updateProfile } = useProfile()
   const { security, loading: securityLoading, revokeSession, enable2FA, disable2FA, generateBackupCodes } = useSecuritySettings()
   const { subscription: dbSubscription, loading: subscriptionLoading, updateSubscription } = useSubscription()
-  const { usageLimits: dbUsageLimits, loading: usageLimitsLoading } = useUsageLimits()
+  const { loading: usageLimitsLoading } = useUsageLimits()
   const { metrics: usageMetrics, loading: metricsLoading } = useUsageMetrics()
   const [profileInitialized, setProfileInitialized] = useState(false)
 
   // Debug logging
-  console.log('SettingsPage - Firestore profile:', firestoreProfile)
+  console.log('SettingsPage - User profile:', userProfile)
   console.log('SettingsPage - Loading:', profileLoading)
 
   // Create a default profile if user doesn't have one
   useEffect(() => {
     async function initializeProfile() {
-      if (!profileLoading && !firestoreProfile && user && !profileInitialized) {
+      if (!profileLoading && !userProfile && user && !profileInitialized) {
         console.log('Creating default profile for new user:', user.email)
         try {
-          await updateFirestoreProfile({
-            firstName: user.displayName?.split(' ')[0] || 'User',
-            lastName: user.displayName?.split(' ').slice(1).join(' ') || '',
+          // Get name from user_metadata or email
+          const firstName = user.user_metadata?.first_name || user.email?.split('@')[0] || 'User'
+          const lastName = user.user_metadata?.last_name || ''
+
+          await updateProfile({
+            firstName,
+            lastName,
             email: user.email || '',
             phone: '',
             location: '',
             linkedInUrl: '',
-            profileImageUrl: user.photoURL || null,
+            profileImageUrl: user.user_metadata?.avatar_url || null,
             headline: '',
             summary: '',
-            createdAt: new Date().toISOString(),
           })
           setProfileInitialized(true)
           console.log('Default profile created successfully')
@@ -62,54 +62,80 @@ export default function SettingsPage() {
       }
     }
     initializeProfile()
-  }, [profileLoading, firestoreProfile, user, updateFirestoreProfile, profileInitialized])
+  }, [profileLoading, userProfile, user, updateProfile, profileInitialized])
 
-  // Account state - use Firestore profile or fallback to mock data
-  const profile: UserProfile = firestoreProfile ? {
-    id: firestoreProfile.id,
-    fullName: `${firestoreProfile.firstName} ${firestoreProfile.lastName}`,
-    email: firestoreProfile.email || '',
-    phone: firestoreProfile.phone || '',
-    profilePhotoUrl: firestoreProfile.profileImageUrl || '',
+  // Account state - use Supabase profile or fallback to mock data
+  const profile: UserProfile = userProfile ? {
+    id: userProfile.id,
+    fullName: `${userProfile.firstName} ${userProfile.lastName}`,
+    email: userProfile.email || '',
+    phone: userProfile.phone || '',
+    profilePhotoUrl: userProfile.profileImageUrl || '',
     emailVerified: true, // Assume verified for now
-    createdAt: firestoreProfile.createdAt || new Date().toISOString(),
+    createdAt: new Date().toISOString(),
   } : data.userProfile
 
   console.log('SettingsPage - Using profile:', profile)
   console.log('SettingsPage - Security data:', security)
 
-  const [notifications, setNotifications] = useState<NotificationPreferences>(data.notificationPreferences)
+  // Notification preferences are not currently used in the UI
+  // const [notifications, setNotifications] = useState<NotificationPreferences>({
+  //   ...data.notificationPreferences,
+  //   frequency: data.notificationPreferences.frequency as 'immediate' | 'daily' | 'weekly'
+  // })
 
-  const [privacy, setPrivacy] = useState<PrivacySettings>(data.privacySettings)
-
-  // Update connected accounts when user data becomes available
-  useEffect(() => {
-    if (user) {
-      const connectedAccounts = [{
-        id: user.id,
-        provider: user.app_metadata?.provider === 'linkedin_oidc' ? 'linkedin' :
-                  user.app_metadata?.provider === 'google' ? 'google' : 'email',
-        email: user.email || '',
-        connectedAt: user.created_at || new Date().toISOString()
-      }]
-      setPrivacy(prev => ({
-        ...prev,
-        connectedAccounts
+  // Build connected accounts from user data directly (no useEffect needed)
+  const connectedAccounts = useMemo(() => {
+    if (!user) {
+      return data.privacySettings.connectedAccounts.map(acc => ({
+        ...acc,
+        provider: acc.provider as 'linkedin' | 'google' | 'github'
       }))
     }
+
+    const provider = user.app_metadata?.provider
+    let accountProvider: 'linkedin' | 'google' | 'github' = 'google'
+
+    if (provider === 'linkedin_oidc' || provider === 'linkedin') {
+      accountProvider = 'linkedin'
+    } else if (provider === 'google') {
+      accountProvider = 'google'
+    } else if (provider === 'github') {
+      accountProvider = 'github'
+    }
+
+    return [{
+      id: user.id,
+      provider: accountProvider,
+      email: user.email || '',
+      connectedAt: user.created_at || new Date().toISOString()
+    }]
   }, [user])
 
-  // Build real subscription data
-  const subscription: Subscription = dbSubscription || {
-    id: '',
-    userId: user?.id || '',
-    plan: 'basic',
-    billingCycle: 'monthly',
-    status: 'active',
-    currentPeriodStart: new Date().toISOString().split('T')[0],
-    currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    cancelAtPeriodEnd: false,
-  }
+  const [privacy, setPrivacy] = useState<PrivacySettings>({
+    ...data.privacySettings,
+    connectedAccounts: connectedAccounts
+  })
+
+  // Build real subscription data - memoize to avoid Date.now() in render
+  // Default subscription for users without active subscriptions
+  const defaultSubscription: Subscription = useMemo(() => {
+    const today = new Date()
+    const thirtyDaysFromNow = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000)
+
+    return {
+      id: '',
+      userId: user?.id || '',
+      plan: 'basic',
+      billingCycle: 'monthly',
+      status: 'active',
+      currentPeriodStart: today.toISOString().split('T')[0],
+      currentPeriodEnd: thirtyDaysFromNow.toISOString().split('T')[0],
+      cancelAtPeriodEnd: false,
+    }
+  }, [user?.id])
+
+  const subscription: Subscription = dbSubscription || defaultSubscription
 
   // Build real usage data
   const usage: UsageLimits = {
@@ -119,60 +145,13 @@ export default function SettingsPage() {
     resumeVariantsCreated: usageMetrics.resumeVariantsCreated,
     jobSearchesPerformed: usageMetrics.jobSearchesPerformed,
     limits: {
-      maxApplications: subscription.plan === 'premium' ? 'unlimited' : (dbUsageLimits?.ai_generations_limit || 10),
+      maxApplications: subscription.plan === 'premium' ? 'unlimited' : 10,
       maxResumeVariants: subscription.plan === 'premium' ? 'unlimited' : 3,
-      maxJobSearches: subscription.plan === 'premium' ? 'unlimited' : (dbUsageLimits?.job_searches_limit || 50),
+      maxJobSearches: subscription.plan === 'premium' ? 'unlimited' : 50,
     },
   }
 
   // Account handlers
-  const handleUpdateProfile = async (updates: Partial<UserProfile>) => {
-    console.log('handleUpdateProfile called with:', updates)
-    try {
-      // Map UserProfile fields to User fields for Firestore
-      const mappedUpdates: Record<string, unknown> = {}
-
-      if (updates.fullName) {
-        const [firstName, ...lastNameParts] = updates.fullName.split(' ')
-        mappedUpdates.firstName = firstName
-        mappedUpdates.lastName = lastNameParts.join(' ')
-      }
-
-      if (updates.email) mappedUpdates.email = updates.email
-      if (updates.phone !== undefined) mappedUpdates.phone = updates.phone
-      if (updates.profilePhotoUrl !== undefined) mappedUpdates.profileImageUrl = updates.profilePhotoUrl
-
-      console.log('Mapped updates for Firestore:', mappedUpdates)
-      await updateFirestoreProfile(mappedUpdates)
-      console.log('Profile updated in Firestore successfully')
-      alert('Profile updated successfully!')
-    } catch (error) {
-      console.error('Error updating profile:', error)
-      alert(`Update failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
-    }
-  }
-
-  const _handleChangePassword = (currentPassword: string, newPassword: string) => {
-    console.log('Change password:', { currentPassword, newPassword })
-  }
-
-  const handleUploadPhoto = async (file: File) => {
-    console.log('handleUploadPhoto called with file:', file.name, file.size, file.type)
-    try {
-      console.log('Starting upload...')
-      const downloadURL = await uploadProfilePhoto(file)
-      console.log('Profile photo uploaded successfully! Download URL:', downloadURL)
-      alert(`Photo uploaded! URL: ${downloadURL}`)
-    } catch (error) {
-      console.error('Error uploading profile photo:', error)
-      alert(`Upload failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
-    }
-  }
-
-  const handleResendVerification = () => {
-    console.log('Resend verification email')
-  }
-
   const handleEnable2FA = async () => {
     try {
       await enable2FA()
@@ -213,11 +192,6 @@ export default function SettingsPage() {
     }
   }
 
-  const _handleUpdateNotifications = (updates: Partial<NotificationPreferences>) => {
-    setNotifications({ ...notifications, ...updates })
-    console.log('Update notifications:', updates)
-  }
-
   const handleUpdatePrivacy = (updates: Partial<PrivacySettings>) => {
     setPrivacy({ ...privacy, ...updates })
     console.log('Update privacy:', updates)
@@ -246,7 +220,7 @@ export default function SettingsPage() {
     try {
       await updateSubscription({
         plan: tier,
-        billing_cycle: billingCycle,
+        billingCycle: billingCycle,
         status: 'active',
       })
       alert(`Upgraded to ${tier} plan!`)
@@ -261,7 +235,7 @@ export default function SettingsPage() {
     try {
       await updateSubscription({
         plan: tier,
-        cancel_at_period_end: false,
+        cancelAtPeriodEnd: false,
       })
       alert(`Downgraded to ${tier} plan!`)
       console.log('Downgrade to:', tier)
@@ -274,7 +248,7 @@ export default function SettingsPage() {
   const handleChangeBillingCycle = async (billingCycle: BillingCycle) => {
     try {
       await updateSubscription({
-        billing_cycle: billingCycle,
+        billingCycle: billingCycle,
       })
       alert(`Billing cycle changed to ${billingCycle}!`)
       console.log('Change billing cycle to:', billingCycle)
@@ -287,7 +261,7 @@ export default function SettingsPage() {
   const handleCancelSubscription = async () => {
     try {
       await updateSubscription({
-        cancel_at_period_end: true,
+        cancelAtPeriodEnd: true,
       })
       alert('Subscription will be canceled at the end of the current period.')
       console.log('Cancel subscription at period end')
@@ -300,7 +274,7 @@ export default function SettingsPage() {
   const handleReactivateSubscription = async () => {
     try {
       await updateSubscription({
-        cancel_at_period_end: false,
+        cancelAtPeriodEnd: false,
       })
       alert('Subscription reactivated!')
       console.log('Reactivate subscription')
@@ -310,7 +284,8 @@ export default function SettingsPage() {
     }
   }
 
-  const currentPlan = data.availablePlans.find(p => p.tier === subscription.plan)!
+  const availablePlans = data.availablePlans as unknown as SubscriptionPlan[]
+  const currentPlan = availablePlans.find(p => p.tier === subscription.plan)!
 
   // Show loading state while data is being fetched
   if (profileLoading || securityLoading || subscriptionLoading || usageLimitsLoading || metricsLoading) {
@@ -332,17 +307,6 @@ export default function SettingsPage() {
       <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex gap-2 overflow-x-auto">
-            <button
-              onClick={() => setActiveView('profile')}
-              className={`flex items-center gap-2 px-6 py-4 font-semibold transition-colors border-b-2 whitespace-nowrap ${
-                activeView === 'profile'
-                  ? 'border-blue-600 text-blue-600 dark:text-blue-400'
-                  : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-50'
-              }`}
-            >
-              <User className="w-5 h-5" />
-              Profile
-            </button>
             <button
               onClick={() => setActiveView('security')}
               className={`flex items-center gap-2 px-6 py-4 font-semibold transition-colors border-b-2 whitespace-nowrap ${
@@ -381,16 +345,6 @@ export default function SettingsPage() {
       </div>
 
       {/* Content */}
-      {activeView === 'profile' && (
-        <ProfileSettings
-          profile={profile}
-          onUpdateProfile={handleUpdateProfile}
-          onUploadPhoto={handleUploadPhoto}
-          photoUploading={photoUploading}
-          photoError={photoError}
-          onResendVerification={handleResendVerification}
-        />
-      )}
       {activeView === 'security' && (
         <SecurityTab
           security={security}
@@ -413,7 +367,7 @@ export default function SettingsPage() {
         <SubscriptionOverview
           subscription={subscription}
           currentPlan={currentPlan}
-          availablePlans={data.availablePlans}
+          availablePlans={availablePlans}
           usage={subscription.plan === 'basic' ? usage : undefined}
           onUpgrade={handleUpgrade}
           onDowngrade={handleDowngrade}

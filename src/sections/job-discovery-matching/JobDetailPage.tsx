@@ -1,12 +1,15 @@
+import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { JobDetail } from './components/JobDetail'
+import { EditJobForm, type EditJobData } from './components/EditJobForm'
 import { useJob } from '../../hooks/useJobs'
 import { toast } from 'sonner'
 
 export default function JobDetailPage() {
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
-  const { job, loading, error, saveJob, unsaveJob } = useJob(id)
+  const { job, loading, error, saveJob, unsaveJob, updateJob } = useJob(id)
+  const [isEditing, setIsEditing] = useState(false)
 
   if (error) {
     toast.error('Failed to load job details', {
@@ -81,6 +84,40 @@ export default function JobDetailPage() {
     navigate(`/applications/new?jobId=${job.id}`)
   }
 
+  const handleEditJob = () => {
+    setIsEditing(true)
+  }
+
+  const handleCancelEdit = () => {
+    setIsEditing(false)
+  }
+
+  const handleSubmitEdit = async (jobData: EditJobData) => {
+    if (!id) return
+
+    try {
+      await updateJob(id, jobData)
+      toast.success('Job updated successfully')
+      setIsEditing(false)
+    } catch (err) {
+      console.error('Failed to update job:', err)
+      toast.error('Failed to update job')
+    }
+  }
+
+  // Show edit form if in editing mode
+  if (isEditing && job) {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 py-8 px-4">
+        <EditJobForm
+          job={job}
+          onSubmit={handleSubmitEdit}
+          onCancel={handleCancelEdit}
+        />
+      </div>
+    )
+  }
+
   return (
     <JobDetail
       job={job}
@@ -88,6 +125,7 @@ export default function JobDetailPage() {
       onSaveJob={handleSaveJob}
       onUnsaveJob={handleUnsaveJob}
       onApply={handleApply}
+      onEdit={handleEditJob}
     />
   )
 }

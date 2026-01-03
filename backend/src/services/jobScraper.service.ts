@@ -17,6 +17,7 @@ import { ApifyClient } from 'apify-client';
 import { supabaseAdmin, TABLES } from '../config/supabase';
 import type { Job, ScrapedJob, ScrapeJobsRequest, ScrapeJobsResponse } from '../types';
 import { v4 as uuidv4 } from 'uuid';
+import { deduplicateJobsForUser } from './jobDeduplication.service';
 
 // =============================================================================
 // Configuration
@@ -115,6 +116,15 @@ export async function scrapeJobs(
   const searchId = uuidv4();
 
   await saveJobsToDatabase(userId, searchId, normalizedJobs);
+
+  // Run deduplication in background (don't block response)
+  // This identifies and marks duplicate jobs after scraping
+  console.log(`[Scraper] Triggering background deduplication for user ${userId}`);
+  setImmediate(() => {
+    deduplicateJobsForUser(userId).catch((error) => {
+      console.error('[Scraper] Background deduplication failed:', error);
+    });
+  });
 
   return {
     success: true,
@@ -389,12 +399,17 @@ async function saveJobsToDatabase(
       url: job.url,
       source: job.source,
       required_skills: job.requiredSkills,
+      preferred_skills: job.preferredSkills,
       experience_level: job.experienceLevel,
-      is_saved: job.isSaved,
-      is_archived: job.isArchived,
+      saved: job.isSaved,
+      archived: job.isArchived,
       scraped_at: job.scrapedAt,
       created_at: job.createdAt,
       updated_at: job.updatedAt,
+      // Note: compatibility_breakdown, missing_skills, and recommendations
+      // will be calculated on the frontend via the jobMatching algorithm
+      // when jobs are displayed. This keeps the backend lightweight and
+      // allows for real-time compatibility updates based on user profile changes.
     }));
 
     const { error } = await supabaseAdmin.from(TABLES.JOBS).insert(jobRecords);

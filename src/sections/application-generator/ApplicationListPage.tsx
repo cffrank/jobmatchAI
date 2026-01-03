@@ -8,7 +8,7 @@ export default function ApplicationListPage() {
   const [searchParams] = useSearchParams()
   const jobId = searchParams.get('jobId')
 
-  // Use Firestore hook to fetch applications
+  // Use Supabase hook to fetch applications
   const { applications = [], loading, error, updateApplication, deleteApplication } = useApplications()
 
   const handleViewApplication = (applicationId: string) => {
@@ -30,7 +30,9 @@ export default function ApplicationListPage() {
     // TODO: Implement export via Cloud Function
   }
 
-  const handleEmail = (_applicationId: string) => {
+  const handleEmail = (applicationId: string) => {
+    // Email functionality not yet implemented
+    console.log('Email application:', applicationId)
     toast.info('Email sending - coming soon!')
     // TODO: Implement email dialog
   }

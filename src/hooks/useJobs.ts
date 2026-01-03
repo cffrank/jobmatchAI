@@ -6,7 +6,7 @@ import { rankJobs } from '@/lib/jobMatching'
 import { useProfile } from './useProfile'
 import { useSkills } from './useSkills'
 import { useWorkExperience } from './useWorkExperience'
-import type { Database } from '@/lib/database.types'
+import type { Database } from '@/types/supabase'
 
 type JobRow = Database['public']['Tables']['jobs']['Row']
 
@@ -85,7 +85,10 @@ export function useJobs(pageSize = 20) {
         url: row.url || undefined,
         source: row.source as 'linkedin' | 'indeed' | 'manual' || 'manual',
         matchScore: row.match_score || undefined,
-        isSaved: false, // Will be set below
+        isSaved: row.saved || false,
+        // Expiration tracking - not stored in database
+        savedAt: undefined,
+        expiresAt: undefined,
         // Initialize arrays to prevent .map() errors
         requiredSkills: [],
         missingSkills: [],
@@ -171,7 +174,13 @@ export function useJobs(pageSize = 20) {
 
     // Update local state
     setJobs(prev => prev.map(job =>
-      job.id === jobId ? { ...job, saved: true, isSaved: true } : job
+      job.id === jobId ? {
+        ...job,
+        saved: true,
+        isSaved: true,
+        savedAt: undefined,
+        expiresAt: undefined,
+      } : job
     ))
   }
 
@@ -191,7 +200,51 @@ export function useJobs(pageSize = 20) {
 
     // Update local state
     setJobs(prev => prev.map(job =>
-      job.id === jobId ? { ...job, saved: false, isSaved: false } : job
+      job.id === jobId ? {
+        ...job,
+        saved: false,
+        isSaved: false,
+        savedAt: undefined,
+        expiresAt: undefined,
+      } : job
+    ))
+  }
+
+  /**
+   * Update job details (title, company, description, etc.)
+   */
+  const updateJob = async (jobId: string, updates: Partial<{
+    title: string
+    company: string
+    location: string
+    description: string
+    url: string
+    salaryMin: number
+    salaryMax: number
+  }>) => {
+    if (!userId) throw new Error('User not authenticated')
+
+    // Map to database column names
+    const dbUpdates: Record<string, string | number> = {}
+    if (updates.title !== undefined) dbUpdates.title = updates.title
+    if (updates.company !== undefined) dbUpdates.company = updates.company
+    if (updates.location !== undefined) dbUpdates.location = updates.location
+    if (updates.description !== undefined) dbUpdates.description = updates.description
+    if (updates.url !== undefined) dbUpdates.url = updates.url
+    if (updates.salaryMin !== undefined) dbUpdates.salary_min = updates.salaryMin
+    if (updates.salaryMax !== undefined) dbUpdates.salary_max = updates.salaryMax
+
+    const { error } = await supabase
+      .from('jobs')
+      .update(dbUpdates)
+      .eq('id', jobId)
+      .eq('user_id', userId)
+
+    if (error) throw error
+
+    // Update local state
+    setJobs(prev => prev.map(job =>
+      job.id === jobId ? { ...job, ...updates } : job
     ))
   }
 
@@ -204,6 +257,7 @@ export function useJobs(pageSize = 20) {
     reset,
     saveJob,
     unsaveJob,
+    updateJob,
     totalCount,
   }
 }
@@ -285,7 +339,10 @@ export function useJob(jobId: string | undefined) {
           url: data.url || undefined,
           source: data.source as 'linkedin' | 'indeed' | 'manual' || 'manual',
           matchScore: data.match_score || undefined,
-          isSaved: false,
+          isSaved: data.saved || false,
+          // Expiration tracking - not stored in database
+          savedAt: undefined,
+          expiresAt: undefined,
           // Initialize arrays to prevent .map() errors
           requiredSkills: [],
           missingSkills: [],
@@ -336,7 +393,12 @@ export function useJob(jobId: string | undefined) {
 
     // Update local state
     if (job && job.id === jobId) {
-      setJob({ ...job, saved: true, isSaved: true })
+      setJob({
+        ...job,
+        isSaved: true,
+        savedAt: undefined,
+        expiresAt: undefined,
+      })
     }
   }
 
@@ -356,7 +418,50 @@ export function useJob(jobId: string | undefined) {
 
     // Update local state
     if (job && job.id === jobId) {
-      setJob({ ...job, saved: false, isSaved: false })
+      setJob({
+        ...job,
+        isSaved: false,
+        savedAt: undefined,
+        expiresAt: undefined,
+      })
+    }
+  }
+
+  /**
+   * Update job details (title, company, description, etc.)
+   */
+  const updateJob = async (jobId: string, updates: Partial<{
+    title: string
+    company: string
+    location: string
+    description: string
+    url: string
+    salaryMin: number
+    salaryMax: number
+  }>) => {
+    if (!userId) throw new Error('User not authenticated')
+
+    // Map to database column names
+    const dbUpdates: Record<string, string | number> = {}
+    if (updates.title !== undefined) dbUpdates.title = updates.title
+    if (updates.company !== undefined) dbUpdates.company = updates.company
+    if (updates.location !== undefined) dbUpdates.location = updates.location
+    if (updates.description !== undefined) dbUpdates.description = updates.description
+    if (updates.url !== undefined) dbUpdates.url = updates.url
+    if (updates.salaryMin !== undefined) dbUpdates.salary_min = updates.salaryMin
+    if (updates.salaryMax !== undefined) dbUpdates.salary_max = updates.salaryMax
+
+    const { error } = await supabase
+      .from('jobs')
+      .update(dbUpdates)
+      .eq('id', jobId)
+      .eq('user_id', userId)
+
+    if (error) throw error
+
+    // Update local state
+    if (job && job.id === jobId) {
+      setJob({ ...job, ...updates })
     }
   }
 
@@ -366,6 +471,7 @@ export function useJob(jobId: string | undefined) {
     error,
     saveJob,
     unsaveJob,
+    updateJob,
   }
 }
 

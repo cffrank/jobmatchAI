@@ -8,7 +8,7 @@ interface ResumeUploadProps {
 }
 
 /**
- * Component for uploading resume files (PDF, DOCX, TXT) to Firebase Storage
+ * Component for uploading resume files (PDF, DOCX, TXT) to Supabase Storage
  * Example usage in profile pages for importing existing resumes
  */
 export function ResumeUpload({ resumeId, onUploadComplete }: ResumeUploadProps) {
