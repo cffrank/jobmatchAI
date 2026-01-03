@@ -2,11 +2,9 @@ import { useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { ProfileOverview } from './components/ProfileOverview'
 import { ResumeUploadDialog } from './components/ResumeUploadDialog'
-import { useProfile } from '@/hooks/useProfile'
+import { useCompleteProfile } from '@/hooks/useCompleteProfile'
 import { useWorkExperience } from '@/hooks/useWorkExperience'
 import { useEducation } from '@/hooks/useEducation'
-import { useSkills } from '@/hooks/useSkills'
-import { useResumes } from '@/hooks/useResumes'
 import { useResumeExport } from '@/hooks/useResumeExport'
 import type { ResumeFile } from './types'
 import data from './data.json'
@@ -15,26 +13,37 @@ import { toast } from 'sonner'
 export default function ProfileOverviewPage() {
   const navigate = useNavigate()
 
-  // Fetch data from Supabase
-  const { profile, loading: profileLoading } = useProfile()
-  const { workExperience, loading: workExpLoading, deleteWorkExperience } = useWorkExperience()
-  const { education, loading: educationLoading, deleteEducation } = useEducation()
-  const { skills, loading: skillsLoading } = useSkills()
-  const { resumes, loading: resumesLoading } = useResumes()
+  // State for refresh control
+  const [refreshKey, setRefreshKey] = useState(0)
+
+  // Single optimized API call to fetch all profile data
+  const { data: completeProfile, loading } = useCompleteProfile(refreshKey)
+
+  // Destructure data with fallbacks
+  const profile = completeProfile?.profile || null
+  const workExperience = completeProfile?.workExperience || []
+  const education = completeProfile?.education || []
+  const skills = completeProfile?.skills || []
+  const resumes = completeProfile?.resumes || []
+
+  // Mutation functions (create/update/delete)
+  const { deleteWorkExperience } = useWorkExperience()
+  const { deleteEducation } = useEducation()
   const { downloadResume, uploadResume, deleteResume } = useResumeExport()
 
   // Resume files state (would be fetched from Supabase in real implementation)
   const [resumeFiles, setResumeFiles] = useState<ResumeFile[]>([])
   const [isResumeUploadDialogOpen, setIsResumeUploadDialogOpen] = useState(false)
 
-  const loading = profileLoading || workExpLoading || educationLoading || skillsLoading || resumesLoading
+  // Helper function to refresh all profile data after mutations
+  const refreshProfile = () => setRefreshKey(prev => prev + 1)
 
   // Redirect new users to create profile page if no profile exists
   useEffect(() => {
-    if (!profileLoading && !profile) {
+    if (!loading && !profile) {
       navigate('/profile/edit-profile')
     }
-  }, [profile, profileLoading, navigate])
+  }, [profile, loading, navigate])
 
   const handleEditProfile = () => {
     navigate('/profile/edit-profile')
@@ -61,6 +70,8 @@ export default function ProfileOverviewPage() {
           error: 'Failed to delete work experience. Please try again.',
         }
       )
+      // Refresh all profile data
+      refreshProfile()
     } catch (error) {
       console.error('Error deleting work experience:', error)
     }
@@ -90,6 +101,8 @@ export default function ProfileOverviewPage() {
           error: 'Failed to delete education. Please try again.',
         }
       )
+      // Refresh all profile data
+      refreshProfile()
     } catch (error) {
       console.error('Error deleting education:', error)
     }
@@ -126,8 +139,8 @@ export default function ProfileOverviewPage() {
   }
 
   const handleResumeUploadSuccess = () => {
-    // Reload the page data after successful import
-    window.location.reload()
+    // Refresh profile data after successful import
+    refreshProfile()
   }
 
   const handleUploadResumeFile = async (file: File) => {

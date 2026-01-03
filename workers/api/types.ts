@@ -382,6 +382,24 @@ export interface EditHistoryEntry {
 // API Request/Response Types
 // =============================================================================
 
+// Profile
+/**
+ * Complete profile response (optimized endpoint for ProfileOverviewPage)
+ * Returns all profile data in a single request to eliminate sequential API call waterfall
+ */
+export interface CompleteProfileResponse {
+  message: string;
+  profile: UserProfile | null;
+  workExperience: WorkExperience[];
+  education: Education[];
+  skills: Skill[];
+  resumes: any[]; // Use actual Resume type from schema when needed
+  _meta?: {
+    responseTime: string;
+    queriesExecuted: number;
+  };
+}
+
 // Applications
 export interface GenerateApplicationRequest {
   jobId: string;

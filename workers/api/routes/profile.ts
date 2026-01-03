@@ -95,6 +95,92 @@ const educationSchema = z.object({
 // =============================================================================
 
 /**
+ * GET /api/profile/complete
+ * Get complete profile data (profile + work experience + education + skills + resumes)
+ *
+ * Performance Optimized Endpoint:
+ * - Single JWT validation instead of 5 separate calls
+ * - Parallel database queries (all 5 run simultaneously)
+ * - No WebSocket subscription overhead
+ * - Target response time: <300ms (down from 14s)
+ *
+ * Used by ProfileOverviewPage to eliminate sequential API call waterfall
+ */
+app.get('/complete', authenticateUser, async (c) => {
+  const userId = getUserId(c);
+  const userEmail = c.get('userEmail');
+
+  try {
+    console.log(`[Profile] Fetching complete profile for user ${userId}`);
+    const startTime = Date.now();
+
+    // Run all queries in parallel for maximum performance
+    const [
+      profileResult,
+      workExpResult,
+      educationResult,
+      skillsResult,
+      resumesResult
+    ] = await Promise.all([
+      c.env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(userId).first(),
+      c.env.DB.prepare('SELECT * FROM work_experience WHERE user_id = ? ORDER BY start_date DESC').bind(userId).all(),
+      c.env.DB.prepare('SELECT * FROM education WHERE user_id = ? ORDER BY start_date DESC').bind(userId).all(),
+      c.env.DB.prepare('SELECT * FROM skills WHERE user_id = ?').bind(userId).all(),
+      c.env.DB.prepare('SELECT * FROM resumes WHERE user_id = ? ORDER BY created_at DESC').bind(userId).all(),
+    ]);
+
+    let profile = profileResult;
+
+    // Auto-create user profile if doesn't exist (migration from Supabase Auth)
+    if (!profile && userEmail) {
+      console.log(`[Profile] Auto-creating D1 profile for Supabase Auth user: ${userId}`);
+
+      await c.env.DB.prepare(
+        `INSERT INTO users (
+          id, email, created_at, updated_at
+        ) VALUES (?, ?, datetime('now'), datetime('now'))`
+      )
+        .bind(userId, userEmail)
+        .run();
+
+      // Fetch the newly created profile
+      profile = await c.env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(userId).first();
+
+      console.log(`[Profile] D1 profile created successfully for user: ${userId}`);
+    }
+
+    if (!profile) {
+      return c.json({ error: 'Profile not found and could not be created' }, 404);
+    }
+
+    const elapsedMs = Date.now() - startTime;
+    console.log(`[Profile] Complete profile fetched in ${elapsedMs}ms`);
+
+    return c.json({
+      message: 'Complete profile fetched successfully',
+      profile,
+      workExperience: workExpResult.results || [],
+      education: educationResult.results || [],
+      skills: skillsResult.results || [],
+      resumes: resumesResult.results || [],
+      _meta: {
+        responseTime: `${elapsedMs}ms`,
+        queriesExecuted: 5,
+      },
+    }, 200);
+  } catch (error) {
+    console.error('[Profile] Error fetching complete profile:', error);
+    return c.json(
+      {
+        error: 'Failed to fetch complete profile',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      },
+      500
+    );
+  }
+});
+
+/**
  * GET /api/profile
  * Fetch user profile (auto-creates if doesn't exist for Supabase Auth users)
  */
