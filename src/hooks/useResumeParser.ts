@@ -104,7 +104,7 @@ export function useResumeParser() {
       }
 
       // Call Cloudflare Workers backend API to parse resume
-      const backendUrl = import.meta.env.VITE_BACKEND_URL
+      const backendUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000'
       if (!backendUrl) {
         throw new Error('Backend URL not configured')
       }

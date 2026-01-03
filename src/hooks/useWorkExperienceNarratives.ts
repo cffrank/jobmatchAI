@@ -3,7 +3,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 
 // Get backend URL from environment
-const BACKEND_URL = import.meta.env.VITE_API_URL || import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'
+const BACKEND_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 
 // Frontend types (camelCase)
 export interface WorkExperienceNarrative {

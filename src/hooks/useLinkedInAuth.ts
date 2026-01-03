@@ -84,7 +84,7 @@ export function useLinkedInAuth(): UseLinkedInAuthReturn {
       }
 
       // Call the Cloudflare Workers backend API
-      const backendUrl = import.meta.env.VITE_BACKEND_URL
+      const backendUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000'
       const response = await fetch(`${backendUrl}/api/auth/linkedin`, {
         method: 'GET',
         headers: {

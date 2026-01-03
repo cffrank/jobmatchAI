@@ -80,7 +80,7 @@ export function ResumeUploadDialog({ isOpen, onClose, onSuccess }: ResumeUploadD
     if (!session) throw new Error('No active session')
 
     // Call Workers backend API for gap analysis
-    const backendUrl = import.meta.env.VITE_BACKEND_URL
+    const backendUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000'
     if (!backendUrl) throw new Error('Backend URL not configured')
 
     const response = await fetch(`${backendUrl}/api/resume/analyze-gaps`, {

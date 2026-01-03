@@ -6,7 +6,7 @@ import type { GeneratedApplication, ApplicationVariant } from '@/sections/applic
 
 type DbApplication = Database['public']['Tables']['applications']['Row']
 
-const BACKEND_URL = import.meta.env.VITE_API_URL || import.meta.env.VITE_BACKEND_URL
+const BACKEND_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 
 /**
  * Hook to manage generated applications via Workers API

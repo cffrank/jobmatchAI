@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase'
 import type { User } from '@/sections/profile-resume-management/types'
 
 // Get backend URL from environment
-const BACKEND_URL = import.meta.env.VITE_API_URL || import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'
+const BACKEND_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 
 /**
  * Hook to manage user profile data via Workers API
