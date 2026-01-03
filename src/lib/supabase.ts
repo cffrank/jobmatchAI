@@ -46,10 +46,11 @@ export const supabase = createClient<Database>(
   SUPABASE_ANON_KEY || 'placeholder-anon-key',
   {
   auth: {
-    // Auth is handled by Workers, not Supabase
-    autoRefreshToken: false,
-    persistSession: false,
-    detectSessionInUrl: false,
+    // Supabase Auth is used for login/session management
+    // Workers validate the JWT tokens
+    autoRefreshToken: true,    // Auto-refresh tokens before expiry
+    persistSession: true,       // Save session to localStorage
+    detectSessionInUrl: true,   // Handle OAuth callbacks
     // Use same storage key for compatibility
     storageKey: 'jobmatch-auth-token',
   },
