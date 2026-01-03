@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
+import { supabase } from '@/lib/supabase'
 
 export interface GapAnalysisAnswer {
   id: string
@@ -34,7 +35,7 @@ export interface GapAnalysis {
  * Hook to manage gap analysis data from Workers API
  */
 export function useGapAnalysis() {
-  const { user, session } = useAuth()
+  const { user } = useAuth()
   const userId = user?.id
 
   const [gapAnalyses, setGapAnalyses] = useState<GapAnalysis[]>([])
@@ -46,7 +47,7 @@ export function useGapAnalysis() {
 
   // Fetch gap analyses
   useEffect(() => {
-    if (!userId || !session) {
+    if (!userId) {
       setGapAnalyses([])
       setLatestGapAnalysis(null)
       setLoading(false)
@@ -58,6 +59,13 @@ export function useGapAnalysis() {
     const fetchGapAnalyses = async () => {
       try {
         setLoading(true)
+
+        // Get JWT token for authentication
+        const { data: { session } } = await supabase.auth.getSession()
+
+        if (!session?.access_token) {
+          throw new Error('No authentication token available')
+        }
 
         // Fetch all gap analyses for user from Workers API
         const response = await fetch(`${backendUrl}/api/gap-analyses`, {
@@ -94,15 +102,22 @@ export function useGapAnalysis() {
     return () => {
       subscribed = false
     }
-  }, [userId, session, backendUrl])
+  }, [userId, backendUrl])
 
   /**
    * Get gap analysis by ID
    */
   const getGapAnalysisById = async (id: string): Promise<GapAnalysis | null> => {
-    if (!userId || !session) throw new Error('User not authenticated')
+    if (!userId) throw new Error('User not authenticated')
 
     try {
+      // Get JWT token for authentication
+      const { data: { session } } = await supabase.auth.getSession()
+
+      if (!session?.access_token) {
+        throw new Error('No authentication token available')
+      }
+
       const response = await fetch(`${backendUrl}/api/gap-analyses/${id}`, {
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
@@ -126,9 +141,16 @@ export function useGapAnalysis() {
    * Update answer to a gap analysis question
    */
   const updateAnswer = async (analysisId: string, questionId: number, answer: string) => {
-    if (!userId || !session) throw new Error('User not authenticated')
+    if (!userId) throw new Error('User not authenticated')
 
     try {
+      // Get JWT token for authentication
+      const { data: { session } } = await supabase.auth.getSession()
+
+      if (!session?.access_token) {
+        throw new Error('No authentication token available')
+      }
+
       const response = await fetch(`${backendUrl}/api/gap-analyses/${analysisId}/answer`, {
         method: 'PATCH',
         headers: {
@@ -184,9 +206,16 @@ export function useGapAnalysis() {
    * Delete gap analysis
    */
   const deleteGapAnalysis = async (id: string) => {
-    if (!userId || !session) throw new Error('User not authenticated')
+    if (!userId) throw new Error('User not authenticated')
 
     try {
+      // Get JWT token for authentication
+      const { data: { session } } = await supabase.auth.getSession()
+
+      if (!session?.access_token) {
+        throw new Error('No authentication token available')
+      }
+
       const response = await fetch(`${backendUrl}/api/gap-analyses/${id}`, {
         method: 'DELETE',
         headers: {
