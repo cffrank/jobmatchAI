@@ -57,7 +57,7 @@ const mockWorkExperience: WorkExperience[] = [
   {
     id: 'exp-1',
     userId: 'user-456',
-    position: 'Senior Software Engineer',
+    title: 'Senior Software Engineer',
     company: 'StartupCo',
     location: 'San Francisco, CA',
     startDate: '2020-01-01',
@@ -74,7 +74,7 @@ const mockWorkExperience: WorkExperience[] = [
   {
     id: 'exp-2',
     userId: 'user-456',
-    position: 'Software Engineer',
+    title: 'Software Engineer',
     company: 'BigCorp',
     location: 'San Francisco, CA',
     startDate: '2018-01-01',

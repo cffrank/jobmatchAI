@@ -166,7 +166,7 @@ export async function generateResumeEmbedding(
   if (workExperience && workExperience.length > 0) {
     for (const exp of workExperience) {
       const expText = [
-        exp.position,
+        exp.title,
         exp.company,
         exp.description || '',
       ]

@@ -192,7 +192,7 @@ describe('AI Gateway Integration Tests', () => {
             id: 'exp-1',
             userId: 'user-1',
             company: 'Tech Corp',
-            position: 'Software Engineer',
+            title: 'Software Engineer',
             startDate: '2020-01-01',
             current: true,
             description: 'Build software',

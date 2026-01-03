@@ -726,7 +726,7 @@ function mapDatabaseWorkExperience(record: any): WorkExperience {
   return {
     id: record.id,
     userId: record.user_id,
-    position: record.position,
+    title: record.position,
     company: record.company,
     location: record.location,
     startDate: record.start_date,

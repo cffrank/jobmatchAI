@@ -20,7 +20,7 @@ interface ParsedProfile {
 
 interface ParsedWorkExperience {
   company: string
-  position: string
+  title: string
   location: string
   startDate: string
   endDate: string | null
@@ -162,7 +162,7 @@ export function useResumeParser() {
       for (const exp of workExperience) {
         try {
           await deleteWorkExperience(exp.id)
-          console.log(`[applyParsedData] ✅ Deleted work experience: ${exp.position} at ${exp.company}`)
+          console.log(`[applyParsedData] ✅ Deleted work experience: ${exp.title} at ${exp.company}`)
         } catch (err) {
           console.error(`[applyParsedData] ⚠️ Failed to delete work experience ${exp.id}:`, err)
           // Continue deleting others even if one fails
@@ -222,10 +222,10 @@ export function useResumeParser() {
       for (let i = 0; i < data.workExperience.length; i++) {
         const exp = data.workExperience[i]
         try {
-          console.log(`[applyParsedData] Adding work experience ${i + 1}/${data.workExperience.length}: ${exp.position} at ${exp.company}`)
+          console.log(`[applyParsedData] Adding work experience ${i + 1}/${data.workExperience.length}: ${exp.title} at ${exp.company}`)
           await addWorkExperience({
             company: exp.company,
-            position: exp.position,
+            title: exp.title,
             location: exp.location,
             startDate: exp.startDate,
             endDate: exp.endDate || '',
@@ -235,7 +235,7 @@ export function useResumeParser() {
           })
           console.log(`[applyParsedData] ✅ Work experience ${i + 1} added`)
         } catch (err) {
-          const msg = `Work experience ${i + 1} (${exp.position} at ${exp.company}) failed: ${err instanceof Error ? err.message : String(err)}`
+          const msg = `Work experience ${i + 1} (${exp.title} at ${exp.company}) failed: ${err instanceof Error ? err.message : String(err)}`
           console.error('[applyParsedData] ❌', msg, err)
           errors.push(msg)
         }

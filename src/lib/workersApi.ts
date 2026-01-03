@@ -455,7 +455,7 @@ export class WorkersAPI {
    */
   async createWorkExperience(data: {
     company: string;
-    position: string;
+    title: string;
     location?: string;
     description?: string;
     startDate: string;
@@ -466,7 +466,7 @@ export class WorkersAPI {
     // Convert camelCase to snake_case for Workers API
     const apiData: Record<string, unknown> = {
       company: data.company,
-      title: data.position,  // Maps 'position' to 'title' for D1 schema
+      title: data.title,
       start_date: data.startDate,
     }
 
@@ -489,7 +489,7 @@ export class WorkersAPI {
     id: string,
     data: {
       company?: string;
-      position?: string;
+      title?: string;
       location?: string;
       description?: string;
       startDate?: string;
@@ -502,7 +502,7 @@ export class WorkersAPI {
     const apiData: Record<string, unknown> = {}
 
     if (data.company !== undefined) apiData.company = data.company
-    if (data.position !== undefined) apiData.title = data.position  // Maps 'position' to 'title' for D1 schema
+    if (data.title !== undefined) apiData.title = data.title
     if (data.location !== undefined) apiData.location = data.location
     if (data.description !== undefined) apiData.description = data.description
     if (data.startDate !== undefined) apiData.start_date = data.startDate

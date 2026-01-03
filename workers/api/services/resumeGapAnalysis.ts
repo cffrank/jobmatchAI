@@ -285,7 +285,7 @@ function buildResumeText(
         return bDate - aDate; // Most recent first
       })
       .forEach((exp) => {
-        sections.push(`\n${exp.position} at ${exp.company}`);
+        sections.push(`\n${exp.title} at ${exp.company}`);
         sections.push(`${formatDate(exp.startDate)} - ${exp.current ? 'Present' : formatDate(exp.endDate || null)}`);
         sections.push(`Location: ${exp.location || 'Not specified'}`);
         if (exp.description) {

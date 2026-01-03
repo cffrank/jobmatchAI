@@ -141,7 +141,7 @@ export function ResumePreview({
                         <div className="flex justify-between items-start mb-2">
                           <div>
                             <h4 className="text-base font-bold text-slate-900">
-                              {exp.position}
+                              {exp.title}
                             </h4>
                             <p className="text-sm font-semibold text-blue-600">
                               {exp.company}

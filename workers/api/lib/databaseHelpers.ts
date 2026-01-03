@@ -38,7 +38,7 @@ export function mapWorkExperience(dbRecord: Record<string, unknown>): WorkExperi
   return {
     id: dbRecord.id as string,
     userId: dbRecord.user_id as string,
-    position: dbRecord.job_title as string,
+    title: dbRecord.job_title as string,
     company: dbRecord.company as string,
     location: dbRecord.location as string | undefined,
     startDate: dbRecord.start_date as string,

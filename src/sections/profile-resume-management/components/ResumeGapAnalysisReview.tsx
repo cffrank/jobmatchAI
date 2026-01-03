@@ -263,7 +263,7 @@ export function ResumeGapAnalysisReview({
               >
                 <div className="flex-1">
                   <p className="font-semibold text-slate-900 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                    {exp.position} at {exp.company}
+                    {exp.title} at {exp.company}
                   </p>
                   <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
                     {exp.startDate} - {exp.current ? 'Present' : exp.endDate}

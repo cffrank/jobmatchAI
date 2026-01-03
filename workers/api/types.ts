@@ -242,7 +242,7 @@ export interface UserProfile {
 export interface WorkExperience {
   id: string;
   userId: string;
-  position: string;
+  title: string;
   company: string;
   location?: string;
   startDate: string;

@@ -510,7 +510,7 @@ export function ResumeUploadDialog({ isOpen, onClose, onSuccess }: ResumeUploadD
                     {parsedData.workExperience.slice(0, 3).map((exp, idx) => (
                       <div key={idx} className="text-sm">
                         <p className="font-medium text-slate-900 dark:text-slate-100">
-                          {exp.position} at {exp.company}
+                          {exp.title} at {exp.company}
                         </p>
                         <p className="text-slate-600 dark:text-slate-400">
                           {exp.startDate} - {exp.current ? 'Present' : exp.endDate}

@@ -17,7 +17,7 @@ export function WorkExperienceForm() {
 
   const [formData, setFormData] = useState({
     company: existingExperience?.company || '',
-    position: existingExperience?.position || '',
+    title: existingExperience?.title || '',
     location: existingExperience?.location || '',
     startDate: existingExperience?.startDate || '',
     endDate: existingExperience?.endDate || '',
@@ -33,7 +33,7 @@ export function WorkExperienceForm() {
     if (existingExperience) {
       setFormData({
         company: existingExperience.company,
-        position: existingExperience.position,
+        title: existingExperience.title,
         location: existingExperience.location,
         startDate: existingExperience.startDate,
         endDate: existingExperience.endDate || '',
@@ -52,8 +52,8 @@ export function WorkExperienceForm() {
     if (!formData.company.trim()) {
       newErrors.company = 'Company name is required'
     }
-    if (!formData.position.trim()) {
-      newErrors.position = 'Position title is required'
+    if (!formData.title.trim()) {
+      newErrors.title = 'Position title is required'
     }
     if (!formData.location.trim()) {
       newErrors.location = 'Location is required'
@@ -200,17 +200,17 @@ export function WorkExperienceForm() {
                 <input
                   type="text"
                   id="position"
-                  value={formData.position}
-                  onChange={(e) => setFormData({ ...formData, position: e.target.value })}
+                  value={formData.title}
+                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                   className={`w-full px-4 py-2 rounded-lg border ${
-                    errors.position
+                    errors.title
                       ? 'border-red-500 dark:border-red-500'
                       : 'border-slate-300 dark:border-slate-700'
                   } bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500`}
                   placeholder="Senior Software Engineer"
                 />
-                {errors.position && (
-                  <p className="mt-1 text-sm text-red-500">{errors.position}</p>
+                {errors.title && (
+                  <p className="mt-1 text-sm text-red-500">{errors.title}</p>
                 )}
               </div>
             </div>

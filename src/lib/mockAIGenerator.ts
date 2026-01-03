@@ -52,7 +52,7 @@ function generateImpactFocusedVariant(
     resume: {
       summary: generateSummary(user, job, 'impact'),
       experience: workExperience.slice(0, 3).map(exp => ({
-        title: exp.position,
+        title: exp.title,
         company: exp.company,
         location: exp.location,
         startDate: formatDate(exp.startDate),
@@ -93,7 +93,7 @@ function generateKeywordOptimizedVariant(
     resume: {
       summary: generateSummary(user, job, 'keyword'),
       experience: workExperience.slice(0, 3).map(exp => ({
-        title: exp.position,
+        title: exp.title,
         company: exp.company,
         location: exp.location,
         startDate: formatDate(exp.startDate),
@@ -131,7 +131,7 @@ function generateConciseVariant(
     resume: {
       summary: generateSummary(user, job, 'concise'),
       experience: workExperience.slice(0, 2).map(exp => ({
-        title: exp.position,
+        title: exp.title,
         company: exp.company,
         location: exp.location,
         startDate: formatDate(exp.startDate),
@@ -189,7 +189,7 @@ function generateCoverLetter(
 
   return `Dear Hiring Manager,
 
-I am writing to express my strong interest in the ${job.title} position at ${job.company}. With my background in ${mostRecentRole.position} and proven expertise in ${topTwoSkills}, I am excited about the opportunity to contribute to your team.
+I am writing to express my strong interest in the ${job.title} position at ${job.company}. With my background in ${mostRecentRole.title} and proven expertise in ${topTwoSkills}, I am excited about the opportunity to contribute to your team.
 
 ${style === 'impact'
   ? `In my current role at ${mostRecentRole.company}, I have ${mostRecentRole.accomplishments[0]?.toLowerCase() || 'driven significant impact'}. This experience has prepared me to take on the challenges outlined in your job description${skills.length >= 2 ? `, particularly around ${skills[0]} and ${skills[1]}` : ''}.`

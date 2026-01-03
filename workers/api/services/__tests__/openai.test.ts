@@ -209,7 +209,7 @@ describe('OpenAI Service - AI Gateway Integration', () => {
         id: 'exp-1',
         userId: 'user-1',
         company: 'Previous Corp',
-        position: 'Software Engineer',
+        title: 'Software Engineer',
         location: 'San Francisco, CA',
         startDate: '2020-01-01',
         endDate: '2023-12-31',

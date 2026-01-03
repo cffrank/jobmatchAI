@@ -54,7 +54,7 @@ export interface User {
 export interface WorkExperience {
   id: string
   company: string
-  position: string
+  title: string
   location: string
   startDate: string
   endDate: string | null

@@ -239,7 +239,7 @@ async function generateVariant(
   const skillNames = skills.map((s) => s.name).join(', ');
 
   const experienceWithDetails = workExp.map((exp) => ({
-    position: exp.position,
+    position: exp.title,
     company: exp.company,
     location: exp.location || 'Location not specified',
     duration: `${exp.startDate} - ${exp.current ? 'Present' : exp.endDate || 'Present'}`,
@@ -547,7 +547,7 @@ function getFallbackVariant(
     resume: {
       summary: `${job.title} with expertise in ${topSkills}`,
       experience: workExp.slice(0, 3).map((e) => ({
-        title: e.position,
+        title: e.title,
         company: e.company,
         location: e.location || '',
         startDate: e.startDate,
@@ -1092,7 +1092,7 @@ function buildCompatibilityUserPrompt(
         ? exp.accomplishments.map((a) => `     • ${a}`).join('\n')
         : '     • No specific accomplishments listed';
 
-      return `${i + 1}. ${exp.position} at ${exp.company}
+      return `${i + 1}. ${exp.title} at ${exp.company}
    Location: ${exp.location || 'Not specified'}
    Duration: ${duration}
    ${exp.description ? `Description: ${exp.description}` : ''}

@@ -25,33 +25,6 @@ export function useWorkExperience() {
 
     let subscribed = true
 
-    /**
-     * Convert snake_case field names from API to camelCase for frontend
-     */
-    const convertToCamelCase = (item: Record<string, unknown>): WorkExperience => {
-      const converted: Record<string, unknown> = {}
-      Object.entries(item).forEach(([key, value]) => {
-        if (key === 'title') {
-          converted.position = value  // Map D1 'title' to frontend 'position'
-        } else if (key === 'start_date') {
-          converted.startDate = value
-        } else if (key === 'end_date') {
-          converted.endDate = value
-        } else if (key === 'is_current') {
-          converted.current = value
-        } else if (key === 'user_id') {
-          converted.userId = value
-        } else if (key === 'created_at') {
-          converted.createdAt = value
-        } else if (key === 'updated_at') {
-          converted.updatedAt = value
-        } else {
-          converted[key] = value
-        }
-      })
-      return converted as unknown as WorkExperience
-    }
-
     // Fetch initial work experience entries via Workers API
     const fetchWorkExperience = async () => {
       try {
@@ -59,11 +32,7 @@ export function useWorkExperience() {
         const response = await workersApi.getWorkExperience()
 
         if (subscribed) {
-          // Convert snake_case from API to camelCase for frontend
-          const convertedData = (response.workExperience || []).map(item =>
-            convertToCamelCase(item as Record<string, unknown>)
-          )
-          setWorkExperience(convertedData)
+          setWorkExperience(response.workExperience as WorkExperience[] || [])
           setError(null)
         }
       } catch (err) {
@@ -120,7 +89,7 @@ export function useWorkExperience() {
 
     const response = await workersApi.createWorkExperience({
       company: data.company,
-      position: data.position,
+      title: data.title,
       location: data.location,
       description: data.description,
       startDate: data.startDate,
@@ -141,7 +110,7 @@ export function useWorkExperience() {
 
     const updateData: Record<string, unknown> = {}
     if (data.company !== undefined) updateData.company = data.company
-    if (data.position !== undefined) updateData.position = data.position
+    if (data.title !== undefined) updateData.title = data.title
     if (data.location !== undefined) updateData.location = data.location
     if (data.description !== undefined) updateData.description = data.description
     if (data.startDate !== undefined) updateData.startDate = data.startDate

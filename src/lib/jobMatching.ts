@@ -193,7 +193,7 @@ function calculateExperienceMatch(
     const startDate = new Date(exp.startDate)
     const endDate = exp.current ? new Date() : new Date(exp.endDate || new Date())
     const years = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24 * 365)
-    console.log(`[JobMatching] Experience at ${exp.company} (${exp.position}): ${years.toFixed(1)} years`)
+    console.log(`[JobMatching] Experience at ${exp.company} (${exp.title}): ${years.toFixed(1)} years`)
     return sum + Math.max(0, years)
   }, 0)
 
@@ -276,16 +276,16 @@ function calculateIndustryMatch(
 
   const hasIndustryMatch = workExperience.some(exp => {
     const company = exp.company.toLowerCase()
-    const position = exp.position.toLowerCase()
+    const title = exp.title.toLowerCase()
     const description = (exp.description || '').toLowerCase()
 
     // Check for company name overlap or similar position titles
     const match = jobText.includes(company) ||
-                  jobText.includes(position) ||
+                  jobText.includes(title) ||
                   (description && jobText.includes(description.substring(0, 50)))
 
     if (match) {
-      console.log(`[JobMatching] Industry match found: ${exp.company} (${exp.position})`)
+      console.log(`[JobMatching] Industry match found: ${exp.company} (${exp.title})`)
     }
     return match
   })

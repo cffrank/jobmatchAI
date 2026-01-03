@@ -532,7 +532,7 @@ function buildUserPrompt(context: GenerationContext): string {
         ? exp.accomplishments.map((a) => `     • ${a}`).join('\n')
         : '     • No specific accomplishments listed';
 
-      return `${i + 1}. ${exp.position} at ${exp.company}
+      return `${i + 1}. ${exp.title} at ${exp.company}
    Location: ${exp.location || 'Not specified'}
    Duration: ${duration}
    ${exp.description ? `Description: ${exp.description}` : ''}

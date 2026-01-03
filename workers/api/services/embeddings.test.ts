@@ -151,7 +151,7 @@ function createMockWorkExperience(overrides?: Partial<WorkExperience>): WorkExpe
   return {
     id: 'exp-1',
     userId: 'user-123',
-    position: 'Senior Software Engineer',
+    title: 'Senior Software Engineer',
     company: 'Tech Company',
     location: 'San Francisco, CA',
     startDate: '2020-01-01',
@@ -541,7 +541,7 @@ describe('generateResumeEmbedding', () => {
       createMockWorkExperience(),
       createMockWorkExperience({
         id: 'exp-2',
-        position: 'Software Engineer',
+        title: 'Software Engineer',
         company: 'Previous Company',
         current: false,
         endDate: '2019-12-31',
@@ -679,7 +679,7 @@ describe('generateResumeEmbedding', () => {
     const profile = createMockProfile();
     const workExperience = [
       createMockWorkExperience({
-        position: '',
+        title: '',
         company: 'Company',
         description: '',
       }),
@@ -739,7 +739,7 @@ describe('updateUserResumeEmbedding', () => {
       order: vi.fn().mockResolvedValue({
         data: [
           {
-            position: 'Senior Engineer',
+            title: 'Senior Engineer',
             company: 'Tech Corp',
             description: 'Built systems',
             start_date: '2020-01-01',
