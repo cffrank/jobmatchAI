@@ -254,6 +254,59 @@ FROM users;
 
 ---
 
+### 6. ✅ API Response Field Name Mismatch
+**Commit:** `585697d` - "fix: rename 'experiences' to 'workExperience' in API response"
+
+**Problem:**
+- Login successful ✅
+- But React crashes with: `TypeError: Cannot read properties of undefined (reading 'map')`
+- App displays error screen instead of user interface
+
+**Root Cause:**
+Frontend-backend field name mismatch in work experience API response:
+
+**Workers API returned:**
+```json
+{
+  "message": "Work experience fetched successfully",
+  "experiences": []
+}
+```
+
+**Frontend expected:**
+```typescript
+const response = await workersApi.getWorkExperience()
+setWorkExperience(response.workExperience)  // ❌ undefined!
+```
+
+When React tried to render: `workExperience.map(...)` → crashed because `workExperience` was `undefined`.
+
+**Fix:**
+```typescript
+// workers/api/routes/profile.ts (line 247-250)
+
+// Before:
+return c.json({
+  message: 'Work experience fetched successfully',
+  experiences: experiences || [],  // ❌ Wrong field name
+});
+
+// After:
+return c.json({
+  message: 'Work experience fetched successfully',
+  workExperience: experiences || [],  // ✅ Matches frontend
+});
+```
+
+**Benefits:**
+- React components render without crashing
+- Work experience data displays correctly
+- Consistent API response field names
+
+**File:** `workers/api/routes/profile.ts`
+
+---
+
 ## Complete Authentication Flow (After Fixes)
 
 ### 1. User Login
@@ -334,14 +387,15 @@ API request succeeds
 
 ## Deployment Status
 
-### ✅ Deployed Fixes
+### ✅ All Fixes Deployed
 1. Environment variable standardization (`dc10657`)
 2. Supabase session persistence (`f5dc6ea`)
 3. D1 user auto-creation (`4584a2c`)
-4. WorkersAPI token extraction (`2acdf6a`) - ⏳ Deploying
-5. Database FTS schema fix (`62ba9ea`) - ⏳ Deploying
+4. WorkersAPI token extraction (`2acdf6a`)
+5. Database FTS schema fix (`62ba9ea`)
+6. API response field name fix (`585697d`)
 
-**GitHub Actions:** Auto-deployment in progress
+**GitHub Actions:** ✅ Deployment completed at 2026-01-03 04:24 UTC
 
 ---
 
@@ -457,9 +511,9 @@ Since they're not used, clean up the dashboard:
 
 ---
 
-**Last Updated:** 2026-01-03 04:35 UTC
-**Deployment:** In progress (commit `2acdf6a`)
-**Next:** Wait for deployment to complete, then test end-to-end
+**Last Updated:** 2026-01-03 04:24 UTC
+**Deployment:** ✅ Complete (all 6 fixes deployed)
+**Next:** Test authentication and profile functionality end-to-end
 
 ---
 
@@ -472,5 +526,6 @@ Since they're not used, clean up the dashboard:
 | 3 | 404 on /api/profile | Users not migrated to D1 database | Auto-create users on first profile fetch | `4584a2c` |
 | 4 | 401 on all API calls | WorkersAPI sent full session JSON as token | Extract `access_token` field from session | `2acdf6a` |
 | 5 | 500 on profile update | FTS virtual table column mismatch | Remove `content=` parameter, make standalone FTS | `62ba9ea` |
+| 6 | React crash on login | API returned `experiences` but frontend expected `workExperience` | Rename response field to match frontend | `585697d` |
 
-**All fixes deployed:** After commit `62ba9ea` deploys successfully
+**All fixes deployed:** ✅ Successfully deployed at 2026-01-03 04:24 UTC
