@@ -68,7 +68,7 @@ const profileUpdateSchema = z.object({
 });
 
 const workExperienceSchema = z.object({
-  position: z.string().min(1, 'Position is required'),
+  title: z.string().min(1, 'Title is required'),
   company: z.string().min(1, 'Company is required'),
   description: z.string().optional().nullable(),
   start_date: z.string(),
@@ -282,14 +282,14 @@ app.post('/work-experience', authenticateUser, async (c) => {
 
     await c.env.DB.prepare(
       `INSERT INTO work_experience (
-        id, user_id, position, company, description, start_date, end_date,
+        id, user_id, title, company, description, start_date, end_date,
         is_current, created_at, updated_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
       .bind(
         experienceId,
         userId,
-        parseResult.data.position,
+        parseResult.data.title,
         parseResult.data.company,
         parseResult.data.description || null,
         parseResult.data.start_date,

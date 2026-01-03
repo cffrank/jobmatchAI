@@ -31,7 +31,9 @@ export function useWorkExperience() {
     const convertToCamelCase = (item: Record<string, unknown>): WorkExperience => {
       const converted: Record<string, unknown> = {}
       Object.entries(item).forEach(([key, value]) => {
-        if (key === 'start_date') {
+        if (key === 'title') {
+          converted.position = value  // Map D1 'title' to frontend 'position'
+        } else if (key === 'start_date') {
           converted.startDate = value
         } else if (key === 'end_date') {
           converted.endDate = value

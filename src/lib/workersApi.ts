@@ -466,7 +466,7 @@ export class WorkersAPI {
     // Convert camelCase to snake_case for Workers API
     const apiData: Record<string, unknown> = {
       company: data.company,
-      position: data.position,
+      title: data.position,  // Maps 'position' to 'title' for D1 schema
       start_date: data.startDate,
     }
 
@@ -502,7 +502,7 @@ export class WorkersAPI {
     const apiData: Record<string, unknown> = {}
 
     if (data.company !== undefined) apiData.company = data.company
-    if (data.position !== undefined) apiData.position = data.position
+    if (data.position !== undefined) apiData.title = data.position  // Maps 'position' to 'title' for D1 schema
     if (data.location !== undefined) apiData.location = data.location
     if (data.description !== undefined) apiData.description = data.description
     if (data.startDate !== undefined) apiData.start_date = data.startDate
