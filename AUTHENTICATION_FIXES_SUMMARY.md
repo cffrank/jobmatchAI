@@ -416,6 +416,117 @@ setProfile(camelCaseProfile)
 
 ---
 
+### 8. ✅ Work Experience Creation Failing (Field Name Mismatch)
+**Commit:** `d794210` - "fix: convert work experience field names between camelCase and snake_case"
+
+**Problem:**
+- Resume import failing with 400 "Invalid work experience data" errors
+- All 9 work experience entries rejected by API
+- Manual work experience creation also failed
+- Error logged in browser console but no clear indication of cause
+
+**Root Cause:**
+Same field naming mismatch as Fix #7, but for work experience endpoints:
+
+**Frontend sends (camelCase):**
+```typescript
+{
+  company: "Envision Information Technologies",
+  position: "Senior Infrastructure Engineer",
+  startDate: "2024-01-01",
+  endDate: "2024-12-31",
+  current: false,
+  accomplishments: ["Achievement 1", "Achievement 2"]
+}
+```
+
+**Workers API expects (snake_case):**
+```typescript
+{
+  company: "Envision Information Technologies",
+  position: "Senior Infrastructure Engineer",
+  start_date: "2024-01-01",
+  end_date: "2024-12-31",
+  is_current: false,
+  accomplishments: ["Achievement 1", "Achievement 2"]
+}
+```
+
+The Workers API validation schema required `start_date`, `end_date`, and `is_current` but received `startDate`, `endDate`, and `current`, causing Zod validation to fail with 400 errors.
+
+**Fix:**
+Added bidirectional field name conversion for work experience:
+
+**1. In workersApi.ts createWorkExperience():**
+```typescript
+async createWorkExperience(data: { ... }): Promise<...> {
+  // Convert camelCase to snake_case for Workers API
+  const apiData: Record<string, unknown> = {
+    company: data.company,
+    position: data.position,
+    start_date: data.startDate,  // ✅ Convert
+  }
+
+  if (data.endDate !== undefined) apiData.end_date = data.endDate  // ✅ Convert
+  if (data.current !== undefined) apiData.is_current = data.current  // ✅ Convert
+  if (data.accomplishments !== undefined) apiData.accomplishments = data.accomplishments
+
+  return this.request('/api/profile/work-experience', {
+    method: 'POST',
+    body: JSON.stringify(apiData),
+  })
+}
+```
+
+**2. In workersApi.ts updateWorkExperience():**
+```typescript
+async updateWorkExperience(id: string, data: { ... }): Promise<...> {
+  const apiData: Record<string, unknown> = {}
+
+  if (data.startDate !== undefined) apiData.start_date = data.startDate  // ✅ Convert
+  if (data.endDate !== undefined) apiData.end_date = data.endDate  // ✅ Convert
+  if (data.current !== undefined) apiData.is_current = data.current  // ✅ Convert
+  // ... other fields
+
+  return this.request(`/api/profile/work-experience/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(apiData),
+  })
+}
+```
+
+**3. In useWorkExperience.ts fetchWorkExperience():**
+```typescript
+const convertToCamelCase = (item: Record<string, unknown>): WorkExperience => {
+  const converted: Record<string, unknown> = {}
+  Object.entries(item).forEach(([key, value]) => {
+    if (key === 'start_date') converted.startDate = value  // ✅ Convert
+    else if (key === 'end_date') converted.endDate = value  // ✅ Convert
+    else if (key === 'is_current') converted.current = value  // ✅ Convert
+    else converted[key] = value
+  })
+  return converted as unknown as WorkExperience
+}
+
+// When fetching:
+const convertedData = response.workExperience.map(item =>
+  convertToCamelCase(item as Record<string, unknown>)
+)
+setWorkExperience(convertedData)
+```
+
+**Benefits:**
+- Resume import now successfully creates work experience entries
+- Manual work experience creation/editing works correctly
+- Consistent field naming across profile and work experience
+- No backend changes required
+
+**Files modified:**
+- `src/lib/workersApi.ts` (create/update conversion)
+- `src/hooks/useWorkExperience.ts` (fetch conversion)
+
+---
+
 ## Complete Authentication Flow (After Fixes)
 
 ### 1. User Login
@@ -504,8 +615,9 @@ API request succeeds
 5. Database FTS schema fix (`62ba9ea`)
 6. API response field name fix (`585697d`)
 7. Profile update field name conversion (`7c35982`, `5046dd6`, `0fbcc0b`)
+8. Work experience field name conversion (`d794210`)
 
-**GitHub Actions:** ✅ Deployment completed at 2026-01-03 04:35 UTC
+**GitHub Actions:** ✅ Deployment completed at 2026-01-03 04:42 UTC
 
 ---
 
@@ -621,9 +733,9 @@ Since they're not used, clean up the dashboard:
 
 ---
 
-**Last Updated:** 2026-01-03 04:35 UTC
-**Deployment:** ✅ Complete (all 7 fixes deployed)
-**Next:** Test authentication and profile functionality end-to-end
+**Last Updated:** 2026-01-03 04:42 UTC
+**Deployment:** ✅ Complete (all 8 fixes deployed)
+**Next:** Test authentication, profile, and work experience functionality end-to-end
 
 ---
 
@@ -637,6 +749,7 @@ Since they're not used, clean up the dashboard:
 | 4 | 401 on all API calls | WorkersAPI sent full session JSON as token | Extract `access_token` field from session | `2acdf6a` |
 | 5 | 500 on profile update | FTS virtual table column mismatch | Remove `content=` parameter, make standalone FTS | `62ba9ea` |
 | 6 | React crash on login | API returned `experiences` but frontend expected `workExperience` | Rename response field to match frontend | `585697d` |
-| 7 | Profile updates not saved | Frontend sent camelCase but API expected snake_case | Add bidirectional field name conversion | `7c35982`, `5046dd6`, `0fbcc0b` |
+| 7 | Profile updates not saved | Frontend sent camelCase but API expected snake_case | Add bidirectional field name conversion (profile) | `7c35982`, `5046dd6`, `0fbcc0b` |
+| 8 | Work experience creation failed | Frontend sent camelCase but API expected snake_case | Add bidirectional field name conversion (work exp) | `d794210` |
 
-**All fixes deployed:** ✅ Successfully deployed at 2026-01-03 04:35 UTC
+**All fixes deployed:** ✅ Successfully deployed at 2026-01-03 04:42 UTC
