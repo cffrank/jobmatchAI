@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
+import { supabase } from '@/lib/supabase'
 import type { ParsedJobResult } from '@/types/job-parser'
 
 /**
@@ -23,8 +24,9 @@ export function useJobParser() {
     setError(null)
 
     try {
-      const token = localStorage.getItem('jobmatch-auth-token')
-      if (!token) {
+      // Get current session token from Supabase (consistent with other hooks)
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) {
         throw new Error('Not authenticated')
       }
 
@@ -33,7 +35,7 @@ export function useJobParser() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({ text }),
       })
