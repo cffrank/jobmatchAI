@@ -1,30 +1,52 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
-import { supabase } from '@/lib/supabase'
-import type { Database } from '@/types/supabase'
 
-type GapAnalysisRow = Database['public']['Tables']['gap_analyses']['Row']
-type GapAnalysisAnswerRow = Database['public']['Tables']['gap_analysis_answers']['Row']
+export interface GapAnalysisAnswer {
+  id: string
+  gap_analysis_id: string
+  user_id: string
+  question_id: number
+  priority: string
+  gap_addressed: string
+  question: string
+  context: string
+  expected_outcome: string
+  answer: string | null
+  created_at: string
+  updated_at: string
+}
 
-export interface GapAnalysisWithAnswers extends GapAnalysisRow {
-  answers: GapAnalysisAnswerRow[]
+export interface GapAnalysis {
+  id: string
+  user_id: string
+  created_at: string
+  updated_at: string
+  gap_count: number
+  red_flag_count: number
+  urgency: string
+  overall_assessment: string
+  identified_gaps_and_flags: unknown[]
+  next_steps: unknown
+  answers: GapAnalysisAnswer[]
 }
 
 /**
- * Hook to manage gap analysis data from Supabase
+ * Hook to manage gap analysis data from Workers API
  */
 export function useGapAnalysis() {
-  const { user } = useAuth()
+  const { user, session } = useAuth()
   const userId = user?.id
 
-  const [gapAnalyses, setGapAnalyses] = useState<GapAnalysisWithAnswers[]>([])
-  const [latestGapAnalysis, setLatestGapAnalysis] = useState<GapAnalysisWithAnswers | null>(null)
+  const [gapAnalyses, setGapAnalyses] = useState<GapAnalysis[]>([])
+  const [latestGapAnalysis, setLatestGapAnalysis] = useState<GapAnalysis | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
 
+  const backendUrl = import.meta.env.VITE_API_URL
+
   // Fetch gap analyses
   useEffect(() => {
-    if (!userId) {
+    if (!userId || !session) {
       setGapAnalyses([])
       setLatestGapAnalysis(null)
       setLoading(false)
@@ -37,41 +59,19 @@ export function useGapAnalysis() {
       try {
         setLoading(true)
 
-        // Fetch all gap analyses for user
-        const { data: analysesData, error: analysesError } = await supabase
-          .from('gap_analyses')
-          .select('*')
-          .eq('user_id', userId)
-          .order('created_at', { ascending: false })
+        // Fetch all gap analyses for user from Workers API
+        const response = await fetch(`${backendUrl}/api/gap-analyses`, {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+        })
 
-        if (analysesError) throw analysesError
-
-        if (!analysesData || analysesData.length === 0) {
-          if (subscribed) {
-            setGapAnalyses([])
-            setLatestGapAnalysis(null)
-            setLoading(false)
-          }
-          return
+        if (!response.ok) {
+          throw new Error(`Failed to fetch gap analyses: ${response.statusText}`)
         }
 
-        // Fetch answers for each analysis
-        const analysesWithAnswers: GapAnalysisWithAnswers[] = await Promise.all(
-          analysesData.map(async (analysis) => {
-            const { data: answersData, error: answersError } = await supabase
-              .from('gap_analysis_answers')
-              .select('*')
-              .eq('gap_analysis_id', analysis.id)
-              .order('question_id', { ascending: true })
-
-            if (answersError) {
-              console.error('Error fetching answers:', answersError)
-              return { ...analysis, answers: [] }
-            }
-
-            return { ...analysis, answers: answersData || [] }
-          })
-        )
+        const analysesWithAnswers: GapAnalysis[] = await response.json()
 
         if (subscribed) {
           setGapAnalyses(analysesWithAnswers)
@@ -94,38 +94,88 @@ export function useGapAnalysis() {
     return () => {
       subscribed = false
     }
-  }, [userId])
+  }, [userId, session, backendUrl])
 
   /**
    * Get gap analysis by ID
    */
-  const getGapAnalysisById = async (id: string): Promise<GapAnalysisWithAnswers | null> => {
-    if (!userId) throw new Error('User not authenticated')
+  const getGapAnalysisById = async (id: string): Promise<GapAnalysis | null> => {
+    if (!userId || !session) throw new Error('User not authenticated')
 
     try {
-      const { data: analysisData, error: analysisError } = await supabase
-        .from('gap_analyses')
-        .select('*')
-        .eq('id', id)
-        .eq('user_id', userId)
-        .single()
+      const response = await fetch(`${backendUrl}/api/gap-analyses/${id}`, {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+      })
 
-      if (analysisError) throw analysisError
-
-      const { data: answersData, error: answersError } = await supabase
-        .from('gap_analysis_answers')
-        .select('*')
-        .eq('gap_analysis_id', id)
-        .order('question_id', { ascending: true })
-
-      if (answersError) throw answersError
-
-      return {
-        ...analysisData,
-        answers: answersData || [],
+      if (!response.ok) {
+        throw new Error(`Failed to fetch gap analysis: ${response.statusText}`)
       }
+
+      const analysis: GapAnalysis = await response.json()
+      return analysis
     } catch (err) {
       console.error('Error fetching gap analysis:', err)
+      throw err
+    }
+  }
+
+  /**
+   * Update answer to a gap analysis question
+   */
+  const updateAnswer = async (analysisId: string, questionId: number, answer: string) => {
+    if (!userId || !session) throw new Error('User not authenticated')
+
+    try {
+      const response = await fetch(`${backendUrl}/api/gap-analyses/${analysisId}/answer`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ question_id: questionId, answer }),
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed to update answer: ${response.statusText}`)
+      }
+
+      // Update local state
+      setGapAnalyses((prev) =>
+        prev.map((analysis) => {
+          if (analysis.id === analysisId) {
+            return {
+              ...analysis,
+              answers: analysis.answers.map((a) =>
+                a.question_id === questionId ? { ...a, answer, updated_at: new Date().toISOString() } : a
+              ),
+              updated_at: new Date().toISOString(),
+            }
+          }
+          return analysis
+        })
+      )
+
+      // Update latest if needed
+      if (latestGapAnalysis?.id === analysisId) {
+        setLatestGapAnalysis((prev) =>
+          prev
+            ? {
+                ...prev,
+                answers: prev.answers.map((a) =>
+                  a.question_id === questionId ? { ...a, answer, updated_at: new Date().toISOString() } : a
+                ),
+                updated_at: new Date().toISOString(),
+              }
+            : null
+        )
+      }
+
+      return true
+    } catch (err) {
+      console.error('Error updating answer:', err)
       throw err
     }
   }
@@ -134,20 +184,31 @@ export function useGapAnalysis() {
    * Delete gap analysis
    */
   const deleteGapAnalysis = async (id: string) => {
-    if (!userId) throw new Error('User not authenticated')
+    if (!userId || !session) throw new Error('User not authenticated')
 
-    const { error: deleteError } = await supabase
-      .from('gap_analyses')
-      .delete()
-      .eq('id', id)
-      .eq('user_id', userId)
+    try {
+      const response = await fetch(`${backendUrl}/api/gap-analyses/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+      })
 
-    if (deleteError) throw deleteError
+      if (!response.ok) {
+        throw new Error(`Failed to delete gap analysis: ${response.statusText}`)
+      }
 
-    // Update local state
-    setGapAnalyses((prev) => prev.filter((analysis) => analysis.id !== id))
-    if (latestGapAnalysis?.id === id) {
-      setLatestGapAnalysis(gapAnalyses.find((a) => a.id !== id) || null)
+      // Update local state
+      setGapAnalyses((prev) => prev.filter((analysis) => analysis.id !== id))
+      if (latestGapAnalysis?.id === id) {
+        setLatestGapAnalysis(gapAnalyses.find((a) => a.id !== id) || null)
+      }
+
+      return true
+    } catch (err) {
+      console.error('Error deleting gap analysis:', err)
+      throw err
     }
   }
 
@@ -157,6 +218,7 @@ export function useGapAnalysis() {
     loading,
     error,
     getGapAnalysisById,
+    updateAnswer,
     deleteGapAnalysis,
   }
 }

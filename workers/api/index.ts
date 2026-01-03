@@ -34,6 +34,7 @@ import profileRouter from './routes/profile';
 import skillsRouter from './routes/skills';
 import analyticsRouter from './routes/analytics';
 import filesRouter from './routes/files';
+import gapAnalysesRouter from './routes/gap_analyses';
 
 // Scheduled jobs
 import { handleScheduledJobs } from '../scheduled';
@@ -177,6 +178,7 @@ app.route('/api/profile', profileRouter);
 app.route('/api/skills', skillsRouter);
 app.route('/api/analytics', analyticsRouter);
 app.route('/api/files', filesRouter); // Phase 3.3: File download endpoints
+app.route('/api/gap-analyses', gapAnalysesRouter); // Gap analysis feature
 
 // =============================================================================
 // API Documentation (development only)
@@ -238,6 +240,13 @@ app.get('/api', (c) => {
         'GET /api/analytics/cache': 'Cache efficiency metrics',
         'GET /api/analytics/models': 'Model performance comparison',
         'GET /api/analytics/cost-savings': 'Cost savings estimates',
+      },
+      gapAnalyses: {
+        'GET /api/gap-analyses': 'List user gap analyses',
+        'GET /api/gap-analyses/:id': 'Get gap analysis with answers',
+        'POST /api/gap-analyses': 'Create gap analysis',
+        'PATCH /api/gap-analyses/:id/answer': 'Update answer to question',
+        'DELETE /api/gap-analyses/:id': 'Delete gap analysis',
       },
     },
     authentication: 'Bearer token in Authorization header',
