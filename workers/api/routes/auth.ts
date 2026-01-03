@@ -12,7 +12,7 @@ import { Hono } from 'hono';
 import type { Context } from 'hono';
 import { z } from 'zod';
 import type { Env, Variables } from '../types';
-import { HttpError, TABLES } from '../types';
+import { HttpError } from '../types';
 import { authenticateUser, getUserId } from '../middleware/auth';
 import { rateLimiter, ipRateLimiter } from '../middleware/rateLimiter';
 
@@ -269,7 +269,7 @@ async function importProfileToDatabase(
 
   // Build update parts
   const updateParts: string[] = [];
-  const params: any[] = [];
+  const params: (string | boolean)[] = [];
 
   updateParts.push('linkedin_imported = ?');
   params.push(true);

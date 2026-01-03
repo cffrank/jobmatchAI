@@ -18,12 +18,17 @@ const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 // Helper Functions
 // =============================================================================
 
+interface ContextWithExecutionContext {
+  executionCtx: {
+    waitUntil(promise: Promise<unknown>): void;
+  };
+}
+
 /**
  * Helper to trigger background updates after skills changes
  */
 function triggerSkillsChangeBackgroundUpdates(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  c: any,
+  c: ContextWithExecutionContext,
   env: Env,
   userId: string
 ): void {
@@ -166,7 +171,7 @@ app.patch('/:id', authenticateUser, async (c) => {
 
     // Build dynamic UPDATE query based on fields provided
     const updates: string[] = [];
-    const values: any[] = [];
+    const values: (string | null)[] = [];
 
     if (parseResult.data.name !== undefined) {
       updates.push('name = ?');

@@ -151,7 +151,7 @@ app.patch('/', authenticateUser, async (c) => {
 
     // Build dynamic UPDATE query
     const updateFields: string[] = [];
-    const values: any[] = [];
+    const values: unknown[] = [];
 
     Object.entries(parseResult.data).forEach(([key, value]) => {
       updateFields.push(`${key} = ?`);
@@ -326,7 +326,7 @@ app.patch('/work-experience/:id', authenticateUser, async (c) => {
 
     // Build dynamic UPDATE query
     const updateFields: string[] = [];
-    const values: any[] = [];
+    const values: unknown[] = [];
 
     Object.entries(parseResult.data).forEach(([key, value]) => {
       updateFields.push(`${key} = ?`);
@@ -537,7 +537,7 @@ app.patch('/skills/:id', authenticateUser, async (c) => {
 
     // Build dynamic UPDATE query
     const updateFields: string[] = [];
-    const values: any[] = [];
+    const values: unknown[] = [];
 
     if (parseResult.data.name !== undefined) {
       updateFields.push('name = ?');
@@ -757,7 +757,7 @@ app.patch('/education/:id', authenticateUser, async (c) => {
 
     // Build dynamic UPDATE query with field mapping
     const updateFields: string[] = [];
-    const values: any[] = [];
+    const values: unknown[] = [];
 
     if (parseResult.data.school !== undefined) {
       updateFields.push('institution = ?');

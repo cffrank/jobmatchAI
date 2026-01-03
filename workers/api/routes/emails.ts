@@ -12,7 +12,6 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import type { Env, Variables, UserProfile, Application, ApplicationVariant, SendEmailResponse } from '../types';
-import { TABLES } from '../types';
 import { authenticateUser, getUserId } from '../middleware/auth';
 import { rateLimiter } from '../middleware/rateLimiter';
 import { createNotFoundError, createValidationError } from '../middleware/errorHandler';
@@ -22,6 +21,22 @@ import { createNotFoundError, createValidationError } from '../middleware/errorH
 // =============================================================================
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
+
+// =============================================================================
+// Types
+// =============================================================================
+
+interface VariantRecord {
+  id: string;
+  name: string;
+  resume: ApplicationVariant['resume'];
+  cover_letter: string;
+  ai_rationale?: string[];
+}
+
+interface CountResult {
+  count: number;
+}
 
 // =============================================================================
 // Validation Schemas
@@ -108,7 +123,7 @@ app.post('/send', authenticateUser, rateLimiter({ maxRequests: 10, windowMs: 60 
 
   // Find selected variant or use first one
   const selectedVariantRecord =
-    variants.find((v: any) => v.id === applicationRecord.selected_variant_id) || variants[0];
+    variants.find((v: VariantRecord) => v.id === applicationRecord.selected_variant_id) || variants[0];
 
   if (!selectedVariantRecord) {
     throw createNotFoundError('Selected variant');
@@ -240,7 +255,7 @@ app.get('/history', authenticateUser, async (c) => {
 
   // Build query for D1
   let query = 'SELECT * FROM email_history WHERE user_id = ?';
-  const params: any[] = [userId];
+  const params: (string | number)[] = [userId];
 
   if (applicationId) {
     query += ' AND application_id = ?';
@@ -255,7 +270,7 @@ app.get('/history', authenticateUser, async (c) => {
 
   // Get total count
   let countQuery = 'SELECT COUNT(*) as count FROM email_history WHERE user_id = ?';
-  const countParams: any[] = [userId];
+  const countParams: string[] = [userId];
 
   if (applicationId) {
     countQuery += ' AND application_id = ?';
@@ -263,7 +278,7 @@ app.get('/history', authenticateUser, async (c) => {
   }
 
   const { results: countResults } = await c.env.DB.prepare(countQuery).bind(...countParams).all();
-  const count = (countResults[0] as any)?.count || 0;
+  const count = (countResults[0] as CountResult)?.count || 0;
 
   return c.json({
     emails: emails || [],
@@ -288,7 +303,7 @@ app.get('/remaining', authenticateUser, async (c) => {
     'SELECT COUNT(*) as count FROM email_history WHERE user_id = ? AND sent_at >= ?'
   ).bind(userId, oneHourAgo).all();
 
-  const sent = (countResults[0] as any)?.count || 0;
+  const sent = (countResults[0] as CountResult)?.count || 0;
   const limit = 10;
   const remaining = Math.max(0, limit - sent);
 

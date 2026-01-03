@@ -161,7 +161,7 @@ app.get('/', authenticateUser, async (c) => {
 
   // Build dynamic query
   const conditions: string[] = ['user_id = ?', 'is_archived = ?'];
-  const params: any[] = [userId, archived ? 1 : 0];
+  const params: (string | number)[] = [userId, archived ? 1 : 0];
 
   if (saved !== undefined) {
     conditions.push('is_saved = ?');
@@ -213,7 +213,7 @@ app.get('/', authenticateUser, async (c) => {
     .bind(...countParams)
     .all();
 
-  const count = (countResults[0] as any)?.count || 0;
+  const count = (countResults[0] as { count: number } | undefined)?.count || 0;
 
   const response: ListJobsResponse = {
     jobs: jobs || [],
@@ -306,7 +306,7 @@ app.post('/search', authenticateUser, rateLimiter(), async (c) => {
         .all();
 
       // Sort jobs by semantic score (maintain Vectorize ranking)
-      const jobsMap = new Map(jobs?.map((j: any) => [j.id, j]) || []);
+      const jobsMap = new Map(jobs?.map((j) => [j.id as string, j]) || []);
       const sortedJobs = results
         .map((r) => jobsMap.get(r.metadata.jobId))
         .filter(Boolean);
@@ -345,7 +345,7 @@ app.post('/search', authenticateUser, rateLimiter(), async (c) => {
         .all();
 
       // Sort jobs by combined score (maintain hybrid ranking)
-      const jobsMap = new Map(jobs?.map((j: any) => [j.id, j]) || []);
+      const jobsMap = new Map(jobs?.map((j) => [j.id as string, j]) || []);
       const sortedJobs = results
         .map((r) => jobsMap.get(r.jobId))
         .filter(Boolean);
@@ -441,7 +441,7 @@ app.patch('/:id', authenticateUser, async (c) => {
 
   // Build dynamic UPDATE query
   const updateFields: string[] = [];
-  const values: any[] = [];
+  const values: (string | number)[] = [];
 
   if (updates.isSaved !== undefined) {
     updateFields.push('is_saved = ?');

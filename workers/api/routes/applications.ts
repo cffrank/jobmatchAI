@@ -303,7 +303,7 @@ app.get('/', authenticateUser, async (c) => {
 
   // Build query with optional status filter
   let query = 'SELECT * FROM applications WHERE user_id = ?';
-  const params: any[] = [userId];
+  const params: unknown[] = [userId];
 
   if (status) {
     query += ' AND status = ?';
@@ -319,7 +319,7 @@ app.get('/', authenticateUser, async (c) => {
 
   // Get total count
   let countQuery = 'SELECT COUNT(*) as count FROM applications WHERE user_id = ?';
-  const countParams: any[] = [userId];
+  const countParams: unknown[] = [userId];
 
   if (status) {
     countQuery += ' AND status = ?';
@@ -330,7 +330,7 @@ app.get('/', authenticateUser, async (c) => {
     .bind(...countParams)
     .all();
 
-  const count = (countResults[0] as any)?.count || 0;
+  const count = (countResults[0] as Record<string, number>)?.count || 0;
 
   return c.json({
     applications: applications || [],
@@ -397,7 +397,7 @@ app.patch('/:id', authenticateUser, async (c) => {
 
   // Build dynamic UPDATE query
   const updateFields: string[] = [];
-  const values: any[] = [];
+  const values: unknown[] = [];
 
   if (updates.status !== undefined) {
     updateFields.push('status = ?');

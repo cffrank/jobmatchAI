@@ -315,12 +315,17 @@ app.patch('/gap-analysis/:id/answer', authenticateUser, rateLimiter(), async (c)
       return c.json({ error: 'Gap analysis not found' }, 404);
     }
 
+    interface Question {
+      question_id: number;
+      answer?: string;
+    }
+
     // Parse clarification_questions from JSON
-    const questions = analysis.clarification_questions
+    const questions: Question[] = analysis.clarification_questions
       ? JSON.parse(analysis.clarification_questions as string)
       : [];
 
-    const questionIndex = questions.findIndex((q: any) => q.question_id === question_id);
+    const questionIndex = questions.findIndex((q) => q.question_id === question_id);
 
     if (questionIndex === -1) {
       return c.json({ error: 'Question not found' }, 404);
@@ -330,7 +335,7 @@ app.patch('/gap-analysis/:id/answer', authenticateUser, rateLimiter(), async (c)
     questions[questionIndex].answer = answer;
 
     // Count how many questions have been answered
-    const answeredCount = questions.filter((q: any) => q.answer && q.answer.trim().length > 0).length;
+    const answeredCount = questions.filter((q) => q.answer && q.answer.trim().length > 0).length;
 
     // Update status based on progress
     let status = analysis.status as string;

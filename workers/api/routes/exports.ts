@@ -16,7 +16,6 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import type { Env, Variables, ApplicationVariant, UserProfile } from '../types';
-import { TABLES, BUCKETS } from '../types';
 import { authenticateUser, getUserId } from '../middleware/auth';
 import { rateLimiter } from '../middleware/rateLimiter';
 import { createNotFoundError, createValidationError } from '../middleware/errorHandler';
@@ -267,7 +266,7 @@ async function fetchApplicationData(env: Env, userId: string, applicationId: str
 
   // Find selected variant or use first one
   const selectedVariant =
-    variants.find((v: any) => v.id === application.selected_variant_id) || variants[0];
+    variants.find((v: ApplicationVariant) => v.id === application.selected_variant_id) || variants[0];
 
   if (!selectedVariant) {
     throw createNotFoundError('Selected variant');
