@@ -2,7 +2,7 @@
 
 **Date:** 2026-01-03
 **Status:** All fixes deployed ✅
-**Final Commit:** `bb52f22` - "fix: add null check when mapping work experience data"
+**Final Commit:** `313a644` - "fix: add null safety for education highlights to prevent crashes"
 
 ---
 
@@ -617,8 +617,9 @@ API request succeeds
 7. Profile update field name conversion (`7c35982`, `5046dd6`, `0fbcc0b`)
 8. Work experience field name conversion (`d794210`)
 9. Work experience null safety check (`bb52f22`)
+10. Education highlights null safety check (`313a644`)
 
-**GitHub Actions:** ✅ Deployment completed at 2026-01-03 04:52 UTC
+**GitHub Actions:** ✅ Deployment completed at 2026-01-03 06:00 UTC
 
 ---
 
@@ -734,9 +735,9 @@ Since they're not used, clean up the dashboard:
 
 ---
 
-**Last Updated:** 2026-01-03 04:52 UTC
-**Deployment:** ✅ Complete (all 9 fixes deployed)
-**Next:** Test authentication, profile, and work experience functionality end-to-end
+**Last Updated:** 2026-01-03 06:00 UTC
+**Deployment:** ✅ Complete (all 10 fixes deployed)
+**Next:** Test authentication, profile, work experience, and education functionality end-to-end
 
 ---
 
@@ -753,8 +754,9 @@ Since they're not used, clean up the dashboard:
 | 7 | Profile updates not saved | Frontend sent camelCase but API expected snake_case | Add bidirectional field name conversion (profile) | `7c35982`, `5046dd6`, `0fbcc0b` |
 | 8 | Work experience creation failed | Frontend sent camelCase but API expected snake_case | Add bidirectional field name conversion (work exp) | `d794210` |
 | 9 | React crash on page load | `response.workExperience.map()` called without null check | Add `|| []` fallback for null safety | `bb52f22` |
+| 10 | React crash on education display | `edu.highlights.length` called without null check | Add optional chaining `?.length ?? 0` for highlights | `313a644` |
 
-**All fixes deployed:** ✅ Successfully deployed at 2026-01-03 04:52 UTC
+**All fixes deployed:** ✅ Successfully deployed at 2026-01-03 06:00 UTC
 
 ---
 
@@ -796,6 +798,56 @@ const convertedData = (response.workExperience || []).map(item =>
 - `src/hooks/useWorkExperience.ts` (null safety check)
 
 **Deployment:** ✅ Deployed at 2026-01-03 04:52 UTC
+
+---
+
+### 10. ✅ React Crash on Education Highlights (Null Safety)
+**Commit:** `313a644` - "fix: add null safety for education highlights to prevent crashes"
+
+**Problem:**
+- React crashing with `TypeError: can't access property "length", g.highlights is undefined`
+- App displayed error screen when rendering education entries
+- Happened when education records had `undefined` or `null` highlights field
+
+**Root Cause:**
+Three components accessed `highlights.length` without null checking:
+- `EducationList.tsx:103` - `edu.highlights.length > 0`
+- `ResumePreview.tsx:207` - `edu.highlights.length > 0`
+- `EducationForm.tsx:42` - `existingEducation.highlights.length > 0`
+
+When the API returned education records with `highlights: undefined` or `highlights: null`, these checks crashed immediately.
+
+**Fix:**
+Added optional chaining and nullish coalescing for all three locations:
+
+```typescript
+// Before (BROKEN):
+{edu.highlights.length > 0 && (
+  <ul>
+    {edu.highlights.map(...)}
+  </ul>
+)}
+
+// After (FIXED):
+{(edu.highlights?.length ?? 0) > 0 && (
+  <ul>
+    {edu.highlights.map(...)}
+  </ul>
+)}
+```
+
+**Benefits:**
+- App no longer crashes for education records with missing highlights
+- Graceful handling of undefined/null arrays
+- Consistent with Fix #9 (work experience null safety)
+- Better defensive programming pattern
+
+**Files modified:**
+- `src/sections/profile-resume-management/components/EducationList.tsx`
+- `src/sections/profile-resume-management/components/ResumePreview.tsx`
+- `src/sections/profile-resume-management/components/EducationForm.tsx`
+
+**Deployment:** ✅ Deployed at 2026-01-03 06:00 UTC
 
 ---
 
