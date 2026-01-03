@@ -96,10 +96,11 @@ const educationSchema = z.object({
 
 /**
  * GET /api/profile
- * Fetch user profile
+ * Fetch user profile (auto-creates if doesn't exist for Supabase Auth users)
  */
 app.get('/', authenticateUser, async (c) => {
   const userId = getUserId(c);
+  const userEmail = c.get('userEmail');
 
   try {
     const { results } = await c.env.DB.prepare(
@@ -108,10 +109,34 @@ app.get('/', authenticateUser, async (c) => {
       .bind(userId)
       .all();
 
-    const profile = results[0];
+    let profile = results[0];
+
+    // Auto-create user profile if doesn't exist (migration from Supabase Auth)
+    if (!profile && userEmail) {
+      console.log(`[Profile] Auto-creating D1 profile for Supabase Auth user: ${userId}`);
+
+      await c.env.DB.prepare(
+        `INSERT INTO users (
+          id, email, created_at, updated_at
+        ) VALUES (?, ?, datetime('now'), datetime('now'))`
+      )
+        .bind(userId, userEmail)
+        .run();
+
+      // Fetch the newly created profile
+      const { results: newResults } = await c.env.DB.prepare(
+        'SELECT * FROM users WHERE id = ?'
+      )
+        .bind(userId)
+        .all();
+
+      profile = newResults[0];
+
+      console.log(`[Profile] D1 profile created successfully for user: ${userId}`);
+    }
 
     if (!profile) {
-      return c.json({ error: 'Profile not found' }, 404);
+      return c.json({ error: 'Profile not found and could not be created' }, 404);
     }
 
     return c.json({
