@@ -219,8 +219,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
       description: 'Please check your email to verify your account.',
     })
 
-    // Initialize session for new user
-    initializeSession(data.user)
+    // Session will be initialized by auth state change listener
+    // (prevents duplicate session creation)
   }, [])
 
   const signIn = useCallback(async (email: string, password: string) => {
@@ -234,8 +234,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     if (error) throw error
     if (!data.user) throw new Error('Failed to sign in')
 
-    // Regenerate session to prevent session fixation
-    initializeSession(data.user)
+    // Session will be initialized by auth state change listener
+    // (prevents duplicate session creation)
   }, [])
 
   const signInWithGoogle = useCallback(async () => {

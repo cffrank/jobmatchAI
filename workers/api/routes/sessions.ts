@@ -36,6 +36,7 @@ interface SessionData {
   device_os: string | null;
   browser: string | null;
   ip_address: string | null;
+  location: string | null;
   user_agent: string | null;
   last_active: string;
   expires_at: string;
@@ -103,6 +104,15 @@ app.post('/', authenticateUser, async (c: HonoContext) => {
     const now = new Date();
     const expiresAt = new Date(now.getTime() + SESSION_TTL * 1000);
 
+    // Extract geolocation from Cloudflare request (free and fast!)
+    const cf = c.req.raw.cf;
+    const clientIp = c.req.header('CF-Connecting-IP') || c.req.header('X-Forwarded-For') || 'Unknown IP';
+    const location = cf?.city && cf?.region
+      ? `${cf.city}, ${cf.region}`
+      : cf?.country
+        ? cf.country as string
+        : 'Unknown Location';
+
     // Check if session already exists (for updated_at logic)
     const kvKey = `user:${userId}:${session_id}`;
     const existingSessionJson = await c.env.SESSIONS.get(kvKey);
@@ -114,7 +124,8 @@ app.post('/', authenticateUser, async (c: HonoContext) => {
       device_type: deviceInfo.device_type ?? null,
       device_os: deviceInfo.device_os ?? null,
       browser: deviceInfo.browser ?? null,
-      ip_address: deviceInfo.ip_address ?? null,
+      ip_address: clientIp,  // Use Cloudflare-provided IP
+      location: location,  // Cloudflare geolocation (city, region, or country)
       user_agent: deviceInfo.user_agent ?? null,
       last_active: now.toISOString(),
       expires_at: expiresAt.toISOString(),
