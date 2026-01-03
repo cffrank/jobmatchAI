@@ -25,6 +25,31 @@ export function useWorkExperience() {
 
     let subscribed = true
 
+    /**
+     * Convert snake_case field names from API to camelCase for frontend
+     */
+    const convertToCamelCase = (item: Record<string, unknown>): WorkExperience => {
+      const converted: Record<string, unknown> = {}
+      Object.entries(item).forEach(([key, value]) => {
+        if (key === 'start_date') {
+          converted.startDate = value
+        } else if (key === 'end_date') {
+          converted.endDate = value
+        } else if (key === 'is_current') {
+          converted.current = value
+        } else if (key === 'user_id') {
+          converted.userId = value
+        } else if (key === 'created_at') {
+          converted.createdAt = value
+        } else if (key === 'updated_at') {
+          converted.updatedAt = value
+        } else {
+          converted[key] = value
+        }
+      })
+      return converted as unknown as WorkExperience
+    }
+
     // Fetch initial work experience entries via Workers API
     const fetchWorkExperience = async () => {
       try {
@@ -32,7 +57,11 @@ export function useWorkExperience() {
         const response = await workersApi.getWorkExperience()
 
         if (subscribed) {
-          setWorkExperience(response.workExperience as WorkExperience[])
+          // Convert snake_case from API to camelCase for frontend
+          const convertedData = response.workExperience.map(item =>
+            convertToCamelCase(item as Record<string, unknown>)
+          )
+          setWorkExperience(convertedData)
           setError(null)
         }
       } catch (err) {

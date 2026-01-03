@@ -463,9 +463,22 @@ export class WorkersAPI {
     current?: boolean;
     accomplishments?: string[];
   }): Promise<{ success: boolean; message: string; workExperience: unknown }> {
+    // Convert camelCase to snake_case for Workers API
+    const apiData: Record<string, unknown> = {
+      company: data.company,
+      position: data.position,
+      start_date: data.startDate,
+    }
+
+    if (data.location !== undefined) apiData.location = data.location
+    if (data.description !== undefined) apiData.description = data.description
+    if (data.endDate !== undefined) apiData.end_date = data.endDate
+    if (data.current !== undefined) apiData.is_current = data.current
+    if (data.accomplishments !== undefined) apiData.accomplishments = data.accomplishments
+
     return this.request('/api/profile/work-experience', {
       method: 'POST',
-      body: JSON.stringify(data),
+      body: JSON.stringify(apiData),
     });
   }
 
@@ -485,9 +498,21 @@ export class WorkersAPI {
       accomplishments?: string[];
     }
   ): Promise<{ success: boolean; message: string; workExperience: unknown }> {
+    // Convert camelCase to snake_case for Workers API
+    const apiData: Record<string, unknown> = {}
+
+    if (data.company !== undefined) apiData.company = data.company
+    if (data.position !== undefined) apiData.position = data.position
+    if (data.location !== undefined) apiData.location = data.location
+    if (data.description !== undefined) apiData.description = data.description
+    if (data.startDate !== undefined) apiData.start_date = data.startDate
+    if (data.endDate !== undefined) apiData.end_date = data.endDate
+    if (data.current !== undefined) apiData.is_current = data.current
+    if (data.accomplishments !== undefined) apiData.accomplishments = data.accomplishments
+
     return this.request(`/api/profile/work-experience/${id}`, {
       method: 'PATCH',
-      body: JSON.stringify(data),
+      body: JSON.stringify(apiData),
     });
   }
 
