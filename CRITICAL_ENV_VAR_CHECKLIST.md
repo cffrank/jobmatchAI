@@ -94,15 +94,20 @@ https://jobmatch-ai-dev.carl-f-frank.workers.dev/api/users/:userId/exists
 
 ## Current Status
 
-As of 2026-01-03:
+As of 2026-01-03 22:35 UTC:
 
 | Environment | VITE_API_URL Configured? | Status |
 |-------------|--------------------------|--------|
-| Development | ⚠️ **NEEDS VERIFICATION** | Tests passing (may be using build-time var) |
+| Development | ✅ **CONFIGURED** | Deployed (version 27e00b2d), fixes applied |
 | Staging | ⚠️ **NEEDS VERIFICATION** | Not tested |
 | Production | ⚠️ **NEEDS VERIFICATION** | Not tested |
 
-**Next Action:** Verify this environment variable is set in Cloudflare Pages dashboard for all three environments.
+**Recent Changes:**
+- Deployed fixes for duplicate session creation and IP geolocation rate limiting
+- Development environment now using Cloudflare's built-in geolocation (no external API)
+- Session creation verified working via API endpoint test
+
+**Next Action:** Deploy to staging, then production after 24-hour monitoring period.
 
 ---
 
