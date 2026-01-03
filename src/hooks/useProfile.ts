@@ -93,6 +93,31 @@ export function useProfile() {
   }, [userId])
 
   /**
+   * Convert camelCase field names to snake_case for Workers API
+   */
+  const convertToSnakeCase = (data: Record<string, unknown>): Record<string, unknown> => {
+    const fieldMap: Record<string, string> = {
+      firstName: 'first_name',
+      lastName: 'last_name',
+      linkedInUrl: 'linkedin_url',
+      photoUrl: 'photo_url',
+      headline: 'current_title',
+      summary: 'professional_summary',
+      streetAddress: 'street_address',
+      postalCode: 'postal_code',
+      profileImageUrl: 'photo_url',
+    }
+
+    const converted: Record<string, unknown> = {}
+    Object.entries(data).forEach(([key, value]) => {
+      const snakeKey = fieldMap[key] || key
+      converted[snakeKey] = value
+    })
+
+    return converted
+  }
+
+  /**
    * Create or update user profile via Workers API
    */
   const updateProfile = async (data: Partial<Omit<User, 'id'>>) => {
@@ -104,13 +129,16 @@ export function useProfile() {
       throw new Error('No authentication token available')
     }
 
+    // Convert camelCase to snake_case for Workers API
+    const snakeCaseData = convertToSnakeCase(data as Record<string, unknown>)
+
     const response = await fetch(`${BACKEND_URL}/api/profile`, {
       method: 'PATCH',
       headers: {
         'Authorization': `Bearer ${session.access_token}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(data),
+      body: JSON.stringify(snakeCaseData),
     })
 
     if (!response.ok) {
