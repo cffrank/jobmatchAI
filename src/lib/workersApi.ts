@@ -60,8 +60,17 @@ export class WorkersAPI {
 
   constructor() {
     this.baseURL = API_URL;
-    // Initialize token from localStorage
-    this.token = localStorage.getItem('jobmatch-auth-token');
+    // Initialize token from Supabase session in localStorage
+    try {
+      const sessionStr = localStorage.getItem('jobmatch-auth-token');
+      if (sessionStr) {
+        const session = JSON.parse(sessionStr);
+        this.token = session.access_token || null;
+      }
+    } catch (error) {
+      console.error('[WorkersAPI] Failed to parse session from localStorage:', error);
+      this.token = null;
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -84,9 +93,21 @@ export class WorkersAPI {
       ...options.headers as Record<string, string>,
     };
 
+    // Get fresh token from localStorage (Supabase may have refreshed it)
+    let currentToken: string | null = null;
+    try {
+      const sessionStr = localStorage.getItem('jobmatch-auth-token');
+      if (sessionStr) {
+        const session = JSON.parse(sessionStr);
+        currentToken = session.access_token || null;
+      }
+    } catch (error) {
+      console.error('[WorkersAPI] Failed to parse session from localStorage:', error);
+    }
+
     // Add auth token if available (except for public endpoints)
-    if (this.token && !endpoint.includes('/auth/login') && !endpoint.includes('/auth/signup')) {
-      headers.Authorization = `Bearer ${this.token}`;
+    if (currentToken && !endpoint.includes('/auth/login') && !endpoint.includes('/auth/signup')) {
+      headers.Authorization = `Bearer ${currentToken}`;
     }
 
     try {
