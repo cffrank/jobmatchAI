@@ -35,6 +35,7 @@ import skillsRouter from './routes/skills';
 import analyticsRouter from './routes/analytics';
 import filesRouter from './routes/files';
 import gapAnalysesRouter from './routes/gap_analyses';
+import sessionsRouter from './routes/sessions';
 
 // Scheduled jobs
 import { handleScheduledJobs } from '../scheduled';
@@ -179,6 +180,7 @@ app.route('/api/skills', skillsRouter);
 app.route('/api/analytics', analyticsRouter);
 app.route('/api/files', filesRouter); // Phase 3.3: File download endpoints
 app.route('/api/gap-analyses', gapAnalysesRouter); // Gap analysis feature
+app.route('/api/sessions', sessionsRouter); // Phase 1: KV-based session management
 
 // =============================================================================
 // API Documentation (development only)
@@ -247,6 +249,13 @@ app.get('/api', (c) => {
         'POST /api/gap-analyses': 'Create gap analysis',
         'PATCH /api/gap-analyses/:id/answer': 'Update answer to question',
         'DELETE /api/gap-analyses/:id': 'Delete gap analysis',
+      },
+      sessions: {
+        'POST /api/sessions': 'Create or update session (stored in KV with TTL)',
+        'PATCH /api/sessions/:sessionId': 'Update session last activity',
+        'GET /api/sessions': 'List active sessions for user',
+        'DELETE /api/sessions/:sessionId': 'Revoke session',
+        'GET /api/users/:userId/2fa-settings': 'Get 2FA settings',
       },
     },
     authentication: 'Bearer token in Authorization header',
