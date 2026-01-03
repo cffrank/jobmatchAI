@@ -195,6 +195,65 @@ async request<T>(endpoint: string, options: RequestInit = {}) {
 
 ---
 
+### 5. ✅ Database Schema Error on Profile Update
+**Commit:** `62ba9ea` - "fix: remove invalid content= parameter from users_fts virtual table"
+
+**Problem:**
+- Updating user profile returned 500 Internal Server Error
+- Error message: `D1_ERROR: no such column: T.user_id: SQLITE_ERROR`
+- FTS5 (Full-Text Search) virtual table `users_fts` had invalid configuration
+
+**Root Cause:**
+The `users_fts` FTS5 virtual table was configured with `content=users` to sync with the `users` table, but there was a column mismatch:
+- `users` table has column: `id`
+- `users_fts` expects column: `user_id`
+
+When the UPDATE trigger fired, FTS5 tried to verify the data against the source table and looked for `T.user_id` (with table alias `T`), but this column didn't exist in the `users` table.
+
+**Fix:**
+Created migration `0002_fix_users_fts_content_table.sql`:
+```sql
+-- Drop existing FTS table and triggers
+DROP TRIGGER IF EXISTS users_fts_update;
+DROP TRIGGER IF EXISTS users_fts_delete;
+DROP TRIGGER IF EXISTS users_fts_insert;
+DROP TABLE IF EXISTS users_fts;
+
+-- Recreate WITHOUT content= parameter (standalone FTS table)
+CREATE VIRTUAL TABLE users_fts USING fts5(
+    user_id UNINDEXED,
+    first_name,
+    last_name,
+    email,
+    current_title,
+    professional_summary
+    -- ✅ Removed: content=users, content_rowid=rowid
+);
+
+-- Recreate triggers to keep FTS in sync
+CREATE TRIGGER users_fts_insert AFTER INSERT ON users BEGIN
+    INSERT INTO users_fts(rowid, user_id, first_name, last_name, email, current_title, professional_summary)
+    VALUES (new.rowid, new.id, new.first_name, new.last_name, new.email, new.current_title, new.professional_summary);
+END;
+
+-- ... (delete and update triggers)
+
+-- Rebuild FTS index from existing users
+INSERT INTO users_fts(rowid, user_id, first_name, last_name, email, current_title, professional_summary)
+SELECT rowid, id, first_name, last_name, email, current_title, professional_summary
+FROM users;
+```
+
+**Benefits:**
+- Profile updates now work without database errors
+- FTS search functionality preserved
+- Standalone FTS table avoids column mismatch issues
+- Triggers keep FTS automatically synchronized
+
+**File:** `workers/migrations/0002_fix_users_fts_content_table.sql`
+
+---
+
 ## Complete Authentication Flow (After Fixes)
 
 ### 1. User Login
@@ -279,11 +338,10 @@ API request succeeds
 1. Environment variable standardization (`dc10657`)
 2. Supabase session persistence (`f5dc6ea`)
 3. D1 user auto-creation (`4584a2c`)
+4. WorkersAPI token extraction (`2acdf6a`) - ⏳ Deploying
+5. Database FTS schema fix (`62ba9ea`) - ⏳ Deploying
 
-### ⏳ Deploying Now
-4. WorkersAPI token extraction (`2acdf6a`)
-
-**GitHub Actions:** Will auto-deploy on push to develop branch
+**GitHub Actions:** Auto-deployment in progress
 
 ---
 
@@ -413,5 +471,6 @@ Since they're not used, clean up the dashboard:
 | 2 | Sessions not persisting | `persistSession: false` in Supabase client | Changed to `persistSession: true` | `f5dc6ea` |
 | 3 | 404 on /api/profile | Users not migrated to D1 database | Auto-create users on first profile fetch | `4584a2c` |
 | 4 | 401 on all API calls | WorkersAPI sent full session JSON as token | Extract `access_token` field from session | `2acdf6a` |
+| 5 | 500 on profile update | FTS virtual table column mismatch | Remove `content=` parameter, make standalone FTS | `62ba9ea` |
 
-**All fixes deployed:** After commit `2acdf6a` deploys successfully
+**All fixes deployed:** After commit `62ba9ea` deploys successfully
