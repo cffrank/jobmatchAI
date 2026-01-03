@@ -383,7 +383,7 @@ export async function getRecentSecurityEvents(
 
     const data = await response.json()
 
-    const events: ActivityLogEntry[] = data.map((event: any) => ({
+    const events: ActivityLogEntry[] = data.map((event: { id: string; timestamp: string; action: string; device: string; location: string; ip_address: string; status: string; metadata?: string }) => ({
       id: event.id,
       date: event.timestamp,
       action: event.action,

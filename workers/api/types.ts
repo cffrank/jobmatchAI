@@ -393,7 +393,7 @@ export interface CompleteProfileResponse {
   workExperience: WorkExperience[];
   education: Education[];
   skills: Skill[];
-  resumes: any[]; // Use actual Resume type from schema when needed
+  resumes: Resume[];
   _meta?: {
     responseTime: string;
     queriesExecuted: number;

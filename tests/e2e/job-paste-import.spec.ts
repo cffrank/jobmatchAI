@@ -335,7 +335,7 @@ test.describe('Job Paste Import Flow', () => {
 
     // Edit title
     const titleInput = page.getByLabel(/job title/i);
-    const originalTitle = await titleInput.inputValue();
+    const _originalTitle = await titleInput.inputValue();
     await titleInput.clear();
     await titleInput.fill('Principal Software Engineer');
     await expect(titleInput).toHaveValue('Principal Software Engineer');
@@ -500,7 +500,7 @@ test.describe('Job Paste Import Flow', () => {
     await expect(saveButton).toBeEnabled();
   });
 
-  test('should show error if save fails', async ({ page }) => {
+  test('should show error if save fails', async ({ page: _page }) => {
     // This test would require mocking a save failure
     // Skip for now as it requires backend mocking
     test.skip();
@@ -578,7 +578,7 @@ test.describe('Job Paste Import Flow', () => {
     await navigateToJobs(page);
 
     // Count existing jobs
-    const initialJobCount = await page.locator('[data-testid="job-card"]').count();
+    const _initialJobCount = await page.locator('[data-testid="job-card"]').count();
 
     // Import new job
     await openPasteJobDialog(page);

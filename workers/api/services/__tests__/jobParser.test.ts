@@ -14,7 +14,6 @@ import {
   PARSER_CONFIG,
   QUALITY_THRESHOLD,
   type ParsedJobData,
-  type ParsedJobResult,
   type WorkArrangement,
 } from '../jobParser';
 

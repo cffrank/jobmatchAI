@@ -182,7 +182,7 @@ app.get('/', authenticateUser, async (c: HonoContext) => {
       .all();
 
     // Parse metadata JSON strings back to objects
-    const events: SecurityEventRow[] = results.map((row: any) => ({
+    const events: SecurityEventRow[] = results.map((row: { id: number; user_id: string; action: string; device: string; location: string; ip_address: string; status: string; metadata?: string; timestamp: string }) => ({
       id: row.id,
       user_id: row.user_id,
       action: row.action,

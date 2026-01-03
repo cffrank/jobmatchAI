@@ -146,7 +146,7 @@ vi.mock('../../middleware/rateLimiter', () => ({
 /**
  * Create test app with jobs routes
  */
-function createTestApp(env: Env) {
+function createTestApp(_env: Env) {
   const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
   // Mount jobs routes at /api/jobs
