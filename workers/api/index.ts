@@ -36,6 +36,7 @@ import analyticsRouter from './routes/analytics';
 import filesRouter from './routes/files';
 import gapAnalysesRouter from './routes/gap_analyses';
 import sessionsRouter from './routes/sessions';
+import securityEventsRouter from './routes/security-events';
 
 // Scheduled jobs
 import { handleScheduledJobs } from '../scheduled';
@@ -181,6 +182,7 @@ app.route('/api/analytics', analyticsRouter);
 app.route('/api/files', filesRouter); // Phase 3.3: File download endpoints
 app.route('/api/gap-analyses', gapAnalysesRouter); // Gap analysis feature
 app.route('/api/sessions', sessionsRouter); // Phase 1: KV-based session management
+app.route('/api/security-events', securityEventsRouter); // Phase 2: D1-based security event logging
 
 // =============================================================================
 // API Documentation (development only)
@@ -256,6 +258,10 @@ app.get('/api', (c) => {
         'GET /api/sessions': 'List active sessions for user',
         'DELETE /api/sessions/:sessionId': 'Revoke session',
         'GET /api/users/:userId/2fa-settings': 'Get 2FA settings',
+      },
+      securityEvents: {
+        'POST /api/security-events': 'Log security event (stored in D1 permanently)',
+        'GET /api/security-events': 'Get recent security events for user (limit: 20-100)',
       },
     },
     authentication: 'Bearer token in Authorization header',

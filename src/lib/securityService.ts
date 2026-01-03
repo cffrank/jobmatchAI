@@ -5,13 +5,6 @@ import type { Database } from '@/types/supabase'
 
 // Type aliases for database tables
 type SessionRow = Database['public']['Tables']['sessions']['Row']
-type SessionInsert = Database['public']['Tables']['sessions']['Insert']
-type SecurityEventInsert = Database['public']['Tables']['security_events']['Insert']
-
-/**
- * Session expiration time (30 days)
- */
-const SESSION_EXPIRATION_MS = 30 * 24 * 60 * 60 * 1000
 
 /**
  * Backend API URL for Workers endpoints
@@ -121,7 +114,7 @@ export async function getLocationInfo(): Promise<{
  * Create or update a session in Supabase
  */
 export async function createOrUpdateSession(
-  userId: string,
+  _userId: string,
   sessionId: string
 ): Promise<void> {
   try {
@@ -307,10 +300,10 @@ export async function cleanupExpiredSessions(_userId: string): Promise<number> {
 }
 
 /**
- * Log a security event to Supabase
+ * Log a security event via Workers API
  */
 export async function logSecurityEvent(
-  userId: string,
+  _userId: string,
   action: string,
   status: 'success' | 'failed',
   metadata?: Record<string, unknown>
@@ -320,25 +313,37 @@ export async function logSecurityEvent(
     const { device, browser, os } = parseUserAgent(userAgent)
     const { ipAddress, location } = await getLocationInfo()
 
-    const eventData: SecurityEventInsert = {
-      user_id: userId,
-      action,
-      device,
-      browser,
-      os,
-      location,
-      ip_address: ipAddress as unknown, // Database uses 'unknown' type for ip_address (inet type in Postgres)
-      user_agent: userAgent,
-      status,
-      metadata: metadata ? (metadata as Database['public']['Tables']['security_events']['Insert']['metadata']) : null,
-      timestamp: new Date().toISOString(),
+    // Get JWT token for authentication
+    const { data: { session: authSession } } = await supabase.auth.getSession()
+
+    if (!authSession?.access_token) {
+      console.warn('[Security] No auth token available for logging security event')
+      return
     }
 
-    const { error } = await supabase
-      .from('security_events')
-      .insert(eventData)
+    // Call Workers API to log event in D1
+    const response = await fetch(`${BACKEND_URL}/api/security-events`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${authSession.access_token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        action,
+        device,
+        browser,
+        os,
+        location,
+        ip_address: ipAddress,
+        user_agent: userAgent,
+        status,
+        metadata: metadata ?? null,
+      }),
+    })
 
-    if (error) throw error
+    if (!response.ok) {
+      throw new Error(`Failed to log security event: ${response.statusText}`)
+    }
 
     console.log('[Security] Event logged:', action, status)
   } catch (error) {
@@ -348,24 +353,37 @@ export async function logSecurityEvent(
 }
 
 /**
- * Get recent security events for a user
+ * Get recent security events for a user via Workers API
  */
 export async function getRecentSecurityEvents(
-  userId: string,
+  _userId: string,
   maxEvents: number = 20
 ): Promise<ActivityLogEntry[]> {
   try {
-    const { data, error } = await supabase
-      .from('security_events')
-      .select('*')
-      .eq('user_id', userId)
-      .order('timestamp', { ascending: false })
-      .limit(maxEvents)
+    // Get JWT token for authentication
+    const { data: { session: authSession } } = await supabase.auth.getSession()
 
-    if (error) throw error
-    if (!data) return []
+    if (!authSession?.access_token) {
+      console.warn('[Security] No auth token available for fetching security events')
+      return []
+    }
 
-    const events: ActivityLogEntry[] = data.map((event) => ({
+    // Call Workers API to get events from D1
+    const response = await fetch(`${BACKEND_URL}/api/security-events?limit=${maxEvents}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${authSession.access_token}`,
+        'Content-Type': 'application/json',
+      },
+    })
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch security events: ${response.statusText}`)
+    }
+
+    const data = await response.json()
+
+    const events: ActivityLogEntry[] = data.map((event: any) => ({
       id: event.id,
       date: event.timestamp,
       action: event.action,
