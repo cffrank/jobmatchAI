@@ -246,7 +246,7 @@ app.get('/work-experience', authenticateUser, async (c) => {
 
     return c.json({
       message: 'Work experience fetched successfully',
-      experiences: experiences || [],
+      workExperience: experiences || [],
     });
   } catch (error) {
     console.error('[Profile] Error fetching work experience:', error);
