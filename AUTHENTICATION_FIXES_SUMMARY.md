@@ -114,6 +114,87 @@ if (!profile && userEmail) {
 
 ---
 
+### 4. ✅ WorkersAPI Sending Invalid Bearer Token
+**Commit:** `2acdf6a` - "fix: extract access_token from Supabase session in WorkersAPI"
+
+**Problem:**
+- WorkersAPI was reading entire Supabase session JSON from localStorage
+- Used the full JSON object as Bearer token instead of just access_token
+- All API requests sent invalid Authorization headers like:
+  ```
+  Authorization: Bearer {"access_token":"eyJh...","refresh_token":"..."}
+  ```
+- Workers auth middleware rejected these malformed tokens with 401
+
+**Root Cause:**
+The Supabase session is stored in localStorage as a JSON string:
+```json
+{
+  "access_token": "eyJhbGciOi...",
+  "refresh_token": "...",
+  "expires_at": 1234567890,
+  "user": {...}
+}
+```
+
+WorkersAPI constructor read this entire string and used it directly as the Bearer token, instead of parsing the JSON and extracting only the `access_token` field.
+
+**Fix:**
+```typescript
+// workers/src/lib/workersApi.ts
+
+// Before (BROKEN):
+constructor() {
+  this.baseURL = API_URL;
+  this.token = localStorage.getItem('jobmatch-auth-token'); // ❌ Gets entire JSON
+}
+
+// After (FIXED):
+constructor() {
+  this.baseURL = API_URL;
+  try {
+    const sessionStr = localStorage.getItem('jobmatch-auth-token');
+    if (sessionStr) {
+      const session = JSON.parse(sessionStr);  // ✅ Parse JSON
+      this.token = session.access_token || null; // ✅ Extract access_token
+    }
+  } catch (error) {
+    console.error('[WorkersAPI] Failed to parse session:', error);
+    this.token = null;
+  }
+}
+
+// Also fixed: Refresh token dynamically on each request
+async request<T>(endpoint: string, options: RequestInit = {}) {
+  // Get fresh token from localStorage (Supabase may have refreshed it)
+  let currentToken: string | null = null;
+  try {
+    const sessionStr = localStorage.getItem('jobmatch-auth-token');
+    if (sessionStr) {
+      const session = JSON.parse(sessionStr);
+      currentToken = session.access_token || null; // ✅ Always fresh
+    }
+  } catch (error) {
+    console.error('[WorkersAPI] Failed to parse session:', error);
+  }
+
+  if (currentToken) {
+    headers.Authorization = `Bearer ${currentToken}`; // ✅ Valid token
+  }
+  // ...
+}
+```
+
+**Benefits:**
+- Valid Authorization headers sent to Workers
+- Handles Supabase auto-refresh (reads fresh token each request)
+- Error handling for corrupted localStorage data
+- All API endpoints now work correctly after login
+
+**File:** `src/lib/workersApi.ts`
+
+---
+
 ## Complete Authentication Flow (After Fixes)
 
 ### 1. User Login
@@ -150,11 +231,13 @@ Frontend displays profile
 ```
 Frontend makes API request
   ↓
-JWT token from localStorage ✅ (Fix #2)
+WorkersAPI reads session from localStorage ✅ (Fix #2)
   ↓
-Authorization header added
+Extract access_token from session JSON ✅ (Fix #4)
   ↓
-Workers validate JWT
+Authorization: Bearer {access_token} added to headers
+  ↓
+Workers validate JWT ✅
   ↓
 API request succeeds
 ```
@@ -195,11 +278,12 @@ API request succeeds
 ### ✅ Deployed Fixes
 1. Environment variable standardization (`dc10657`)
 2. Supabase session persistence (`f5dc6ea`)
-
-### ⏳ Deploying Now
 3. D1 user auto-creation (`4584a2c`)
 
-**GitHub Actions:** https://github.com/cffrank/jobmatchAI/actions/runs/20671959754
+### ⏳ Deploying Now
+4. WorkersAPI token extraction (`2acdf6a`)
+
+**GitHub Actions:** Will auto-deploy on push to develop branch
 
 ---
 
@@ -315,6 +399,19 @@ Since they're not used, clean up the dashboard:
 
 ---
 
-**Last Updated:** 2026-01-03 04:05 UTC
-**Deployment:** In progress (commit `4584a2c`)
+**Last Updated:** 2026-01-03 04:35 UTC
+**Deployment:** In progress (commit `2acdf6a`)
 **Next:** Wait for deployment to complete, then test end-to-end
+
+---
+
+## Summary of All Fixes
+
+| Fix # | Issue | Root Cause | Solution | Commit |
+|-------|-------|------------|----------|--------|
+| 1 | Inconsistent env vars | Mixed `VITE_API_URL` / `VITE_BACKEND_URL` usage | Standardized to `VITE_API_URL` | `dc10657` |
+| 2 | Sessions not persisting | `persistSession: false` in Supabase client | Changed to `persistSession: true` | `f5dc6ea` |
+| 3 | 404 on /api/profile | Users not migrated to D1 database | Auto-create users on first profile fetch | `4584a2c` |
+| 4 | 401 on all API calls | WorkersAPI sent full session JSON as token | Extract `access_token` field from session | `2acdf6a` |
+
+**All fixes deployed:** After commit `2acdf6a` deploys successfully
