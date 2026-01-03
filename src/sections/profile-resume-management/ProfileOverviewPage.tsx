@@ -121,14 +121,6 @@ export default function ProfileOverviewPage() {
     }
   }
 
-  const handleAcceptSuggestion = (id: string) => {
-    console.log('Accept suggestion:', id)
-  }
-
-  const handleDismissSuggestion = (id: string) => {
-    console.log('Dismiss suggestion:', id)
-  }
-
   const handleImportResume = () => {
     setIsResumeUploadDialogOpen(true)
   }
@@ -219,7 +211,7 @@ export default function ProfileOverviewPage() {
         education={education}
         skills={skills}
         resume={resumes?.[0]}
-        optimizationSuggestions={[]} // TODO: Build real AI suggestion feature in future phase
+        optimizationSuggestions={[]}
         resumeFiles={resumeFiles}
         onEditProfile={handleEditProfile}
         onEditExperience={handleEditExperience}
@@ -234,8 +226,6 @@ export default function ProfileOverviewPage() {
         onDownloadResume={handleDownloadResume}
         onUploadResumeFile={handleUploadResumeFile}
         onDeleteResumeFile={handleDeleteResumeFile}
-        onAcceptSuggestion={handleAcceptSuggestion}
-        onDismissSuggestion={handleDismissSuggestion}
         onImportResume={handleImportResume}
       />
 
