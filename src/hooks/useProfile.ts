@@ -52,7 +52,9 @@ export function useProfile() {
         const { profile: fetchedProfile } = await response.json()
 
         if (subscribed) {
-          setProfile(fetchedProfile)
+          // Convert snake_case from API to camelCase for frontend
+          const camelCaseProfile = fetchedProfile ? convertToCamelCase(fetchedProfile) : null
+          setProfile(camelCaseProfile)
           setError(null)
         }
       } catch (err) {
@@ -91,6 +93,32 @@ export function useProfile() {
       channel.unsubscribe()
     }
   }, [userId])
+
+  /**
+   * Convert snake_case field names from API to camelCase for frontend
+   */
+  const convertToCamelCase = (data: Record<string, unknown>): User => {
+    const fieldMap: Record<string, string> = {
+      first_name: 'firstName',
+      last_name: 'lastName',
+      linkedin_url: 'linkedInUrl',
+      photo_url: 'photoUrl',
+      current_title: 'headline',
+      professional_summary: 'summary',
+      street_address: 'streetAddress',
+      postal_code: 'postalCode',
+      created_at: 'createdAt',
+      updated_at: 'updatedAt',
+    }
+
+    const converted: Record<string, unknown> = {}
+    Object.entries(data).forEach(([key, value]) => {
+      const camelKey = fieldMap[key] || key
+      converted[camelKey] = value
+    })
+
+    return converted as User
+  }
 
   /**
    * Convert camelCase field names to snake_case for Workers API
