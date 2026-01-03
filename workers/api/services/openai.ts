@@ -643,7 +643,7 @@ Return the response as JSON with this EXACT structure:
   "workExperience": [
     {
       "company": "string",
-      "position": "string",
+      "title": "string",
       "location": "string",
       "startDate": "YYYY-MM-DD",
       "endDate": "YYYY-MM-DD or null",

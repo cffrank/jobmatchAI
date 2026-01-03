@@ -512,7 +512,7 @@ export interface ParsedProfile {
 
 export interface ParsedWorkExperience {
   company: string;
-  position: string;
+  title: string;
   location: string;
   startDate: string;
   endDate: string | null;
