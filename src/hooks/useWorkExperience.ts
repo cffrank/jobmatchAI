@@ -58,7 +58,7 @@ export function useWorkExperience() {
 
         if (subscribed) {
           // Convert snake_case from API to camelCase for frontend
-          const convertedData = response.workExperience.map(item =>
+          const convertedData = (response.workExperience || []).map(item =>
             convertToCamelCase(item as Record<string, unknown>)
           )
           setWorkExperience(convertedData)
