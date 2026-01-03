@@ -39,7 +39,7 @@ export function WorkExperienceForm() {
         endDate: existingExperience.endDate || '',
         current: existingExperience.current,
         description: existingExperience.description,
-        accomplishments: existingExperience.accomplishments.length > 0
+        accomplishments: (existingExperience.accomplishments?.length ?? 0) > 0
           ? existingExperience.accomplishments
           : [''],
       })

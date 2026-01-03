@@ -158,7 +158,7 @@ export function ResumePreview({
                           {exp.description}
                         </p>
                         <ul className="space-y-1.5">
-                          {exp.accomplishments.map((accomplishment, i) => (
+                          {exp.accomplishments?.map((accomplishment, i) => (
                             <li
                               key={i}
                               className="text-sm text-slate-700 flex gap-2 leading-relaxed"
@@ -166,7 +166,7 @@ export function ResumePreview({
                               <span className="mt-1.5 flex-shrink-0 w-1 h-1 rounded-full bg-blue-500" />
                               <span className="flex-1">{accomplishment}</span>
                             </li>
-                          ))}
+                          )) ?? []}
                         </ul>
                       </div>
                     )
