@@ -2,6 +2,11 @@ import type { User } from '@supabase/supabase-js'
 import { supabase } from './supabase'
 
 /**
+ * Backend API URL for Workers endpoints
+ */
+const BACKEND_URL = import.meta.env.VITE_API_URL
+
+/**
  * Extract profile data from OAuth user metadata
  * Supports Google and LinkedIn OIDC providers
  */
@@ -44,15 +49,32 @@ export function extractOAuthProfileData(user: User) {
  */
 export async function syncOAuthProfile(user: User): Promise<boolean> {
   try {
-    // Check if profile already exists
-    const { data: existingProfile } = await supabase
-      .from('users')
-      .select('id')
-      .eq('id', user.id)
-      .single()
+    // Get JWT token for authentication
+    const { data: { session: authSession } } = await supabase.auth.getSession()
+
+    if (!authSession?.access_token) {
+      console.error('[OAuth Sync] No auth token available')
+      return false
+    }
+
+    // Check if profile already exists via Workers API
+    const existsResponse = await fetch(`${BACKEND_URL}/api/users/${user.id}/exists`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${authSession.access_token}`,
+        'Content-Type': 'application/json',
+      },
+    })
+
+    if (!existsResponse.ok) {
+      console.error('[OAuth Sync] Failed to check profile existence:', existsResponse.statusText)
+      return false
+    }
+
+    const { exists } = await existsResponse.json()
 
     // If profile exists, don't overwrite
-    if (existingProfile) {
+    if (exists) {
       console.log('[OAuth Sync] Profile already exists, skipping sync')
       return false
     }
@@ -68,20 +90,25 @@ export async function syncOAuthProfile(user: User): Promise<boolean> {
       hasLinkedIn: !!profileData.linkedInUrl,
     })
 
-    // Create new profile with OAuth data
-    const { error } = await supabase.from('users').insert({
-      id: user.id,
-      email: profileData.email,
-      first_name: profileData.firstName,
-      last_name: profileData.lastName,
-      photo_url: profileData.profileImageUrl,
-      linkedin_url: profileData.linkedInUrl,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+    // Create new profile with OAuth data via Workers API
+    const createResponse = await fetch(`${BACKEND_URL}/api/users/oauth-profile`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${authSession.access_token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        user_id: user.id,
+        email: profileData.email,
+        first_name: profileData.firstName || null,
+        last_name: profileData.lastName || null,
+        photo_url: profileData.profileImageUrl || null,
+        linkedin_url: profileData.linkedInUrl || null,
+      }),
     })
 
-    if (error) {
-      console.error('[OAuth Sync] Failed to create profile:', error)
+    if (!createResponse.ok) {
+      console.error('[OAuth Sync] Failed to create profile:', createResponse.statusText)
       return false
     }
 
@@ -99,63 +126,48 @@ export async function syncOAuthProfile(user: User): Promise<boolean> {
  */
 export async function updateProfileFromOAuth(user: User): Promise<boolean> {
   try {
-    // Get existing profile
-    const { data: existingProfile } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', user.id)
-      .single()
+    // Get JWT token for authentication
+    const { data: { session: authSession } } = await supabase.auth.getSession()
 
-    if (!existingProfile) {
-      console.log('[OAuth Update] No existing profile found')
+    if (!authSession?.access_token) {
+      console.error('[OAuth Update] No auth token available')
       return false
     }
 
     // Extract OAuth profile data
     const oauthData = extractOAuthProfileData(user)
 
-    // Only update fields that are empty
-    const updates: Record<string, unknown> = {}
+    console.log('[OAuth Update] Enriching profile with OAuth data')
 
-    if (!existingProfile.first_name && oauthData.firstName) {
-      updates.first_name = oauthData.firstName
+    // Call Workers API to enrich profile (only updates empty fields)
+    const enrichResponse = await fetch(`${BACKEND_URL}/api/users/${user.id}/oauth-enrich`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${authSession.access_token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        first_name: oauthData.firstName || null,
+        last_name: oauthData.lastName || null,
+        photo_url: oauthData.profileImageUrl || null,
+        linkedin_url: oauthData.linkedInUrl || null,
+      }),
+    })
+
+    if (!enrichResponse.ok) {
+      console.error('[OAuth Update] Failed to enrich profile:', enrichResponse.statusText)
+      return false
     }
 
-    if (!existingProfile.last_name && oauthData.lastName) {
-      updates.last_name = oauthData.lastName
-    }
+    const result = await enrichResponse.json()
 
-    if (!existingProfile.photo_url && oauthData.profileImageUrl) {
-      updates.photo_url = oauthData.profileImageUrl
-    }
-
-    if (!existingProfile.linkedin_url && oauthData.linkedInUrl) {
-      updates.linkedin_url = oauthData.linkedInUrl
-    }
-
-    // If nothing to update, skip
-    if (Object.keys(updates).length === 0) {
+    if (result.updated) {
+      console.log('[OAuth Update] Profile enriched successfully')
+    } else {
       console.log('[OAuth Update] No fields to update')
-      return false
     }
 
-    updates.updated_at = new Date().toISOString()
-
-    console.log('[OAuth Update] Updating profile with OAuth data:', Object.keys(updates))
-
-    // Update profile
-    const { error } = await supabase
-      .from('users')
-      .update(updates)
-      .eq('id', user.id)
-
-    if (error) {
-      console.error('[OAuth Update] Failed to update profile:', error)
-      return false
-    }
-
-    console.log('[OAuth Update] Profile updated successfully')
-    return true
+    return result.updated
   } catch (error) {
     console.error('[OAuth Update] Unexpected error:', error)
     return false

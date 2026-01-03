@@ -37,6 +37,7 @@ import filesRouter from './routes/files';
 import gapAnalysesRouter from './routes/gap_analyses';
 import sessionsRouter from './routes/sessions';
 import securityEventsRouter from './routes/security-events';
+import oauthRouter from './routes/oauth';
 
 // Scheduled jobs
 import { handleScheduledJobs } from '../scheduled';
@@ -183,6 +184,7 @@ app.route('/api/files', filesRouter); // Phase 3.3: File download endpoints
 app.route('/api/gap-analyses', gapAnalysesRouter); // Gap analysis feature
 app.route('/api/sessions', sessionsRouter); // Phase 1: KV-based session management
 app.route('/api/security-events', securityEventsRouter); // Phase 2: D1-based security event logging
+app.route('/api/users', oauthRouter); // Phase 3: OAuth profile creation and enrichment
 
 // =============================================================================
 // API Documentation (development only)
@@ -262,6 +264,11 @@ app.get('/api', (c) => {
       securityEvents: {
         'POST /api/security-events': 'Log security event (stored in D1 permanently)',
         'GET /api/security-events': 'Get recent security events for user (limit: 20-100)',
+      },
+      oauth: {
+        'GET /api/users/:userId/exists': 'Check if user profile exists',
+        'POST /api/users/oauth-profile': 'Create profile from OAuth data (first-time login)',
+        'PATCH /api/users/:userId/oauth-enrich': 'Enrich profile with OAuth data (empty fields only)',
       },
     },
     authentication: 'Bearer token in Authorization header',
