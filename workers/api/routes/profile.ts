@@ -462,9 +462,9 @@ app.patch('/work-experience/:id', authenticateUser, async (c) => {
     const timestamp = new Date().toISOString();
 
     // Convert accomplishments array to JSON string for storage
-    const dataToUpdate = { ...parseResult.data };
+    const dataToUpdate: Record<string, unknown> = { ...parseResult.data };
     if (dataToUpdate.accomplishments !== undefined && dataToUpdate.accomplishments !== null) {
-      dataToUpdate.accomplishments = JSON.stringify(dataToUpdate.accomplishments) as any;
+      dataToUpdate.accomplishments = JSON.stringify(dataToUpdate.accomplishments);
     }
 
     // Build dynamic UPDATE query
