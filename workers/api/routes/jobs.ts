@@ -289,9 +289,12 @@ app.post('/', authenticateUser, rateLimiter(), async (c) => {
   const userId = getUserId(c);
   const body = await c.req.json();
 
+  console.log('[Jobs POST] Request body:', JSON.stringify(body));
+
   // Validate input
   const parseResult = createJobSchema.safeParse(body);
   if (!parseResult.success) {
+    console.log('[Jobs POST] Validation failed:', parseResult.error.errors);
     throw createValidationError(
       'Invalid request body',
       Object.fromEntries(
