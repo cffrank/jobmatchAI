@@ -75,7 +75,10 @@ const profileUpdateSchema = z.object({
 const workExperienceSchema = z.object({
   title: z.string().min(1, 'Title is required'),
   company: z.string().min(1, 'Company is required'),
+  location: z.string().optional().nullable(),
+  employment_type: z.string().optional().nullable(),
   description: z.string().optional().nullable(),
+  accomplishments: z.string().optional().nullable(),
   start_date: z.string(),
   end_date: z.string().optional().nullable(),
   is_current: z.boolean().optional(),
@@ -434,13 +437,18 @@ app.patch('/work-experience/:id', authenticateUser, async (c) => {
   const experienceId = c.req.param('id');
   const body = await c.req.json();
 
+  console.log('[Work Exp PATCH] Raw body received:', JSON.stringify(body));
+
   const parseResult = workExperienceSchema.partial().safeParse(body);
   if (!parseResult.success) {
+    console.log('[Work Exp PATCH] Validation failed:', parseResult.error.errors);
     return c.json(
       { error: 'Invalid work experience data', details: parseResult.error.errors },
       400
     );
   }
+
+  console.log('[Work Exp PATCH] Validated data:', JSON.stringify(parseResult.data));
 
   try {
     const timestamp = new Date().toISOString();
@@ -457,6 +465,9 @@ app.patch('/work-experience/:id', authenticateUser, async (c) => {
     updateFields.push('updated_at = ?');
     values.push(timestamp);
     values.push(experienceId, userId);
+
+    console.log('[Work Exp PATCH] UPDATE fields:', updateFields.join(', '));
+    console.log('[Work Exp PATCH] UPDATE values:', JSON.stringify(values));
 
     const { meta } = await c.env.DB.prepare(
       `UPDATE work_experience SET ${updateFields.join(', ')} WHERE id = ? AND user_id = ?`
