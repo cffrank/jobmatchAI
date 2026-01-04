@@ -191,7 +191,17 @@ function calculateExperienceMatch(
   // Calculate total years of experience
   const totalYears = workExperience.reduce((sum, exp) => {
     const startDate = new Date(exp.startDate)
-    const endDate = exp.current ? new Date() : new Date(exp.endDate || new Date())
+    // Handle empty string endDate (treat as current for non-current roles)
+    const endDate = exp.current || !exp.endDate || exp.endDate === ''
+      ? new Date()
+      : new Date(exp.endDate)
+
+    // Validate dates to prevent NaN
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+      console.warn(`[JobMatching] Invalid dates for ${exp.company}: start=${exp.startDate}, end=${exp.endDate}`)
+      return sum
+    }
+
     const years = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24 * 365)
     console.log(`[JobMatching] Experience at ${exp.company} (${exp.title}): ${years.toFixed(1)} years`)
     return sum + Math.max(0, years)
