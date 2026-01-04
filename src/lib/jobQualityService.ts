@@ -218,7 +218,7 @@ export async function removeDuplicateRelationship(
 
 /**
  * Submit user feedback for a job
- * This saves to job_feedback and spam_reports tables
+ * This saves to job_feedback and spam_reports tables via Workers API
  */
 export async function submitJobFeedback(
   jobId: string,
@@ -227,49 +227,36 @@ export async function submitJobFeedback(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
 
+  // Get authentication token
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) {
+    throw new Error('No active session');
+  }
+
   // Map our feedback types to database enum values
   const dbFeedbackType =
     feedback.feedbackType === 'interested' ? 'thumbs_up' :
     feedback.feedbackType === 'not_interested' ? 'not_interested' :
     'reported_spam'; // 'spam' becomes 'reported_spam'
 
-  // Build reasons array
-  const reasons: string[] = [];
-  if (feedback.reason) reasons.push(feedback.reason);
-  if (feedback.customReason) reasons.push(feedback.customReason);
+  // Call Workers API to submit feedback
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8787';
+  const response = await fetch(`${API_URL}/api/jobs/${jobId}/feedback`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${session.access_token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      feedbackType: dbFeedbackType,
+      reason: feedback.reason,
+      customReason: feedback.customReason,
+    }),
+  });
 
-  // Save to job_feedback table
-  const { error: feedbackError } = await supabase
-    .from('job_feedback')
-    .insert({
-      job_id: jobId,
-      user_id: user.id,
-      feedback_type: dbFeedbackType as 'thumbs_up' | 'thumbs_down' | 'not_interested' | 'reported_spam',
-      reasons: reasons.length > 0 ? reasons : null,
-      comment: feedback.customReason || null,
-    });
-
-  if (feedbackError) {
-    console.error('Failed to save job feedback:', feedbackError);
-    throw new Error('Failed to save feedback');
-  }
-
-  // If spam report, also add to spam_reports table
-  if (feedback.feedbackType === 'spam') {
-    const { error: spamError } = await supabase
-      .from('spam_reports')
-      .insert({
-        job_id: jobId,
-        reporter_user_id: user.id,
-        report_type: 'spam',
-        reason: feedback.reason || 'user_reported',
-        details: feedback.customReason ? { customReason: feedback.customReason } : null,
-      });
-
-    if (spamError) {
-      console.error('Failed to save spam report:', spamError);
-      // Don't throw - feedback was saved, spam report is secondary
-    }
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ message: 'Failed to submit feedback' }));
+    throw new Error(errorData.message || `HTTP ${response.status}`);
   }
 }
 
@@ -280,43 +267,72 @@ export async function getUserJobFeedback(jobId: string): Promise<JobFeedback | n
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
 
-  const { data, error } = await supabase
-    .from('job_feedback')
-    .select('feedback_type, reasons, comment')
-    .eq('job_id', jobId)
-    .eq('user_id', user.id)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .single();
+  // Get authentication token
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) {
+    return null;
+  }
 
-  if (error || !data) return null;
+  try {
+    // Call Workers API to get user's feedback
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8787';
+    const response = await fetch(`${API_URL}/api/jobs/${jobId}/feedback`, {
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+    });
 
-  // Map database feedback type back to our interface
-  const feedbackType =
-    data.feedback_type === 'thumbs_up' ? 'interested' :
-    data.feedback_type === 'not_interested' ? 'not_interested' :
-    'spam'; // reported_spam, reported_scam, etc. become 'spam'
+    if (!response.ok) {
+      return null;
+    }
 
-  return {
-    feedbackType: feedbackType as 'interested' | 'not_interested' | 'spam',
-    reason: data.reasons?.[0] || undefined,
-    customReason: data.comment || undefined,
-  };
+    const data = await response.json();
+    if (!data.feedbackType) {
+      return null;
+    }
+
+    // Map database feedback type back to our interface
+    const feedbackType =
+      data.feedbackType === 'thumbs_up' ? 'interested' :
+      data.feedbackType === 'not_interested' ? 'not_interested' :
+      'spam'; // reported_spam, reported_scam, etc. become 'spam'
+
+    return {
+      feedbackType: feedbackType as 'interested' | 'not_interested' | 'spam',
+      reason: data.reason || undefined,
+      customReason: data.customReason || undefined,
+    };
+  } catch {
+    return null;
+  }
 }
 
 /**
  * Get spam report count for a job (from all users)
  */
 export async function getJobSpamReportCount(jobId: string): Promise<number> {
-  const { count, error } = await supabase
-    .from('spam_reports')
-    .select('*', { count: 'exact', head: true })
-    .eq('job_id', jobId);
-
-  if (error) {
-    console.error('Failed to get spam report count:', error);
+  // Get authentication token
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) {
     return 0;
   }
 
-  return count || 0;
+  try {
+    // Call Workers API to get spam report count
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8787';
+    const response = await fetch(`${API_URL}/api/jobs/${jobId}/spam-reports`, {
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+    });
+
+    if (!response.ok) {
+      return 0;
+    }
+
+    const data = await response.json();
+    return data.count || 0;
+  } catch {
+    return 0;
+  }
 }

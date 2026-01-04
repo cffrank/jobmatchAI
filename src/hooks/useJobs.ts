@@ -58,17 +58,32 @@ export function useJobs(pageSize = 20) {
       setLoading(true)
       setError(null)
 
-      // Fetch jobs with count
-      const { data, error: queryError, count } = await supabase
-        .from('jobs')
-        .select('*', { count: 'exact' })
-        .eq('user_id', userId)
-        .eq('archived', false)
-        .order('match_score', { ascending: false, nullsFirst: false })
-        .order('added_at', { ascending: false })
-        .range(currentOffset, currentOffset + pageSize - 1)
+      // Get authentication token
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        throw new Error('No active session')
+      }
 
-      if (queryError) throw queryError
+      // Call Workers API to fetch jobs
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8787'
+      const page = Math.floor(currentOffset / pageSize) + 1
+      const response = await fetch(
+        `${API_URL}/api/jobs?page=${page}&limit=${pageSize}&archived=false`,
+        {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+        }
+      )
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Failed to fetch jobs' }))
+        throw new Error(errorData.message || `HTTP ${response.status}`)
+      }
+
+      const result = await response.json()
+      const data = result.jobs
+      const count = result.total
 
       // Convert database rows to Job type
       const fetchedJobs: Job[] = (data || []).map((row: JobRow) => ({
@@ -164,13 +179,27 @@ export function useJobs(pageSize = 20) {
   const saveJob = async (jobId: string) => {
     if (!userId) throw new Error('User not authenticated')
 
-    const { error } = await supabase
-      .from('jobs')
-      .update({ saved: true })
-      .eq('id', jobId)
-      .eq('user_id', userId)
+    // Get authentication token
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) {
+      throw new Error('No active session')
+    }
 
-    if (error) throw error
+    // Call Workers API to save job
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8787'
+    const response = await fetch(`${API_URL}/api/jobs/${jobId}`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ isSaved: true }),
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: 'Failed to save job' }))
+      throw new Error(errorData.message || `HTTP ${response.status}`)
+    }
 
     // Update local state
     setJobs(prev => prev.map(job =>
@@ -190,13 +219,27 @@ export function useJobs(pageSize = 20) {
   const unsaveJob = async (jobId: string) => {
     if (!userId) throw new Error('User not authenticated')
 
-    const { error } = await supabase
-      .from('jobs')
-      .update({ saved: false })
-      .eq('id', jobId)
-      .eq('user_id', userId)
+    // Get authentication token
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) {
+      throw new Error('No active session')
+    }
 
-    if (error) throw error
+    // Call Workers API to unsave job
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8787'
+    const response = await fetch(`${API_URL}/api/jobs/${jobId}`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ isSaved: false }),
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: 'Failed to unsave job' }))
+      throw new Error(errorData.message || `HTTP ${response.status}`)
+    }
 
     // Update local state
     setJobs(prev => prev.map(job =>
@@ -224,23 +267,27 @@ export function useJobs(pageSize = 20) {
   }>) => {
     if (!userId) throw new Error('User not authenticated')
 
-    // Map to database column names
-    const dbUpdates: Record<string, string | number> = {}
-    if (updates.title !== undefined) dbUpdates.title = updates.title
-    if (updates.company !== undefined) dbUpdates.company = updates.company
-    if (updates.location !== undefined) dbUpdates.location = updates.location
-    if (updates.description !== undefined) dbUpdates.description = updates.description
-    if (updates.url !== undefined) dbUpdates.url = updates.url
-    if (updates.salaryMin !== undefined) dbUpdates.salary_min = updates.salaryMin
-    if (updates.salaryMax !== undefined) dbUpdates.salary_max = updates.salaryMax
+    // Get authentication token
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) {
+      throw new Error('No active session')
+    }
 
-    const { error } = await supabase
-      .from('jobs')
-      .update(dbUpdates)
-      .eq('id', jobId)
-      .eq('user_id', userId)
+    // Call Workers API to update job
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8787'
+    const response = await fetch(`${API_URL}/api/jobs/${jobId}`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(updates),
+    })
 
-    if (error) throw error
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: 'Failed to update job' }))
+      throw new Error(errorData.message || `HTTP ${response.status}`)
+    }
 
     // Update local state
     setJobs(prev => prev.map(job =>
@@ -306,23 +353,32 @@ export function useJob(jobId: string | undefined) {
         setLoading(true)
         setError(null)
 
-        const { data, error: queryError } = await supabase
-          .from('jobs')
-          .select('*')
-          .eq('id', jobId)
-          .eq('user_id', userId)
-          .single()
+        // Get authentication token
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session) {
+          throw new Error('No active session')
+        }
 
-        if (queryError) {
-          if (queryError.code === 'PGRST116') {
+        // Call Workers API to fetch single job
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8787'
+        const response = await fetch(`${API_URL}/api/jobs/${jobId}`, {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+        })
+
+        if (!response.ok) {
+          if (response.status === 404) {
             // Not found
             setJob(null)
-          } else {
-            throw queryError
+            setLoading(false)
+            return
           }
-          setLoading(false)
-          return
+          const errorData = await response.json().catch(() => ({ message: 'Failed to fetch job' }))
+          throw new Error(errorData.message || `HTTP ${response.status}`)
         }
+
+        const data = await response.json()
 
         // Convert to Job type
         const rawJob: Job = {
@@ -383,13 +439,27 @@ export function useJob(jobId: string | undefined) {
   const saveJob = async (jobId: string) => {
     if (!userId) throw new Error('User not authenticated')
 
-    const { error } = await supabase
-      .from('jobs')
-      .update({ saved: true })
-      .eq('id', jobId)
-      .eq('user_id', userId)
+    // Get authentication token
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) {
+      throw new Error('No active session')
+    }
 
-    if (error) throw error
+    // Call Workers API to save job
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8787'
+    const response = await fetch(`${API_URL}/api/jobs/${jobId}`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ isSaved: true }),
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: 'Failed to save job' }))
+      throw new Error(errorData.message || `HTTP ${response.status}`)
+    }
 
     // Update local state
     if (job && job.id === jobId) {
@@ -408,13 +478,27 @@ export function useJob(jobId: string | undefined) {
   const unsaveJob = async (jobId: string) => {
     if (!userId) throw new Error('User not authenticated')
 
-    const { error } = await supabase
-      .from('jobs')
-      .update({ saved: false })
-      .eq('id', jobId)
-      .eq('user_id', userId)
+    // Get authentication token
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) {
+      throw new Error('No active session')
+    }
 
-    if (error) throw error
+    // Call Workers API to unsave job
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8787'
+    const response = await fetch(`${API_URL}/api/jobs/${jobId}`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ isSaved: false }),
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: 'Failed to unsave job' }))
+      throw new Error(errorData.message || `HTTP ${response.status}`)
+    }
 
     // Update local state
     if (job && job.id === jobId) {
@@ -441,23 +525,27 @@ export function useJob(jobId: string | undefined) {
   }>) => {
     if (!userId) throw new Error('User not authenticated')
 
-    // Map to database column names
-    const dbUpdates: Record<string, string | number> = {}
-    if (updates.title !== undefined) dbUpdates.title = updates.title
-    if (updates.company !== undefined) dbUpdates.company = updates.company
-    if (updates.location !== undefined) dbUpdates.location = updates.location
-    if (updates.description !== undefined) dbUpdates.description = updates.description
-    if (updates.url !== undefined) dbUpdates.url = updates.url
-    if (updates.salaryMin !== undefined) dbUpdates.salary_min = updates.salaryMin
-    if (updates.salaryMax !== undefined) dbUpdates.salary_max = updates.salaryMax
+    // Get authentication token
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) {
+      throw new Error('No active session')
+    }
 
-    const { error } = await supabase
-      .from('jobs')
-      .update(dbUpdates)
-      .eq('id', jobId)
-      .eq('user_id', userId)
+    // Call Workers API to update job
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8787'
+    const response = await fetch(`${API_URL}/api/jobs/${jobId}`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(updates),
+    })
 
-    if (error) throw error
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: 'Failed to update job' }))
+      throw new Error(errorData.message || `HTTP ${response.status}`)
+    }
 
     // Update local state
     if (job && job.id === jobId) {
@@ -551,16 +639,29 @@ export function useSavedJobs() {
         setLoading(true)
         setError(null)
 
-        const { data, error: queryError } = await supabase
-          .from('jobs')
-          .select('id')
-          .eq('user_id', userId)
-          .eq('saved', true)
-          .order('added_at', { ascending: false })
+        // Get authentication token
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session) {
+          throw new Error('No active session')
+        }
 
-        if (queryError) throw queryError
+        // Call Workers API to fetch saved jobs
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8787'
+        const response = await fetch(`${API_URL}/api/jobs?saved=true&limit=1000`, {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+        })
 
-        setSavedJobIds((data || []).map(job => job.id))
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ message: 'Failed to fetch saved jobs' }))
+          throw new Error(errorData.message || `HTTP ${response.status}`)
+        }
+
+        const result = await response.json()
+        const jobs = result.jobs || []
+
+        setSavedJobIds(jobs.map((job: { id: string }) => job.id))
         setLoading(false)
       } catch (err) {
         console.error('[useSavedJobs] Error fetching saved jobs:', err)

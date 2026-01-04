@@ -69,6 +69,13 @@ const parseJobSchema = z.object({
 const updateJobSchema = z.object({
   isSaved: z.boolean().optional(),
   isArchived: z.boolean().optional(),
+  title: z.string().min(1).max(200).optional(),
+  company: z.string().min(1).max(200).optional(),
+  location: z.string().max(200).optional(),
+  description: z.string().max(10000).optional(),
+  url: z.string().url().max(500).optional().or(z.literal('')),
+  salaryMin: z.number().int().min(0).optional(),
+  salaryMax: z.number().int().min(0).optional(),
 });
 
 const createJobSchema = z.object({
@@ -564,7 +571,7 @@ app.patch('/:id', authenticateUser, async (c) => {
 
   // Build dynamic UPDATE query
   const updateFields: string[] = [];
-  const values: (string | number)[] = [];
+  const values: (string | number | null)[] = [];
 
   if (updates.isSaved !== undefined) {
     updateFields.push('is_saved = ?');
@@ -574,6 +581,41 @@ app.patch('/:id', authenticateUser, async (c) => {
   if (updates.isArchived !== undefined) {
     updateFields.push('is_archived = ?');
     values.push(updates.isArchived ? 1 : 0);
+  }
+
+  if (updates.title !== undefined) {
+    updateFields.push('title = ?');
+    values.push(updates.title);
+  }
+
+  if (updates.company !== undefined) {
+    updateFields.push('company = ?');
+    values.push(updates.company);
+  }
+
+  if (updates.location !== undefined) {
+    updateFields.push('location = ?');
+    values.push(updates.location || null);
+  }
+
+  if (updates.description !== undefined) {
+    updateFields.push('description = ?');
+    values.push(updates.description || null);
+  }
+
+  if (updates.url !== undefined) {
+    updateFields.push('url = ?');
+    values.push(updates.url || null);
+  }
+
+  if (updates.salaryMin !== undefined) {
+    updateFields.push('salary_min = ?');
+    values.push(updates.salaryMin);
+  }
+
+  if (updates.salaryMax !== undefined) {
+    updateFields.push('salary_max = ?');
+    values.push(updates.salaryMax);
   }
 
   updateFields.push('updated_at = ?');
@@ -762,6 +804,156 @@ app.post('/:id/analyze', authenticateUser, rateLimiter(), async (c) => {
     cacheSource: 'generated',
     cachedAt: new Date().toISOString(),
   });
+});
+
+/**
+ * POST /api/jobs/:id/feedback
+ * Submit user feedback for a job
+ *
+ * Saves to job_feedback table and optionally spam_reports table if reporting spam
+ */
+app.post('/:id/feedback', authenticateUser, async (c) => {
+  const userId = getUserId(c);
+  const jobId = c.req.param('id');
+  const body = await c.req.json();
+
+  // Validate feedback type
+  const validFeedbackTypes = [
+    'thumbs_up',
+    'thumbs_down',
+    'not_interested',
+    'applied',
+    'saved',
+    'hidden',
+    'reported_spam',
+    'reported_scam',
+    'reported_expired',
+  ];
+
+  if (!validFeedbackTypes.includes(body.feedbackType)) {
+    throw createValidationError('Invalid feedback type', {
+      feedbackType: `Must be one of: ${validFeedbackTypes.join(', ')}`,
+    });
+  }
+
+  const feedbackId = crypto.randomUUID();
+  const timestamp = new Date().toISOString();
+
+  // Build reasons array
+  const reasons: string[] = [];
+  if (body.reason) reasons.push(body.reason);
+  if (body.customReason) reasons.push(body.customReason);
+
+  // Insert into job_feedback table
+  await c.env.DB.prepare(
+    `INSERT INTO job_feedback (
+      id, user_id, job_id, feedback_type, reasons, comment, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+  )
+    .bind(
+      feedbackId,
+      userId,
+      jobId,
+      body.feedbackType,
+      reasons.length > 0 ? JSON.stringify(reasons) : null,
+      body.customReason || null,
+      timestamp,
+      timestamp
+    )
+    .run();
+
+  // If spam report, also add to spam_reports table
+  if (
+    body.feedbackType === 'reported_spam' ||
+    body.feedbackType === 'reported_scam' ||
+    body.feedbackType === 'reported_expired'
+  ) {
+    const spamReportId = crypto.randomUUID();
+    const reportType =
+      body.feedbackType === 'reported_spam'
+        ? 'spam'
+        : body.feedbackType === 'reported_scam'
+        ? 'scam'
+        : 'expired';
+
+    await c.env.DB.prepare(
+      `INSERT INTO spam_reports (
+        id, job_id, reporter_user_id, report_type, reason, details, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+    )
+      .bind(
+        spamReportId,
+        jobId,
+        userId,
+        reportType,
+        body.reason || 'user_reported',
+        body.customReason ? JSON.stringify({ customReason: body.customReason }) : null,
+        timestamp,
+        timestamp
+      )
+      .run();
+  }
+
+  return c.json({ success: true, feedbackId });
+});
+
+/**
+ * GET /api/jobs/:id/feedback
+ * Get user's feedback for a specific job
+ */
+app.get('/:id/feedback', authenticateUser, async (c) => {
+  const userId = getUserId(c);
+  const jobId = c.req.param('id');
+
+  const { results } = await c.env.DB.prepare(
+    `SELECT feedback_type, reasons, comment
+     FROM job_feedback
+     WHERE job_id = ? AND user_id = ?
+     ORDER BY created_at DESC
+     LIMIT 1`
+  )
+    .bind(jobId, userId)
+    .all();
+
+  if (!results || results.length === 0) {
+    return c.json({ feedback: null });
+  }
+
+  const feedback = results[0];
+
+  // Parse reasons from JSON string
+  let reasons: string[] = [];
+  if (feedback.reasons) {
+    try {
+      reasons = JSON.parse(feedback.reasons as string);
+    } catch {
+      reasons = [];
+    }
+  }
+
+  return c.json({
+    feedbackType: feedback.feedback_type,
+    reason: reasons[0] || undefined,
+    customReason: feedback.comment || undefined,
+  });
+});
+
+/**
+ * GET /api/jobs/:id/spam-reports
+ * Get spam report count for a job (from all users)
+ */
+app.get('/:id/spam-reports', authenticateUser, async (c) => {
+  const jobId = c.req.param('id');
+
+  const { results } = await c.env.DB.prepare(
+    'SELECT COUNT(*) as count FROM spam_reports WHERE job_id = ?'
+  )
+    .bind(jobId)
+    .all();
+
+  const count = (results[0] as { count: number } | undefined)?.count || 0;
+
+  return c.json({ count });
 });
 
 /**
