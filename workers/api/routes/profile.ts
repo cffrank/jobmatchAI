@@ -254,13 +254,18 @@ app.patch('/', authenticateUser, async (c) => {
   const userId = getUserId(c);
   const body = await c.req.json();
 
+  console.log('[Profile PATCH] Raw body received:', JSON.stringify(body));
+
   const parseResult = profileUpdateSchema.safeParse(body);
   if (!parseResult.success) {
+    console.log('[Profile PATCH] Validation failed:', parseResult.error.errors);
     return c.json(
       { error: 'Invalid profile data', details: parseResult.error.errors },
       400
     );
   }
+
+  console.log('[Profile PATCH] Validated data:', JSON.stringify(parseResult.data));
 
   try {
     const timestamp = new Date().toISOString();
