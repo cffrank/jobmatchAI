@@ -1046,14 +1046,16 @@ function mapDatabaseWorkExperience(record: any): WorkExperience {
   return {
     id: record.id,
     userId: record.user_id,
-    title: record.position,
+    title: record.title,
     company: record.company,
     location: record.location,
     startDate: record.start_date,
     endDate: record.end_date,
-    current: record.current,
+    current: Boolean(record.is_current),
     description: record.description,
-    accomplishments: record.accomplishments || [],
+    accomplishments: typeof record.accomplishments === 'string'
+      ? JSON.parse(record.accomplishments || '[]')
+      : (record.accomplishments || []),
     createdAt: record.created_at,
     updatedAt: record.updated_at,
   };
