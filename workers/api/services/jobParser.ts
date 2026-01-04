@@ -184,8 +184,11 @@ async function parseWithWorkersAI(
         throw new Error('Empty response from Workers AI');
       }
 
+      // Clean response - Workers AI sometimes wraps JSON in markdown code blocks
+      const cleanedResponse = cleanMarkdownJSON(response.response);
+
       // Parse JSON response
-      const parsed = JSON.parse(response.response) as ParsedJobData;
+      const parsed = JSON.parse(cleanedResponse) as ParsedJobData;
 
       // Validate quality
       const validationResult = validateParsedJob(parsed);
@@ -556,6 +559,37 @@ Return ONLY valid JSON following the schema provided in the system prompt.`;
 // =============================================================================
 // Utilities
 // =============================================================================
+
+/**
+ * Clean markdown code blocks from JSON response
+ *
+ * Workers AI sometimes wraps JSON in markdown code blocks like:
+ * ```json
+ * { ... }
+ * ```
+ *
+ * This function strips those wrappers to get pure JSON.
+ */
+function cleanMarkdownJSON(response: string): string {
+  // Trim whitespace
+  let cleaned = response.trim();
+
+  // Remove markdown code block wrappers (```json ... ``` or ``` ... ```)
+  if (cleaned.startsWith('```')) {
+    // Find the first newline after opening ```
+    const firstNewline = cleaned.indexOf('\n');
+    if (firstNewline !== -1) {
+      cleaned = cleaned.slice(firstNewline + 1);
+    }
+
+    // Remove closing ```
+    if (cleaned.endsWith('```')) {
+      cleaned = cleaned.slice(0, -3);
+    }
+  }
+
+  return cleaned.trim();
+}
 
 /**
  * Sleep helper for retry delays
