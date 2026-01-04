@@ -32,8 +32,13 @@ CREATE TRIGGER jobs_fts_delete AFTER DELETE ON jobs BEGIN
     DELETE FROM jobs_fts WHERE rowid = old.rowid;
 END;
 
-CREATE TRIGGER jobs_fts_update AFTER UPDATE OF title, company, description ON jobs BEGIN
+CREATE TRIGGER jobs_fts_update AFTER UPDATE ON jobs BEGIN
     DELETE FROM jobs_fts WHERE rowid = old.rowid;
     INSERT INTO jobs_fts(rowid, job_id, title, company, description)
     VALUES (new.rowid, new.id, new.title, new.company, new.description);
 END;
+
+-- Rebuild FTS index from existing jobs
+INSERT INTO jobs_fts(rowid, job_id, title, company, description)
+SELECT rowid, id, title, company, description
+FROM jobs;

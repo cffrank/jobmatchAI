@@ -73,7 +73,7 @@ const updateJobSchema = z.object({
   company: z.string().min(1).max(200).optional(),
   location: z.string().max(200).optional(),
   description: z.string().max(10000).optional(),
-  url: z.string().url().max(500).optional().or(z.literal('')),
+  url: z.string().url().max(1000).optional().or(z.literal('')),
   salaryMin: z.number().int().min(0).optional(),
   salaryMax: z.number().int().min(0).optional(),
 });
@@ -83,7 +83,7 @@ const createJobSchema = z.object({
   company: z.string().min(1, 'Company name is required').max(200),
   location: z.string().max(200).optional(),
   description: z.string().max(10000).optional(),
-  url: z.string().url().max(500).optional().or(z.literal('')),
+  url: z.string().url().max(1000).optional().or(z.literal('')),
   jobType: z.enum(['full-time', 'part-time', 'contract', 'internship', 'temporary', 'remote']).optional(),
   experienceLevel: z.enum(['entry', 'mid', 'senior', 'lead', 'executive']).optional(),
   salaryMin: z.number().int().min(0).optional(),
