@@ -15,6 +15,23 @@ export function useEducation() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
 
+  // Convert snake_case API response to camelCase for frontend
+  const convertToCamelCase = (edu: Record<string, unknown>): Education => {
+    return {
+      id: edu.id as string,
+      school: edu.institution as string,
+      degree: edu.degree as string,
+      field: edu.field_of_study as string,
+      location: '', // Not in D1 schema, default to empty
+      startDate: edu.start_date as string,
+      endDate: edu.end_date as string || '',
+      gpa: edu.grade as string || '',
+      highlights: typeof edu.description === 'string'
+        ? JSON.parse(edu.description || '[]')
+        : (edu.description as string[] || []),
+    }
+  }
+
   // Fetch and subscribe to education
   useEffect(() => {
     if (!userId) {
@@ -51,7 +68,11 @@ export function useEducation() {
         const result = await response.json()
 
         if (subscribed) {
-          setEducation(result.education || [])
+          // Convert snake_case to camelCase
+          const converted = (result.education as Record<string, unknown>[] || [])
+            .map(convertToCamelCase)
+
+          setEducation(converted)
           setError(null)
         }
       } catch (err) {
@@ -80,31 +101,10 @@ export function useEducation() {
         },
         (payload) => {
           if (payload.eventType === 'INSERT') {
-            // Transform database format to app format
-            const newEducation: Education = {
-              id: payload.new.id,
-              school: payload.new.institution,
-              degree: payload.new.degree || '',
-              field: payload.new.field_of_study || '',
-              location: '',
-              startDate: payload.new.start_date || '',
-              endDate: payload.new.end_date || '',
-              gpa: undefined,
-              highlights: payload.new.description ? payload.new.description.split('\n') : [],
-            }
+            const newEducation = convertToCamelCase(payload.new as Record<string, unknown>)
             setEducation((current) => [newEducation, ...current])
           } else if (payload.eventType === 'UPDATE') {
-            const updatedEducation: Education = {
-              id: payload.new.id,
-              school: payload.new.institution,
-              degree: payload.new.degree || '',
-              field: payload.new.field_of_study || '',
-              location: '',
-              startDate: payload.new.start_date || '',
-              endDate: payload.new.end_date || '',
-              gpa: undefined,
-              highlights: payload.new.description ? payload.new.description.split('\n') : [],
-            }
+            const updatedEducation = convertToCamelCase(payload.new as Record<string, unknown>)
             setEducation((current) =>
               current.map((edu) =>
                 edu.id === payload.new.id ? updatedEducation : edu
