@@ -224,7 +224,7 @@ export function useSkills() {
       body: JSON.stringify({
         skills: skillsData.map(skill => ({
           name: skill.name,
-          level: skill.level,
+          // level is optional in backend, but not in Skill type, so omit it
         })),
       }),
     })
