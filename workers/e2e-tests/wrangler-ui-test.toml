@@ -1,0 +1,14 @@
+#:schema node_modules/wrangler/config-schema.json
+name = "jobmatch-ai-ui-tracking-test"
+main = "test-tracking-ui.ts"
+compatibility_date = "2024-12-01"
+
+# Environment variables
+[vars]
+APP_URL = "https://jobmatch-ai-dev.pages.dev"
+CLOUDFLARE_ACCOUNT_ID = "280c58ea17d9fe3235c33bd0a52a256b"
+
+# Secrets (set via: wrangler secret put --config wrangler-ui-test.toml)
+# CLOUDFLARE_API_TOKEN - API token with Browser Rendering permissions
+#   Create at: https://dash.cloudflare.com/profile/api-tokens
+#   Permissions needed: Account > Browser Rendering > Edit

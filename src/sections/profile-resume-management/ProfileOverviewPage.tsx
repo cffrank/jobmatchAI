@@ -2,38 +2,48 @@ import { useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { ProfileOverview } from './components/ProfileOverview'
 import { ResumeUploadDialog } from './components/ResumeUploadDialog'
-import { useProfile } from '@/hooks/useProfile'
+import { useCompleteProfile } from '@/hooks/useCompleteProfile'
 import { useWorkExperience } from '@/hooks/useWorkExperience'
 import { useEducation } from '@/hooks/useEducation'
-import { useSkills } from '@/hooks/useSkills'
-import { useResumes } from '@/hooks/useResumes'
 import { useResumeExport } from '@/hooks/useResumeExport'
 import type { ResumeFile } from './types'
 import data from './data.json'
+import { toast } from 'sonner'
 
 export default function ProfileOverviewPage() {
   const navigate = useNavigate()
 
-  // Fetch data from Firestore
-  const { profile, loading: profileLoading } = useProfile()
-  const { workExperience, loading: workExpLoading, deleteWorkExperience } = useWorkExperience()
-  const { education, loading: educationLoading, deleteEducation } = useEducation()
-  const { skills, loading: skillsLoading } = useSkills()
-  const { resumes, loading: resumesLoading } = useResumes()
+  // State for refresh control
+  const [refreshKey, setRefreshKey] = useState(0)
+
+  // Single optimized API call to fetch all profile data
+  const { data: completeProfile, loading } = useCompleteProfile(refreshKey)
+
+  // Destructure data with fallbacks
+  const profile = completeProfile?.profile || null
+  const workExperience = completeProfile?.workExperience || []
+  const education = completeProfile?.education || []
+  const skills = completeProfile?.skills || []
+  const resumes = completeProfile?.resumes || []
+
+  // Mutation functions (create/update/delete)
+  const { deleteWorkExperience } = useWorkExperience()
+  const { deleteEducation } = useEducation()
   const { downloadResume, uploadResume, deleteResume } = useResumeExport()
 
-  // Resume files state (would be fetched from Firestore in real implementation)
+  // Resume files state (would be fetched from Supabase in real implementation)
   const [resumeFiles, setResumeFiles] = useState<ResumeFile[]>([])
   const [isResumeUploadDialogOpen, setIsResumeUploadDialogOpen] = useState(false)
 
-  const loading = profileLoading || workExpLoading || educationLoading || skillsLoading || resumesLoading
+  // Helper function to refresh all profile data after mutations
+  const refreshProfile = () => setRefreshKey(prev => prev + 1)
 
   // Redirect new users to create profile page if no profile exists
   useEffect(() => {
-    if (!profileLoading && !profile) {
+    if (!loading && !profile) {
       navigate('/profile/edit-profile')
     }
-  }, [profile, profileLoading, navigate])
+  }, [profile, loading, navigate])
 
   const handleEditProfile = () => {
     navigate('/profile/edit-profile')
@@ -44,15 +54,26 @@ export default function ProfileOverviewPage() {
   }
 
   const handleDeleteExperience = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this work experience?')) {
+    // Show confirmation toast
+    const confirmed = window.confirm('Are you sure you want to delete this work experience? This action cannot be undone.')
+
+    if (!confirmed) {
       return
     }
+
     try {
-      await deleteWorkExperience(id)
-      alert('Work experience deleted successfully!')
+      await toast.promise(
+        deleteWorkExperience(id),
+        {
+          loading: 'Deleting work experience...',
+          success: 'Work experience deleted successfully!',
+          error: 'Failed to delete work experience. Please try again.',
+        }
+      )
+      // Refresh all profile data
+      refreshProfile()
     } catch (error) {
       console.error('Error deleting work experience:', error)
-      alert('Failed to delete work experience. Please try again.')
     }
   }
 
@@ -65,15 +86,25 @@ export default function ProfileOverviewPage() {
   }
 
   const handleDeleteEducation = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this education entry?')) {
+    const confirmed = window.confirm('Are you sure you want to delete this education entry? This action cannot be undone.')
+
+    if (!confirmed) {
       return
     }
+
     try {
-      await deleteEducation(id)
-      alert('Education deleted successfully!')
+      await toast.promise(
+        deleteEducation(id),
+        {
+          loading: 'Deleting education...',
+          success: 'Education deleted successfully!',
+          error: 'Failed to delete education. Please try again.',
+        }
+      )
+      // Refresh all profile data
+      refreshProfile()
     } catch (error) {
       console.error('Error deleting education:', error)
-      alert('Failed to delete education. Please try again.')
     }
   }
 
@@ -103,57 +134,73 @@ export default function ProfileOverviewPage() {
     }
   }
 
-  const handleAcceptSuggestion = (id: string) => {
-    console.log('Accept suggestion:', id)
-  }
-
-  const handleDismissSuggestion = (id: string) => {
-    console.log('Dismiss suggestion:', id)
-  }
-
   const handleImportResume = () => {
     setIsResumeUploadDialogOpen(true)
   }
 
   const handleResumeUploadSuccess = () => {
-    // Reload the page data after successful import
-    window.location.reload()
+    // Refresh profile data after successful import
+    refreshProfile()
   }
 
   const handleUploadResumeFile = async (file: File) => {
-    try {
-      const resumeId = resumes?.[0]?.id || data.resume.id
-      const downloadURL = await uploadResume(file, resumeId)
-      console.log('Resume file uploaded:', downloadURL)
+    const resumeId = resumes?.[0]?.id || data.resume.id
 
-      // Add to local state (would be fetched from Firestore in real implementation)
-      const newFile: ResumeFile = {
-        id: Date.now().toString(),
-        name: file.name,
-        format: file.name.endsWith('.pdf') ? 'pdf' : file.name.endsWith('.docx') ? 'docx' : 'txt',
-        uploadedAt: new Date().toISOString(),
-        size: `${(file.size / 1024).toFixed(1)} KB`,
-      }
-      setResumeFiles([...resumeFiles, newFile])
-      alert('Resume file uploaded successfully!')
+    try {
+      await toast.promise(
+        uploadResume(file, resumeId),
+        {
+          loading: 'Uploading resume file...',
+          success: (downloadURL) => {
+            console.log('Resume file uploaded:', downloadURL)
+
+            // Add to local state (would be fetched from Supabase in real implementation)
+            const newFile: ResumeFile = {
+              id: Date.now().toString(),
+              name: file.name,
+              format: file.name.endsWith('.pdf') ? 'pdf' : file.name.endsWith('.docx') ? 'docx' : 'txt',
+              uploadedAt: new Date().toISOString(),
+              size: `${(file.size / 1024).toFixed(1)} KB`,
+            }
+            setResumeFiles([...resumeFiles, newFile])
+
+            return 'Resume file uploaded successfully!'
+          },
+          error: (error) => {
+            console.error('Error uploading resume file:', error)
+            return `Upload failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+          },
+        }
+      )
     } catch (error) {
       console.error('Error uploading resume file:', error)
-      alert(`Upload failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
 
   const handleDeleteResumeFile = async (format: 'pdf' | 'docx' | 'txt') => {
-    try {
-      const resumeId = resumes?.[0]?.id || data.resume.id
-      await deleteResume(resumeId, format)
-      console.log('Resume file deleted:', format)
+    const resumeId = resumes?.[0]?.id || data.resume.id
 
-      // Remove from local state
-      setResumeFiles(resumeFiles.filter(f => f.format !== format))
-      alert('Resume file deleted successfully!')
+    try {
+      await toast.promise(
+        deleteResume(resumeId, format),
+        {
+          loading: 'Deleting resume file...',
+          success: () => {
+            console.log('Resume file deleted:', format)
+
+            // Remove from local state
+            setResumeFiles(resumeFiles.filter(f => f.format !== format))
+
+            return 'Resume file deleted successfully!'
+          },
+          error: (error) => {
+            console.error('Error deleting resume file:', error)
+            return `Delete failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+          },
+        }
+      )
     } catch (error) {
       console.error('Error deleting resume file:', error)
-      alert(`Delete failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
 
@@ -177,7 +224,7 @@ export default function ProfileOverviewPage() {
         education={education}
         skills={skills}
         resume={resumes?.[0]}
-        optimizationSuggestions={[]} // TODO: Build real AI suggestion feature in future phase
+        optimizationSuggestions={[]}
         resumeFiles={resumeFiles}
         onEditProfile={handleEditProfile}
         onEditExperience={handleEditExperience}
@@ -192,8 +239,6 @@ export default function ProfileOverviewPage() {
         onDownloadResume={handleDownloadResume}
         onUploadResumeFile={handleUploadResumeFile}
         onDeleteResumeFile={handleDeleteResumeFile}
-        onAcceptSuggestion={handleAcceptSuggestion}
-        onDismissSuggestion={handleDismissSuggestion}
         onImportResume={handleImportResume}
       />
 

@@ -1,0 +1,162 @@
+%PDF-1.4
+1 0 obj
+<<
+/Type /Catalog
+/Pages 2 0 R
+>>
+endobj
+
+2 0 obj
+<<
+/Type /Pages
+/Kids [3 0 R]
+/Count 1
+>>
+endobj
+
+3 0 obj
+<<
+/Type /Page
+/Parent 2 0 R
+/Resources <<
+  /Font <<
+    /F1 4 0 R
+  >>
+>>
+/MediaBox [0 0 612 792]
+/Contents 5 0 R
+>>
+endobj
+
+4 0 obj
+<<
+/Type /Font
+/Subtype /Type1
+/BaseFont /Helvetica
+>>
+endobj
+
+5 0 obj
+<<
+/Length 4018
+>>
+stream
+BT
+/F1 10 Tf
+50 750 Td
+15 TL
+(JOHN DOE) Tj T*
+(Senior Software Engineer) Tj T*
+() Tj T*
+(Contact Information:) Tj T*
+(Email: john.doe@email.com) Tj T*
+(Phone: +1 \(555\) 123-4567) Tj T*
+(Location: San Francisco, CA) Tj T*
+(LinkedIn: linkedin.com/in/johndoe) Tj T*
+(GitHub: github.com/johndoe) Tj T*
+() Tj T*
+(PROFESSIONAL SUMMARY) Tj T*
+(Results-driven Senior Software Engineer with 8+ years of experience building scalable web applications and distributed systems. Proven expertise in full-stack development, cloud architecture, and leading engineering teams. Passionate about clean code, test-driven development, and mentoring junior developers.) Tj T*
+() Tj T*
+(TECHNICAL SKILLS) Tj T*
+(Languages: JavaScript, TypeScript, Python, Java, SQL) Tj T*
+(Frontend: React, Next.js, Vue.js, HTML5, CSS3, Tailwind CSS) Tj T*
+(Backend: Node.js, Express, Django, Spring Boot, GraphQL, REST APIs) Tj T*
+(Databases: PostgreSQL, MongoDB, Redis, DynamoDB) Tj T*
+(Cloud & DevOps: AWS \(EC2, S3, Lambda, RDS\), Docker, Kubernetes, CI/CD, GitHub Actions) Tj T*
+(Tools: Git, Jira, Figma, Postman, VS Code) Tj T*
+() Tj T*
+(WORK EXPERIENCE) Tj T*
+() Tj T*
+(Senior Software Engineer) Tj T*
+(Tech Innovations Inc. | San Francisco, CA) Tj T*
+(January 2020 - Present) Tj T*
+() Tj T*
+(" Led development of microservices architecture serving 2M+ daily active users, reducing latency by 40%) Tj T*
+(" Architected and implemented real-time data pipeline using Kafka and Lambda, processing 100K events/hour) Tj T*
+(" Mentored team of 5 junior engineers, conducting code reviews and establishing engineering best practices) Tj T*
+(" Migrated legacy monolith to cloud-native architecture, reducing infrastructure costs by 35%) Tj T*
+(" Implemented comprehensive testing strategy \(unit, integration, E2E\) achieving 85% code coverage) Tj T*
+(" Collaborated with product and design teams to deliver 15+ features in agile sprints) Tj T*
+() Tj T*
+(Software Engineer) Tj T*
+(StartupXYZ | San Francisco, CA) Tj T*
+(June 2018 - December 2019) Tj T*
+() Tj T*
+(" Built and maintained full-stack web application using React, Node.js, and PostgreSQL) Tj T*
+(" Developed RESTful APIs and GraphQL endpoints consumed by mobile and web clients) Tj T*
+(" Optimized database queries and implemented caching strategies, improving response times by 60%) Tj T*
+(" Participated in on-call rotation, resolving production incidents with 99.9% uptime SLA) Tj T*
+(" Contributed to CI/CD pipeline setup using GitHub Actions and AWS CodeDeploy) Tj T*
+(" Worked closely with UX designers to implement pixel-perfect responsive interfaces) Tj T*
+() Tj T*
+(Junior Software Engineer) Tj T*
+(Digital Solutions Corp | San Jose, CA) Tj T*
+(July 2016 - May 2018) Tj T*
+() Tj T*
+(" Developed customer-facing features for enterprise SaaS platform using Angular and Java Spring Boot) Tj T*
+(" Fixed bugs and implemented enhancements based on customer feedback and requirements) Tj T*
+(" Participated in agile ceremonies \(daily standups, sprint planning, retrospectives\)) Tj T*
+(" Wrote unit tests and integration tests using JUnit and Jasmine) Tj T*
+(" Assisted in database schema design and migration scripts for PostgreSQL) Tj T*
+(" Collaborated with QA team to ensure high-quality releases) Tj T*
+() Tj T*
+(EDUCATION) Tj T*
+() Tj T*
+(Bachelor of Science in Computer Science) Tj T*
+(University of California, Berkeley | Berkeley, CA) Tj T*
+(Graduated: May 2016) Tj T*
+(GPA: 3.7/4.0) Tj T*
+() Tj T*
+(Relevant Coursework:) Tj T*
+(" Data Structures and Algorithms) Tj T*
+(" Database Systems) Tj T*
+(" Software Engineering) Tj T*
+(" Computer Networks) Tj T*
+(" Machine Learning) Tj T*
+(" Operating Systems) Tj T*
+() Tj T*
+(CERTIFICATIONS) Tj T*
+() Tj T*
+(" AWS Certified Solutions Architect - Associate \(2021\)) Tj T*
+(" Professional Scrum Master I \(PSM I\) \(2020\)) Tj T*
+(" MongoDB Certified Developer Associate \(2019\)) Tj T*
+() Tj T*
+(PROJECTS) Tj T*
+() Tj T*
+(Open Source Contributions) Tj T*
+(" Contributor to React ecosystem libraries with 500+ GitHub stars) Tj T*
+(" Maintained popular npm package for authentication middleware \(10K+ weekly downloads\)) Tj T*
+(" Active participant in open-source community with 100+ merged pull requests) Tj T*
+() Tj T*
+(Personal Projects) Tj T*
+(" Built AI-powered job matching platform using OpenAI API and vector embeddings) Tj T*
+(" Developed Chrome extension for productivity tracking \(5K+ active users\)) Tj T*
+(" Created technical blog with 50+ articles on software engineering topics \(20K+ monthly readers\)) Tj T*
+() Tj T*
+(AWARDS & RECOGNITION) Tj T*
+() Tj T*
+(" "Engineering Excellence Award" - Tech Innovations Inc. \(2022\)) Tj T*
+(" "Rising Star Award" - StartupXYZ \(2019\)) Tj T*
+(" Dean's List - UC Berkeley \(2014-2016\)) Tj T*
+() Tj T*
+ET
+endstream
+endobj
+
+xref
+0 6
+0000000000 65535 f
+0000000009 00000 n
+0000000058 00000 n
+0000000115 00000 n
+0000000261 00000 n
+0000000342 00000 n
+trailer
+<<
+/Size 6
+/Root 1 0 R
+>>
+startxref
+4418
+%%EOF

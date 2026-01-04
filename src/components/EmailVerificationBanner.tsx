@@ -34,7 +34,7 @@ export function EmailVerificationBanner() {
       console.error('Failed to send verification email:', error)
 
       // Handle rate limiting
-      if (error.code === 'auth/too-many-requests') {
+      if (error && typeof error === 'object' && 'code' in error && error.code === 'auth/too-many-requests') {
         toast.error('Too many requests', {
           description: 'Please wait a few minutes before requesting another verification email.'
         })

@@ -1,7 +1,7 @@
 /**
  * JobMatch AI Backend Server
  *
- * Express.js server that replaces Firebase Cloud Functions.
+ * Express.js server (migrated from legacy Firebase Cloud Functions).
  * Provides REST API endpoints for:
  * - Application generation (AI-powered resume/cover letter)
  * - Job scraping from LinkedIn and Indeed
@@ -26,6 +26,13 @@ import authRouter from './routes/auth';
 import jobsRouter from './routes/jobs';
 import exportsRouter from './routes/exports';
 import resumeRouter from './routes/resume';
+import spamDetectionRouter from './routes/spamDetection';
+import searchPreferencesRouter from './routes/searchPreferences';
+import profileRouter from './routes/profile';
+import skillsRouter from './routes/skills';
+import usageRouter from './routes/usage';
+import trackedApplicationsRouter from './routes/trackedApplications';
+import billingRouter from './routes/billing';
 
 // Middleware imports
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
@@ -47,6 +54,31 @@ const APP_URL = process.env.APP_URL || 'http://localhost:5173';
 // =============================================================================
 
 const app: Application = express();
+
+// =============================================================================
+// Health Check Endpoint (Before Security Middleware)
+// =============================================================================
+
+// Health endpoint must be defined BEFORE global CORS middleware
+// This ensures it can use permissive CORS for monitoring tools and Railway
+const healthCorsOptions = {
+  origin: '*',
+  credentials: true,
+  methods: ['GET', 'HEAD', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  exposedHeaders: ['X-RateLimit-Limit', 'X-RateLimit-Remaining', 'X-RateLimit-Reset', 'Retry-After'],
+  maxAge: 86400,
+};
+
+app.options('/health', cors(healthCorsOptions)); // Explicit preflight handler
+app.get('/health', cors(healthCorsOptions), (_req: Request, res: Response) => {
+  res.json({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    version: process.env.npm_package_version || '1.0.0',
+    environment: NODE_ENV,
+  });
+});
 
 // =============================================================================
 // Security Middleware
@@ -98,16 +130,42 @@ const corsOptions = {
       console.warn(`Allowed ports: ${ALLOWED_DEV_PORTS.join(', ')}`);
     }
 
-    // Multi-environment CORS: Use APP_URL environment variable
+    // Multi-environment CORS: Use APP_URL and ALLOWED_ORIGINS environment variables
     // This allows each environment (dev, staging, production) to have its own frontend URL
-    if (origin === APP_URL) {
+    // ALLOWED_ORIGINS supports comma-separated list for multiple frontends (e.g., Cloudflare Pages, Vercel, local)
+    const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '')
+      .split(',')
+      .map(o => o.trim())
+      .filter(o => o.length > 0);
+
+    const allAllowedOrigins = [APP_URL, ...ALLOWED_ORIGINS];
+
+    // Check for exact match first
+    if (allAllowedOrigins.includes(origin)) {
       callback(null, true);
-    } else {
-      console.warn(`CORS blocked origin: ${origin}`);
-      console.warn(`Allowed origin: ${APP_URL}`);
-      console.warn(`Set APP_URL environment variable to allow this origin`);
-      callback(new Error('Not allowed by CORS'));
+      return;
     }
+
+    // Support wildcard patterns for Cloudflare Pages preview deployments
+    // Pattern: https://*.jobmatch-ai-dev.pages.dev or https://*.jobmatch-ai.pages.dev
+    const wildcardPatterns = allAllowedOrigins.filter(o => o.includes('*'));
+    for (const pattern of wildcardPatterns) {
+      // Convert wildcard pattern to regex: https://*.example.com -> ^https://[^/]+\.example\.com$
+      const regexPattern = pattern
+        .replace(/\./g, '\\.') // Escape dots
+        .replace(/\*/g, '[^/]+'); // Replace * with non-slash characters
+      const regex = new RegExp(`^${regexPattern}$`);
+
+      if (regex.test(origin)) {
+        callback(null, true);
+        return;
+      }
+    }
+
+    console.warn(`CORS blocked origin: ${origin}`);
+    console.warn(`Allowed origins: ${allAllowedOrigins.join(', ')}`);
+    console.warn(`Set APP_URL or ALLOWED_ORIGINS environment variable to allow this origin`);
+    callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
   methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
@@ -139,19 +197,6 @@ app.use((req: Request, _res: Response, next) => {
 });
 
 // =============================================================================
-// Health Check Endpoint
-// =============================================================================
-
-app.get('/health', (_req: Request, res: Response) => {
-  res.json({
-    status: 'healthy',
-    timestamp: new Date().toISOString(),
-    version: process.env.npm_package_version || '1.0.0',
-    environment: NODE_ENV,
-  });
-});
-
-// =============================================================================
 // API Routes
 // =============================================================================
 
@@ -159,8 +204,18 @@ app.use('/api/applications', applicationsRouter);
 app.use('/api/emails', emailsRouter);
 app.use('/api/auth', authRouter);
 app.use('/api/jobs', jobsRouter);
+app.use('/api/spam-detection', spamDetectionRouter);
 app.use('/api/exports', exportsRouter);
 app.use('/api/resume', resumeRouter);
+app.use('/api/profile', profileRouter);
+app.use('/api/skills', skillsRouter);
+app.use('/api/usage', usageRouter);
+app.use('/api/tracked-applications', trackedApplicationsRouter);
+app.use('/api/billing', billingRouter);
+
+// Search preferences, history, templates, and manual trigger
+// All routes are defined in searchPreferencesRouter with their full paths
+app.use('/api', searchPreferencesRouter);
 
 // =============================================================================
 // API Documentation (development only)
@@ -200,7 +255,48 @@ if (NODE_ENV === 'development') {
           'POST /api/exports/docx': 'Export application as DOCX',
         },
         resume: {
+          'GET /api/resume': 'Fetch user resumes',
+          'POST /api/resume': 'Create new resume',
+          'PATCH /api/resume/:id': 'Update resume',
+          'DELETE /api/resume/:id': 'Delete resume',
           'POST /api/resume/parse': 'Parse resume file using AI',
+        },
+        profile: {
+          'GET /api/profile': 'Get current user profile',
+          'PATCH /api/profile': 'Update current user profile',
+        },
+        skills: {
+          'GET /api/skills': 'Get current user skills',
+          'POST /api/skills': 'Create a new skill',
+          'PATCH /api/skills/:id': 'Update a skill',
+          'DELETE /api/skills/:id': 'Delete a skill',
+        },
+        usage: {
+          'GET /api/usage/metrics': 'Get current user usage metrics',
+        },
+        searchPreferences: {
+          'GET /api/search-preferences': 'Get user search preferences',
+          'POST /api/search-preferences': 'Create/update search preferences',
+          'DELETE /api/search-preferences': 'Delete search preferences',
+          'POST /api/search-preferences/blacklist': 'Add to blacklist',
+          'DELETE /api/search-preferences/blacklist/:type/:value': 'Remove from blacklist',
+          'PATCH /api/search-preferences/sources': 'Enable/disable sources',
+        },
+        searchHistory: {
+          'GET /api/search-history': 'Get search history (paginated)',
+          'GET /api/search-history/stats': 'Get search statistics',
+          'GET /api/search-history/last': 'Get last search details',
+        },
+        searchTemplates: {
+          'GET /api/search-templates': 'List templates',
+          'POST /api/search-templates': 'Create template',
+          'GET /api/search-templates/:id': 'Get template',
+          'PUT /api/search-templates/:id': 'Update template',
+          'DELETE /api/search-templates/:id': 'Delete template',
+          'POST /api/search-templates/:id/use': 'Use template (trigger search)',
+        },
+        manualSearch: {
+          'POST /api/jobs/trigger-search': 'Manually trigger job search',
         },
       },
       authentication: 'Bearer token in Authorization header',
@@ -209,6 +305,7 @@ if (NODE_ENV === 'development') {
         emails: '10 emails/hour per user',
         applications: '20 generations/hour per user',
         scraping: '10 scrapes/hour per user',
+        manualSearch: '10 searches/hour per user',
       },
     });
   });

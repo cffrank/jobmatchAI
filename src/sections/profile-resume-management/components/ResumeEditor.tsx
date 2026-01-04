@@ -343,7 +343,7 @@ export function ResumeEditor({
 
                             <div className="flex-1 min-w-0">
                               <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">
-                                {exp.position}
+                                {exp.title}
                               </h3>
                               <p className="text-blue-600 dark:text-blue-400 font-semibold">
                                 {exp.company}

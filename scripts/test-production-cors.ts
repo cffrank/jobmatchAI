@@ -5,8 +5,8 @@
  * Run with: tsx scripts/test-production-cors.ts
  */
 
-const BACKEND_URL = 'https://intelligent-celebration-production-57e4.up.railway.app';
-const FRONTEND_URL = 'https://jobmatchai-production.up.railway.app';
+const BACKEND_URL = 'https://jobmatch-ai-prod.carl-f-frank.workers.dev';
+const FRONTEND_URL = 'https://jobmatch-ai-prod.pages.dev';
 const EVIL_URL = 'https://evil.com';
 
 interface TestResult {

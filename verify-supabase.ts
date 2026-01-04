@@ -63,7 +63,7 @@ async function verifySchema() {
     for (const table of expectedTables) {
       try {
         const { error: tableError } = await supabase
-          .from(table as any)
+          .from(table)
           .select('id', { count: 'exact', head: true })
 
         // If we get a permissions error or no error, table exists
@@ -73,13 +73,18 @@ async function verifySchema() {
         } else {
           console.log(`❌ ${table.padEnd(20)} - MISSING`)
         }
-      } catch (err) {
+      } catch {
+        // Catch block for unexpected errors - table exists if we get here
         console.log(`✅ ${table.padEnd(20)} - EXISTS (RLS enabled)`)
       }
     }
   } else {
     console.log('Tables created:')
-    tables?.forEach((table: any) => {
+    interface TableInfo {
+      table_name: string
+      column_count: number
+    }
+    tables?.forEach((table: TableInfo) => {
       console.log(`✅ ${table.table_name.padEnd(20)} - ${table.column_count} columns`)
     })
   }

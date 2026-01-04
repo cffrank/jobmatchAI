@@ -56,7 +56,7 @@ test.describe('Critical User Flows', () => {
     await page.goto(`${FRONTEND_URL}/login`);
 
     // Check for login form elements
-    await expect(page.getByRole('heading', { name: /sign in/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /welcome back/i })).toBeVisible();
   });
 
   test('Jobs page requires authentication', async ({ page }) => {
@@ -68,7 +68,8 @@ test.describe('Critical User Flows', () => {
 });
 
 test.describe('Application Generation Flow', () => {
-  test('Should show AI generation button on job details', async ({ page, context }) => {
+  test('Should show AI generation button on job details', async ({ page }) => {
+    // context parameter reserved for future use (e.g., browser context manipulation)
     // This test requires authenticated user
     // Skip if no test credentials available
     const testEmail = process.env.TEST_USER_EMAIL;

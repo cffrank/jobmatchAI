@@ -3,6 +3,7 @@ name: Deploy PR Preview
 on:
   pull_request:
     types: [opened, synchronize, reopened, closed]
+    branches: [main]  # Only run on PRs targeting main branch
     paths:
       - 'backend/**'
       - '.github/workflows/deploy-pr-preview.yml'
@@ -36,10 +37,18 @@ jobs:
 
       - name: Deploy to PR Preview Environment
         env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          # Use development token for PR previews (temporary testing environments)
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_DEVELOPMENT }}
           ENV_NAME: ${{ steps.env-setup.outputs.env_name }}
         working-directory: backend
         run: |
+          if [ -z "$RAILWAY_TOKEN" ]; then
+            echo "Error: RAILWAY_TOKEN_DEVELOPMENT secret not configured"
+            echo "PR preview environments require the RAILWAY_TOKEN_DEVELOPMENT secret"
+            echo "Please add it to GitHub secrets: Repository → Settings → Secrets → Actions"
+            exit 1
+          fi
+
           echo "Deploying backend to Railway PR environment: $ENV_NAME"
 
           # Deploy to PR preview environment
@@ -54,7 +63,7 @@ jobs:
       - name: Get deployment URL
         id: deploy-url
         env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_DEVELOPMENT }}
           ENV_NAME: ${{ steps.env-setup.outputs.env_name }}
         working-directory: backend
         run: |
@@ -64,10 +73,13 @@ jobs:
           # Retry up to 3 times as deployment might not be fully ready
           PREVIEW_URL=""
           for i in {1..3}; do
-            PREVIEW_URL=$(railway status \
-              --service backend \
-              --environment "$ENV_NAME" \
-              --json 2>/dev/null | jq -r '.deployments[0].url // empty' 2>/dev/null)
+            # Try railway domain first (simpler command)
+            PREVIEW_URL=$(railway domain 2>/dev/null | head -1 || echo "")
+
+            # Fallback: try status without service/environment flags
+            if [ -z "$PREVIEW_URL" ]; then
+              PREVIEW_URL=$(railway status --json 2>/dev/null | jq -r '.deployments[0].url // empty' 2>/dev/null || echo "")
+            fi
 
             if [ -n "$PREVIEW_URL" ] && [ "$PREVIEW_URL" != "null" ]; then
               echo "Successfully retrieved URL: $PREVIEW_URL"
@@ -92,7 +104,7 @@ jobs:
       - name: Health check preview environment
         id: health-check
         env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_DEVELOPMENT }}
           ENV_NAME: ${{ steps.env-setup.outputs.env_name }}
           PREVIEW_URL: ${{ steps.deploy-url.outputs.preview_url }}
         working-directory: backend
@@ -198,7 +210,7 @@ See [\`docs/PHASE2-PR-ENVIRONMENTS.md\`](../docs/PHASE2-PR-ENVIRONMENTS.md) for 
       - name: Delete PR environment
         id: delete
         env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_DEVELOPMENT }}
           PR_NUMBER: ${{ github.event.number }}
         continue-on-error: true
         run: |

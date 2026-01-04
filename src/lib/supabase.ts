@@ -1,8 +1,13 @@
 /**
  * Supabase Client Initialization
  *
- * This module initializes the Supabase client with proper TypeScript types
- * and environment variable validation.
+ * MIGRATION NOTE: This client is being phased out in favor of Cloudflare Workers API.
+ * Auth will be handled by Workers (JWT tokens), not Supabase Auth.
+ * Database queries will go through Workers API, not direct Supabase.
+ * Storage will use R2 via Workers, not Supabase Storage.
+ *
+ * This file is kept for backward compatibility during migration.
+ * Once migration is complete, this will be removed.
  *
  * Environment variables required:
  * - VITE_SUPABASE_URL: Your Supabase project URL
@@ -10,78 +15,55 @@
  */
 
 import { createClient } from '@supabase/supabase-js'
-import type { Database } from './database.types'
+import type { Database } from '@/types/supabase'
+import { SUPABASE_URL, SUPABASE_ANON_KEY, FEATURES } from './config'
 
-// Validate environment variables
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
-
-if (!supabaseUrl || !supabaseAnonKey) {
+// Validate environment variables (only if Workers API is not enabled)
+if (!FEATURES.USE_WORKERS_API && (!SUPABASE_URL || !SUPABASE_ANON_KEY)) {
   console.error(
     '❌ Missing Supabase environment variables!\n' +
     'Required variables:\n' +
     '- VITE_SUPABASE_URL\n' +
     '- VITE_SUPABASE_ANON_KEY\n\n' +
-    'App will not function correctly until these are set.'
+    'Or enable Workers API with VITE_USE_WORKERS_API=true'
   )
-  // Use dummy values to prevent import-time crashes
-  // The app will show error states when actually trying to use Supabase
 }
 
 /**
  * Supabase client instance
  *
- * Features:
- * - Full TypeScript type safety via Database type
- * - Automatic JWT token refresh
- * - Row Level Security (RLS) enforcement
- * - Real-time subscriptions support
+ * DEPRECATED: Use workersApi from './workersApi' instead.
  *
- * @example
- * ```ts
- * // Query with type safety
- * const { data, error } = await supabase
- *   .from('jobs')
- *   .select('*')
- *   .eq('user_id', userId)
- * ```
+ * This client is configured for minimal usage:
+ * - Auth is DISABLED (handled by Workers)
+ * - Session persistence is DISABLED (Workers manages sessions)
+ * - Only used for legacy read operations during migration
+ *
+ * @deprecated Use workersApi for new code
  */
 export const supabase = createClient<Database>(
-  supabaseUrl || 'https://placeholder.supabase.co',
-  supabaseAnonKey || 'placeholder-anon-key',
+  SUPABASE_URL || 'https://placeholder.supabase.co',
+  SUPABASE_ANON_KEY || 'placeholder-anon-key',
   {
   auth: {
-    // Auto-refresh session before it expires
-    autoRefreshToken: true,
-    // Persist session in localStorage
-    persistSession: true,
-    // Detect session from URL after OAuth redirect
-    detectSessionInUrl: true,
-    // Storage key for session data
+    // Supabase Auth is used for login/session management
+    // Workers validate the JWT tokens
+    autoRefreshToken: true,    // Auto-refresh tokens before expiry
+    persistSession: true,       // Save session to localStorage
+    detectSessionInUrl: true,   // Handle OAuth callbacks
+    // Use same storage key for compatibility
     storageKey: 'jobmatch-auth-token',
-    // SEC-002: Session security configuration
-    // Note: Using default implicit flow (not PKCE) as this is a client-side only app.
-    // PKCE requires server-side rendering with @supabase/ssr to store code verifiers in cookies.
-    // The implicit flow is appropriate for browser-based SPAs with localStorage.
-    // Session security is enforced via:
-    // - 7-day JWT expiry (Supabase default)
-    // - 30-minute inactivity timeout (frontend)
-    // - Automatic token refresh
-    // - Secure HTTPS-only cookies in production
   },
   // Global settings
   global: {
     headers: {
-      'x-client-info': 'jobmatch-ai-web',
+      'x-client-info': 'jobmatch-ai-web-legacy',
     },
   },
-  // Real-time settings
+  // Disable realtime (Workers handles this)
   realtime: {
-    // Heartbeat interval in ms
     heartbeatIntervalMs: 30000,
-    // Reconnect after network failure
-    reconnectAfterMs: (tries) => {
-      // Exponential backoff: 1s, 2s, 4s, 8s, max 30s
+    reconnectAfterMs: (tries: number) => {
       return Math.min(1000 * Math.pow(2, tries), 30000)
     },
   },

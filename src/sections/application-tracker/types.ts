@@ -1,12 +1,16 @@
 export type ApplicationStatus =
   | 'applied'
+  | 'response_received'
   | 'screening'
   | 'interview_scheduled'
   | 'interview_completed'
   | 'offer'
+  | 'offer_accepted'
+  | 'offer_declined'
   | 'accepted'
   | 'rejected'
   | 'withdrawn'
+  | 'abandoned'
 
 export interface Contact {
   name: string
@@ -59,6 +63,7 @@ export interface TrackedApplication {
   status: ApplicationStatus
   appliedDate: string
   lastUpdated: string
+  statusChangedAt?: string // Timestamp of most recent status change
   statusHistory: {
     status: ApplicationStatus
     date: string

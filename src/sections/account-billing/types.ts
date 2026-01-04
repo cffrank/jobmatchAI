@@ -10,6 +10,11 @@ export interface UserProfile {
   emailVerified: boolean
   phone?: string
   profilePhotoUrl?: string
+  streetAddress?: string
+  city?: string
+  state?: string
+  postalCode?: string
+  country?: string
   createdAt: string
 }
 

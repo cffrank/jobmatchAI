@@ -38,9 +38,9 @@ const createTestApp = (nodeEnv: string, appUrl: string): Application => {
 
       const allowedOrigins = [
         appUrl,
-        'https://jobmatch-ai.railway.app',
-        'https://jobmatch-ai.vercel.app',
-        'https://jobmatchai-production.up.railway.app',
+        'https://jobmatch-ai-prod.pages.dev',
+        'https://jobmatch-ai-staging.pages.dev',
+        'https://jobmatch-ai-dev.pages.dev',
       ];
 
       if (allowedOrigins.includes(origin)) {
@@ -79,19 +79,19 @@ describe('CORS Configuration Tests', () => {
     let app: Application;
 
     beforeAll(() => {
-      app = createTestApp('production', 'https://jobmatchai-production.up.railway.app');
+      app = createTestApp('production', 'https://jobmatch-ai-prod.pages.dev');
     });
 
     it('should allow OPTIONS preflight request from production frontend', async () => {
       const response = await request(app)
         .options('/api/test')
-        .set('Origin', 'https://jobmatchai-production.up.railway.app')
+        .set('Origin', 'https://jobmatch-ai-prod.pages.dev')
         .set('Access-Control-Request-Method', 'POST')
         .set('Access-Control-Request-Headers', 'Content-Type,Authorization');
 
       expect(response.status).toBe(204);
       expect(response.headers['access-control-allow-origin']).toBe(
-        'https://jobmatchai-production.up.railway.app'
+        'https://jobmatch-ai-prod.pages.dev'
       );
       expect(response.headers['access-control-allow-methods']).toContain('POST');
       expect(response.headers['access-control-allow-headers']).toContain('Content-Type');
@@ -101,12 +101,12 @@ describe('CORS Configuration Tests', () => {
     it('should allow POST request from production frontend', async () => {
       const response = await request(app)
         .post('/api/test')
-        .set('Origin', 'https://jobmatchai-production.up.railway.app')
+        .set('Origin', 'https://jobmatch-ai-prod.pages.dev')
         .send({ test: 'data' });
 
       expect(response.status).toBe(200);
       expect(response.headers['access-control-allow-origin']).toBe(
-        'https://jobmatchai-production.up.railway.app'
+        'https://jobmatch-ai-prod.pages.dev'
       );
     });
 
@@ -181,13 +181,13 @@ describe('CORS Configuration Tests', () => {
     let app: Application;
 
     beforeAll(() => {
-      app = createTestApp('production', 'https://jobmatchai-production.up.railway.app');
+      app = createTestApp('production', 'https://jobmatch-ai-prod.pages.dev');
     });
 
     it('should handle OPTIONS preflight for /api/applications/generate', async () => {
       const response = await request(app)
         .options('/api/applications/generate')
-        .set('Origin', 'https://jobmatchai-production.up.railway.app')
+        .set('Origin', 'https://jobmatch-ai-prod.pages.dev')
         .set('Access-Control-Request-Method', 'POST')
         .set('Access-Control-Request-Headers', 'Content-Type,Authorization');
 
@@ -199,7 +199,7 @@ describe('CORS Configuration Tests', () => {
     it('should expose rate limit headers', async () => {
       const response = await request(app)
         .get('/health')
-        .set('Origin', 'https://jobmatchai-production.up.railway.app');
+        .set('Origin', 'https://jobmatch-ai-prod.pages.dev');
 
       expect(response.headers['access-control-expose-headers']).toContain('X-RateLimit-Limit');
     });
@@ -209,13 +209,13 @@ describe('CORS Configuration Tests', () => {
     let app: Application;
 
     beforeAll(() => {
-      app = createTestApp('production', 'https://jobmatchai-production.up.railway.app');
+      app = createTestApp('production', 'https://jobmatch-ai-prod.pages.dev');
     });
 
     it('should include credentials: true', async () => {
       const response = await request(app)
         .options('/api/test')
-        .set('Origin', 'https://jobmatchai-production.up.railway.app');
+        .set('Origin', 'https://jobmatch-ai-prod.pages.dev');
 
       expect(response.headers['access-control-allow-credentials']).toBe('true');
     });
@@ -223,7 +223,7 @@ describe('CORS Configuration Tests', () => {
     it('should have appropriate max-age for preflight cache', async () => {
       const response = await request(app)
         .options('/api/test')
-        .set('Origin', 'https://jobmatchai-production.up.railway.app');
+        .set('Origin', 'https://jobmatch-ai-prod.pages.dev');
 
       expect(response.headers['access-control-max-age']).toBe('86400');
     });
@@ -231,7 +231,7 @@ describe('CORS Configuration Tests', () => {
     it('should allow Authorization header', async () => {
       const response = await request(app)
         .options('/api/test')
-        .set('Origin', 'https://jobmatchai-production.up.railway.app')
+        .set('Origin', 'https://jobmatch-ai-prod.pages.dev')
         .set('Access-Control-Request-Headers', 'Authorization');
 
       expect(response.headers['access-control-allow-headers']).toContain('Authorization');

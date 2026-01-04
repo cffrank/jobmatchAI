@@ -1,0 +1,94 @@
+JOHN DOE
+Senior Software Engineer
+
+Contact Information:
+Email: john.doe@email.com
+Phone: +1 (555) 123-4567
+Location: San Francisco, CA
+LinkedIn: linkedin.com/in/johndoe
+GitHub: github.com/johndoe
+
+PROFESSIONAL SUMMARY
+Results-driven Senior Software Engineer with 8+ years of experience building scalable web applications and distributed systems. Proven expertise in full-stack development, cloud architecture, and leading engineering teams. Passionate about clean code, test-driven development, and mentoring junior developers.
+
+TECHNICAL SKILLS
+Languages: JavaScript, TypeScript, Python, Java, SQL
+Frontend: React, Next.js, Vue.js, HTML5, CSS3, Tailwind CSS
+Backend: Node.js, Express, Django, Spring Boot, GraphQL, REST APIs
+Databases: PostgreSQL, MongoDB, Redis, DynamoDB
+Cloud & DevOps: AWS (EC2, S3, Lambda, RDS), Docker, Kubernetes, CI/CD, GitHub Actions
+Tools: Git, Jira, Figma, Postman, VS Code
+
+WORK EXPERIENCE
+
+Senior Software Engineer
+Tech Innovations Inc. | San Francisco, CA
+January 2020 - Present
+
+• Led development of microservices architecture serving 2M+ daily active users, reducing latency by 40%
+• Architected and implemented real-time data pipeline using Kafka and Lambda, processing 100K events/hour
+• Mentored team of 5 junior engineers, conducting code reviews and establishing engineering best practices
+• Migrated legacy monolith to cloud-native architecture, reducing infrastructure costs by 35%
+• Implemented comprehensive testing strategy (unit, integration, E2E) achieving 85% code coverage
+• Collaborated with product and design teams to deliver 15+ features in agile sprints
+
+Software Engineer
+StartupXYZ | San Francisco, CA
+June 2018 - December 2019
+
+• Built and maintained full-stack web application using React, Node.js, and PostgreSQL
+• Developed RESTful APIs and GraphQL endpoints consumed by mobile and web clients
+• Optimized database queries and implemented caching strategies, improving response times by 60%
+• Participated in on-call rotation, resolving production incidents with 99.9% uptime SLA
+• Contributed to CI/CD pipeline setup using GitHub Actions and AWS CodeDeploy
+• Worked closely with UX designers to implement pixel-perfect responsive interfaces
+
+Junior Software Engineer
+Digital Solutions Corp | San Jose, CA
+July 2016 - May 2018
+
+• Developed customer-facing features for enterprise SaaS platform using Angular and Java Spring Boot
+• Fixed bugs and implemented enhancements based on customer feedback and requirements
+• Participated in agile ceremonies (daily standups, sprint planning, retrospectives)
+• Wrote unit tests and integration tests using JUnit and Jasmine
+• Assisted in database schema design and migration scripts for PostgreSQL
+• Collaborated with QA team to ensure high-quality releases
+
+EDUCATION
+
+Bachelor of Science in Computer Science
+University of California, Berkeley | Berkeley, CA
+Graduated: May 2016
+GPA: 3.7/4.0
+
+Relevant Coursework:
+• Data Structures and Algorithms
+• Database Systems
+• Software Engineering
+• Computer Networks
+• Machine Learning
+• Operating Systems
+
+CERTIFICATIONS
+
+• AWS Certified Solutions Architect - Associate (2021)
+• Professional Scrum Master I (PSM I) (2020)
+• MongoDB Certified Developer Associate (2019)
+
+PROJECTS
+
+Open Source Contributions
+• Contributor to React ecosystem libraries with 500+ GitHub stars
+• Maintained popular npm package for authentication middleware (10K+ weekly downloads)
+• Active participant in open-source community with 100+ merged pull requests
+
+Personal Projects
+• Built AI-powered job matching platform using OpenAI API and vector embeddings
+• Developed Chrome extension for productivity tracking (5K+ active users)
+• Created technical blog with 50+ articles on software engineering topics (20K+ monthly readers)
+
+AWARDS & RECOGNITION
+
+• "Engineering Excellence Award" - Tech Innovations Inc. (2022)
+• "Rising Star Award" - StartupXYZ (2019)
+• Dean's List - UC Berkeley (2014-2016)

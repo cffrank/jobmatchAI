@@ -226,14 +226,14 @@ function ApplicationCard({
           <Sparkles className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-blue-900 dark:text-blue-300 mb-1">
-              {application.variants.length} AI-Generated Variant{application.variants.length > 1 ? 's' : ''}
+              {(application.variants?.length || 0)} AI-Generated Variant{(application.variants?.length || 0) > 1 ? 's' : ''}
             </p>
             <p className="text-sm text-blue-700 dark:text-blue-400">
-              {application.variants.map(v => v.name).join(', ')}
+              {application.variants?.map(v => v.name).join(', ') || 'No variants'}
             </p>
-            {application.editHistory.length > 0 && (
+            {(application.editHistory?.length || 0) > 0 && (
               <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">
-                {application.editHistory.length} edit{application.editHistory.length > 1 ? 's' : ''} made
+                {application.editHistory?.length || 0} edit{(application.editHistory?.length || 0) > 1 ? 's' : ''} made
               </p>
             )}
           </div>

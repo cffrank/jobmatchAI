@@ -32,7 +32,7 @@
     {
       "id": "exp-001",
       "company": "TechFlow Inc",
-      "position": "Senior Product Manager",
+      "title": "Senior Product Manager",
       "location": "San Francisco, CA",
       "startDate": "2021-03",
       "endDate": null,
@@ -48,7 +48,7 @@
     {
       "id": "exp-002",
       "company": "Google",
-      "position": "Product Manager",
+      "title": "Product Manager",
       "location": "Mountain View, CA",
       "startDate": "2018-06",
       "endDate": "2021-02",
@@ -64,7 +64,7 @@
     {
       "id": "exp-003",
       "company": "StartupLab",
-      "position": "Associate Product Manager",
+      "title": "Associate Product Manager",
       "location": "San Francisco, CA",
       "startDate": "2016-08",
       "endDate": "2018-05",

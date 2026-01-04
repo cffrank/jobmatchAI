@@ -1,26 +1,92 @@
-import { ArrowLeft, Bookmark, BookmarkCheck, Sparkles, MapPin, Briefcase, DollarSign, Calendar, AlertTriangle, CheckCircle2, TrendingUp, Award, Lightbulb } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { ArrowLeft, Bookmark, BookmarkCheck, Sparkles, MapPin, Briefcase, DollarSign, Calendar, AlertTriangle, CheckCircle2, TrendingUp, Award, Lightbulb, Pencil, Clock, Loader2 } from 'lucide-react'
 import type { JobDetailProps } from '../types'
+import { CompatibilityDetails } from './CompatibilityDetails'
+import { analyzeJobWithAI } from '../../../lib/aiJobMatching'
+import { toast } from 'sonner'
 
 export function JobDetail({
   job,
   onBack,
   onSaveJob,
   onUnsaveJob,
-  onApply
+  onApply,
+  onEdit
 }: JobDetailProps) {
+  const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [localJob, setLocalJob] = useState(job)
+
+  // Sync local state when job prop changes (e.g., after saving)
+  useEffect(() => {
+    setLocalJob(job)
+  }, [job])
+
+  const handleAnalyzeCompatibility = async () => {
+    setIsAnalyzing(true)
+    try {
+      const sessionJson = localStorage.getItem('jobmatch-auth-token')
+      if (!sessionJson) {
+        toast.error('Please log in to analyze job compatibility')
+        return
+      }
+
+      // Parse the session object and extract the access token
+      const session = JSON.parse(sessionJson)
+      const accessToken = session?.access_token
+      if (!accessToken) {
+        toast.error('Authentication session invalid. Please log in again.')
+        return
+      }
+
+      const analysis = await analyzeJobWithAI(localJob.id, accessToken)
+
+      // Update local job with new analysis
+      setLocalJob({
+        ...localJob,
+        compatibilityAnalysis: analysis,
+        matchScore: analysis.overallScore,
+      })
+
+      toast.success('Compatibility analysis complete!')
+    } catch (error) {
+      console.error('Failed to analyze job:', error)
+      toast.error('Failed to analyze job compatibility')
+    } finally {
+      setIsAnalyzing(false)
+    }
+  }
+
+  // Calculate time until expiration
+  const getTimeUntilExpiration = () => {
+    if (localJob.isSaved || !localJob.expiresAt) return null
+
+    const now = new Date()
+    const expiresAt = new Date(localJob.expiresAt)
+    const hoursUntilExpiration = (expiresAt.getTime() - now.getTime()) / (1000 * 60 * 60)
+
+    if (hoursUntilExpiration <= 0) return 'expired'
+    if (hoursUntilExpiration <= 6) return { hours: Math.floor(hoursUntilExpiration), urgent: true }
+    return { hours: Math.floor(hoursUntilExpiration), urgent: false }
+  }
+
+  const expirationInfo = getTimeUntilExpiration()
+
   const getMatchScoreColor = (score?: number) => {
     if (!score) return 'from-slate-500 to-slate-600'
-    if (score >= 85) return 'from-emerald-500 to-emerald-600'
-    if (score >= 70) return 'from-blue-500 to-blue-600'
-    return 'from-slate-500 to-slate-600'
+    if (score >= 70) return 'from-emerald-500 to-emerald-600'
+    if (score >= 50) return 'from-amber-500 to-amber-600'
+    return 'from-red-500 to-red-600'
   }
 
   const getMatchScoreLabel = (score?: number) => {
     if (!score) return 'Match Score Not Available'
-    if (score >= 85) return 'Excellent Match'
     if (score >= 70) return 'Good Match'
-    return 'Potential Match'
+    if (score >= 50) return 'Potential Match'
+    return 'Bad Match'
   }
+
+  // Use localJob instead of job for all data references
+  const currentJob = localJob
 
   const formatSalary = (min?: number, max?: number) => {
     if (min === undefined || max === undefined) return 'Salary not disclosed'
@@ -47,7 +113,7 @@ export function JobDetail({
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
       {/* Hero Section */}
-      <div className={`relative bg-gradient-to-br ${getMatchScoreColor(job.matchScore)} text-white overflow-hidden`}>
+      <div className={`relative bg-gradient-to-br ${getMatchScoreColor(currentJob.matchScore)} text-white overflow-hidden`}>
         {/* Decorative Background Elements */}
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-0 right-0 w-96 h-96 bg-white rounded-full blur-3xl transform translate-x-1/2 -translate-y-1/2" />
@@ -67,31 +133,31 @@ export function JobDetail({
           {/* Header Content */}
           <div className="flex items-start gap-6 mb-8">
             <img
-              src={job.companyLogo}
-              alt={`${job.company} logo`}
+              src={currentJob.companyLogo}
+              alt={`${currentJob.company} logo`}
               className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl border-4 border-white/20 bg-white flex-shrink-0 shadow-xl"
             />
             <div className="flex-1 min-w-0">
               <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-3 leading-tight">
-                {job.title}
+                {currentJob.title}
               </h1>
               <p className="text-xl sm:text-2xl text-white/90 font-medium mb-4">
-                {job.company}
+                {currentJob.company}
               </p>
 
               {/* Quick Stats */}
               <div className="flex flex-wrap gap-4 text-sm sm:text-base">
                 <div className="flex items-center gap-2">
                   <MapPin className="w-5 h-5" />
-                  <span>{job.location}</span>
+                  <span>{currentJob.location}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Briefcase className="w-5 h-5" />
-                  <span>{job.workArrangement}</span>
+                  <span>{currentJob.workArrangement}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <DollarSign className="w-5 h-5" />
-                  <span>{formatSalary(job.salaryMin, job.salaryMax)}</span>
+                  <span>{formatSalary(currentJob.salaryMin, currentJob.salaryMax)}</span>
                 </div>
               </div>
             </div>
@@ -101,13 +167,13 @@ export function JobDetail({
               <div className="relative">
                 <div className="w-24 h-24 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
                   <div className="text-center">
-                    <div className="text-3xl font-bold">{job.matchScore}%</div>
+                    <div className="text-3xl font-bold">{currentJob.matchScore}%</div>
                     <Sparkles className="w-5 h-5 mx-auto mt-1" />
                   </div>
                 </div>
               </div>
               <span className="text-sm font-semibold text-white/90">
-                {getMatchScoreLabel(job.matchScore)}
+                {getMatchScoreLabel(currentJob.matchScore)}
               </span>
             </div>
           </div>
@@ -116,15 +182,21 @@ export function JobDetail({
           <div className="flex flex-wrap gap-3">
             <button
               onClick={onApply}
-              className="flex-1 sm:flex-none px-8 py-3.5 bg-white text-blue-600 rounded-xl font-bold text-lg hover:bg-blue-50 transition-all shadow-xl hover:shadow-2xl hover:scale-105"
+              disabled={!currentJob.isSaved}
+              className={`flex-1 sm:flex-none px-8 py-3.5 rounded-xl font-bold text-lg transition-all shadow-xl ${
+                currentJob.isSaved
+                  ? 'bg-white text-blue-600 hover:bg-blue-50 hover:shadow-2xl hover:scale-105 cursor-pointer'
+                  : 'bg-white/50 text-slate-400 cursor-not-allowed opacity-60'
+              }`}
+              title={!currentJob.isSaved ? 'Save this job first to apply' : 'Generate application'}
             >
               Apply Now
             </button>
             <button
-              onClick={job.isSaved ? onUnsaveJob : onSaveJob}
+              onClick={currentJob.isSaved ? onUnsaveJob : onSaveJob}
               className="px-6 py-3.5 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-xl font-medium transition-all flex items-center gap-2"
             >
-              {job.isSaved ? (
+              {currentJob.isSaved ? (
                 <>
                   <BookmarkCheck className="w-5 h-5" />
                   <span className="hidden sm:inline">Saved</span>
@@ -136,18 +208,88 @@ export function JobDetail({
                 </>
               )}
             </button>
+            {onEdit && (
+              <button
+                onClick={onEdit}
+                className="px-6 py-3.5 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-xl font-medium transition-all flex items-center gap-2"
+                title="Edit job details"
+              >
+                <Pencil className="w-5 h-5" />
+                <span className="hidden sm:inline">Edit</span>
+              </button>
+            )}
           </div>
 
           {/* Posted Date */}
           <div className="mt-6 flex items-center gap-2 text-sm text-white/80">
             <Calendar className="w-4 h-4" />
-            <span>Posted {formatDate(job.postedDate)} • Apply by {formatDate(job.applicationDeadline)}</span>
+            <span>Posted {formatDate(currentJob.postedDate)} • Apply by {formatDate(currentJob.applicationDeadline)}</span>
           </div>
         </div>
       </div>
 
       {/* Main Content */}
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        {/* Expiration Warning Banner */}
+        {expirationInfo && expirationInfo !== 'expired' && (
+          <div className={`mb-6 rounded-xl border p-4 ${
+            expirationInfo.urgent
+              ? 'bg-amber-50 dark:bg-amber-950 border-amber-300 dark:border-amber-700'
+              : 'bg-blue-50 dark:bg-blue-950 border-blue-300 dark:border-blue-700'
+          }`}>
+            <div className="flex items-start gap-3">
+              <Clock className={`w-5 h-5 mt-0.5 ${
+                expirationInfo.urgent
+                  ? 'text-amber-600 dark:text-amber-400'
+                  : 'text-blue-600 dark:text-blue-400'
+              }`} />
+              <div className="flex-1">
+                <h3 className={`font-semibold mb-1 ${
+                  expirationInfo.urgent
+                    ? 'text-amber-900 dark:text-amber-100'
+                    : 'text-blue-900 dark:text-blue-100'
+                }`}>
+                  {expirationInfo.urgent ? 'Job Expiring Soon!' : 'Unsaved Job'}
+                </h3>
+                <p className={`text-sm ${
+                  expirationInfo.urgent
+                    ? 'text-amber-700 dark:text-amber-300'
+                    : 'text-blue-700 dark:text-blue-300'
+                }`}>
+                  This job will be automatically removed in {expirationInfo.hours} hour{expirationInfo.hours !== 1 ? 's' : ''}.
+                  Save it now to keep it in your list and enable applications.
+                </p>
+              </div>
+              <button
+                onClick={onSaveJob}
+                className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${
+                  expirationInfo.urgent
+                    ? 'bg-amber-600 hover:bg-amber-700 text-white'
+                    : 'bg-blue-600 hover:bg-blue-700 text-white'
+                }`}
+              >
+                Save Job
+              </button>
+            </div>
+          </div>
+        )}
+
+        {!currentJob.isSaved && (
+          <div className="mb-6 rounded-xl border border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-950 p-4">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 mt-0.5 text-blue-600 dark:text-blue-400" />
+              <div className="flex-1">
+                <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-1">
+                  Save Required to Apply
+                </h3>
+                <p className="text-sm text-blue-700 dark:text-blue-300">
+                  You must save this job before you can generate an application. This helps you organize your job search and prevents accidental applications.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Left Column - Main Content */}
           <div className="lg:col-span-2 space-y-8">
@@ -158,7 +300,7 @@ export function JobDetail({
                 Job Description
               </h2>
               <div className="prose prose-slate dark:prose-invert max-w-none">
-                {(job.description || 'No description available').split('\n\n').map((paragraph, idx) => (
+                {(currentJob.description || 'No description available').split('\n\n').map((paragraph, idx) => (
                   <p key={idx} className="text-slate-700 dark:text-slate-300 leading-relaxed mb-4 last:mb-0">
                     {paragraph}
                   </p>
@@ -167,15 +309,15 @@ export function JobDetail({
             </div>
 
             {/* Required Skills */}
-            {job.requiredSkills && job.requiredSkills.length > 0 && (
+            {currentJob.requiredSkills && currentJob.requiredSkills.length > 0 && (
               <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-8 shadow-sm">
                 <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-50 mb-6 flex items-center gap-3">
                   <div className="w-2 h-8 bg-emerald-600 rounded-full" />
                   Required Skills
                 </h2>
                 <div className="flex flex-wrap gap-3">
-                  {job.requiredSkills.map((skill) => {
-                    const isMissing = job.missingSkills?.includes(skill) ?? false
+                  {currentJob.requiredSkills.map((skill) => {
+                    const isMissing = currentJob.missingSkills?.includes(skill) ?? false
                   return (
                     <div
                       key={skill}
@@ -198,13 +340,13 @@ export function JobDetail({
                 })}
               </div>
 
-                {job.missingSkills && job.missingSkills.length > 0 && (
+                {currentJob.missingSkills && currentJob.missingSkills.length > 0 && (
                   <div className="mt-6 p-4 bg-amber-50 dark:bg-amber-950/20 border-2 border-amber-200 dark:border-amber-800 rounded-xl">
                     <div className="flex items-start gap-3">
                       <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
                       <div>
                         <p className="font-semibold text-amber-900 dark:text-amber-300 mb-1">
-                          {job.missingSkills.length} Skill Gap{job.missingSkills.length > 1 ? 's' : ''} Identified
+                          {currentJob.missingSkills.length} Skill Gap{currentJob.missingSkills.length > 1 ? 's' : ''} Identified
                         </p>
                         <p className="text-sm text-amber-700 dark:text-amber-400">
                           Don't let this discourage you! Highlight your transferable skills and willingness to learn in your application.
@@ -219,54 +361,82 @@ export function JobDetail({
 
           {/* Right Column - Sidebar */}
           <div className="space-y-6">
-            {/* Compatibility Breakdown */}
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm sticky top-6">
-              <h3 className="text-lg font-bold text-slate-900 dark:text-slate-50 mb-4 flex items-center gap-2">
-                <Award className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                Compatibility Analysis
-              </h3>
-
-              <div className="space-y-4">
-                <CompatibilityBar
-                  label="Skill Match"
-                  score={job.compatibilityBreakdown?.skillMatch ?? 0}
-                  getColor={getBreakdownColor}
-                />
-                <CompatibilityBar
-                  label="Experience Match"
-                  score={job.compatibilityBreakdown?.experienceMatch ?? 0}
-                  getColor={getBreakdownColor}
-                />
-                <CompatibilityBar
-                  label="Industry Match"
-                  score={job.compatibilityBreakdown?.industryMatch ?? 0}
-                  getColor={getBreakdownColor}
-                />
-                <CompatibilityBar
-                  label="Location Match"
-                  score={job.compatibilityBreakdown?.locationMatch ?? 0}
-                  getColor={getBreakdownColor}
-                />
+            {/* Compatibility Analysis */}
+            {currentJob.compatibilityAnalysis ? (
+              <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm sticky top-6 z-20">
+                <CompatibilityDetails analysis={currentJob.compatibilityAnalysis} />
               </div>
+            ) : (
+              <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm sticky top-6 z-20">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-slate-50 mb-4 flex items-center gap-2">
+                  <Award className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                  Compatibility Analysis
+                </h3>
 
-              <div className="mt-6 pt-6 border-t border-slate-200 dark:border-slate-800">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="font-semibold text-slate-700 dark:text-slate-300">Overall Match</span>
-                  <span className={`text-2xl font-bold bg-gradient-to-r ${getMatchScoreColor(job.matchScore)} bg-clip-text text-transparent`}>
-                    {job.matchScore}%
-                  </span>
-                </div>
-                <div className="h-3 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full bg-gradient-to-r ${getMatchScoreColor(job.matchScore)} rounded-full transition-all duration-1000`}
-                    style={{ width: `${job.matchScore}%` }}
-                  />
-                </div>
+                {currentJob.compatibilityBreakdown ? (
+                  <>
+                    <div className="space-y-4">
+                      <CompatibilityBar
+                        label="Skill Match"
+                        score={currentJob.compatibilityBreakdown.skillMatch ?? 0}
+                        getColor={getBreakdownColor}
+                      />
+                      <CompatibilityBar
+                        label="Experience Match"
+                        score={currentJob.compatibilityBreakdown.experienceMatch ?? 0}
+                        getColor={getBreakdownColor}
+                      />
+                      <CompatibilityBar
+                        label="Industry Match"
+                        score={currentJob.compatibilityBreakdown.industryMatch ?? 0}
+                        getColor={getBreakdownColor}
+                      />
+                      <CompatibilityBar
+                        label="Location Match"
+                        score={currentJob.compatibilityBreakdown.locationMatch ?? 0}
+                        getColor={getBreakdownColor}
+                      />
+                    </div>
+
+                    <div className="mt-6 pt-6 border-t border-slate-200 dark:border-slate-800">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-semibold text-slate-700 dark:text-slate-300">Overall Match</span>
+                        <span className={`text-2xl font-bold bg-gradient-to-r ${getMatchScoreColor(currentJob.matchScore)} bg-clip-text text-transparent`}>
+                          {currentJob.matchScore}%
+                        </span>
+                      </div>
+                      <div className="h-3 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full bg-gradient-to-r ${getMatchScoreColor(currentJob.matchScore)} rounded-full transition-all duration-1000`}
+                          style={{ width: `${currentJob.matchScore}%` }}
+                        />
+                      </div>
+                    </div>
+                  </>
+                ) : null}
+
+                <button
+                  onClick={handleAnalyzeCompatibility}
+                  disabled={isAnalyzing}
+                  className="w-full mt-6 px-4 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:from-slate-400 disabled:to-slate-500 text-white rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {isAnalyzing ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      Analyzing...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-5 h-5" />
+                      Get Detailed Analysis
+                    </>
+                  )}
+                </button>
               </div>
-            </div>
+            )}
 
             {/* AI Recommendations */}
-            {job.recommendations && job.recommendations.length > 0 && (
+            {currentJob.recommendations && currentJob.recommendations.length > 0 && (
               <div className="bg-gradient-to-br from-blue-50 to-emerald-50 dark:from-blue-950/30 dark:to-emerald-950/30 rounded-2xl border border-blue-200 dark:border-blue-800 p-6 shadow-sm">
                 <h3 className="text-lg font-bold text-slate-900 dark:text-slate-50 mb-4 flex items-center gap-2">
                   <Lightbulb className="w-5 h-5 text-blue-600 dark:text-blue-400" />
@@ -274,7 +444,7 @@ export function JobDetail({
                 </h3>
 
                 <div className="space-y-3">
-                  {job.recommendations.map((recommendation, idx) => (
+                  {currentJob.recommendations.map((recommendation, idx) => (
                     <div
                       key={idx}
                       className="flex items-start gap-3 p-3 bg-white/60 dark:bg-slate-900/60 backdrop-blur-sm rounded-lg border border-blue-200/50 dark:border-blue-800/50"
@@ -292,7 +462,13 @@ export function JobDetail({
             {/* Apply CTA */}
             <button
               onClick={onApply}
-              className="w-full px-6 py-4 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-xl font-bold text-lg transition-all shadow-lg hover:shadow-xl hover:scale-105"
+              disabled={!currentJob.isSaved}
+              className={`w-full px-6 py-4 rounded-xl font-bold text-lg transition-all shadow-lg ${
+                currentJob.isSaved
+                  ? 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white hover:shadow-xl hover:scale-105 cursor-pointer'
+                  : 'bg-slate-300 dark:bg-slate-700 text-slate-500 dark:text-slate-400 cursor-not-allowed opacity-60'
+              }`}
+              title={!currentJob.isSaved ? 'Save this job first to apply' : 'Generate application'}
             >
               Apply to This Position
             </button>

@@ -31,7 +31,7 @@ export interface ApplicationVariant {
   name: string
   resume: Resume
   coverLetter: string
-  aiRationale: string[]
+  aiRationale?: string[] // Optional - may not be present in all responses
 }
 
 export interface EditHistoryEntry {
@@ -99,8 +99,8 @@ export interface ApplicationGeneratorProps {
 export interface ApplicationEditorProps {
   /** The application being edited */
   application: GeneratedApplication
-  /** The currently selected variant */
-  selectedVariant: ApplicationVariant
+  /** The currently selected variant (optional if no variants exist) */
+  selectedVariant?: ApplicationVariant
   /** Called when user goes back to application list */
   onBack?: () => void
   /** Called when user selects a different variant */

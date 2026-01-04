@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
+import { API_URL } from '@/lib/config'
 import type { Subscription, Invoice, PaymentMethod, UsageLimits } from '@/sections/account-billing/types'
 
 /**
- * Hook to manage subscription data in Supabase
- * Table: subscriptions
+ * Hook to manage subscription data via Workers/Express API
  */
 export function useSubscription() {
   const { user } = useAuth()
@@ -23,36 +23,33 @@ export function useSubscription() {
 
     let mounted = true
 
-    // Fetch subscription
+    // Fetch subscription via Workers/Express API
     const fetchSubscription = async () => {
       try {
         setLoading(true)
-        const { data, error: fetchError } = await supabase
-          .from('subscriptions')
-          .select('*')
-          .eq('user_id', userId)
-          .single()
 
-        if (fetchError) {
-          if (fetchError.code !== 'PGRST116') { // Not found is ok
-            throw fetchError
-          }
+        // Get auth session for JWT token
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session) {
+          throw new Error('No active session')
         }
 
-        if (mounted) {
-          // Map database fields to TypeScript types
-          const mappedSubscription = data ? {
-            id: data.id,
-            userId: data.user_id,
-            plan: data.plan,
-            billingCycle: data.billing_cycle,
-            status: data.status,
-            currentPeriodStart: data.current_period_start,
-            currentPeriodEnd: data.current_period_end,
-            cancelAtPeriodEnd: data.cancel_at_period_end || false,
-          } as Subscription : null
+        const response = await fetch(`${API_URL}/api/billing/subscription`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+        })
 
-          setSubscription(mappedSubscription)
+        if (!response.ok) {
+          throw new Error(`Failed to fetch subscription: ${response.statusText}`)
+        }
+
+        const result = await response.json()
+
+        if (mounted) {
+          setSubscription(result.subscription)
           setError(null)
         }
       } catch (err) {
@@ -68,7 +65,7 @@ export function useSubscription() {
 
     fetchSubscription()
 
-    // Set up realtime subscription
+    // Set up realtime subscription for live updates
     const channel = supabase
       .channel('subscription-changes')
       .on(
@@ -79,18 +76,18 @@ export function useSubscription() {
           table: 'subscriptions',
           filter: `user_id=eq.${userId}`
         },
-        (payload) => {
+        (payload: { new: Record<string, unknown> }) => {
           if (mounted && payload.new) {
             const data = payload.new
             const mappedSubscription = {
-              id: data.id,
-              userId: data.user_id,
-              plan: data.plan,
-              billingCycle: data.billing_cycle,
-              status: data.status,
-              currentPeriodStart: data.current_period_start,
-              currentPeriodEnd: data.current_period_end,
-              cancelAtPeriodEnd: data.cancel_at_period_end || false,
+              id: data.id as string,
+              userId: data.user_id as string,
+              plan: data.plan as Subscription['plan'],
+              billingCycle: 'monthly' as const,
+              status: data.status as Subscription['status'],
+              currentPeriodStart: data.current_period_start as string,
+              currentPeriodEnd: data.current_period_end as string,
+              cancelAtPeriodEnd: (data.cancel_at_period_end as boolean) || false,
             } as Subscription
             setSubscription(mappedSubscription)
           }
@@ -105,19 +102,33 @@ export function useSubscription() {
   }, [userId])
 
   /**
-   * Create or update subscription
+   * Create or update subscription via Workers/Express API
    */
   const updateSubscription = async (data: Partial<Omit<Subscription, 'id'>>) => {
     if (!userId) throw new Error('User not authenticated')
 
-    const { error: updateError } = await supabase
-      .from('subscriptions')
-      .upsert({
-        user_id: userId,
-        ...data
-      })
+    // Get auth session for JWT token
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) {
+      throw new Error('No active session')
+    }
 
-    if (updateError) throw updateError
+    const response = await fetch(`${API_URL}/api/billing/subscription`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(errorData.message || `Failed to update subscription: ${response.statusText}`)
+    }
+
+    const result = await response.json()
+    return result.subscription
   }
 
   return {
@@ -129,8 +140,7 @@ export function useSubscription() {
 }
 
 /**
- * Hook to fetch invoices
- * Table: invoices
+ * Hook to fetch invoices via Workers/Express API
  */
 export function useInvoices() {
   const { user } = useAuth()
@@ -148,20 +158,33 @@ export function useInvoices() {
 
     let mounted = true
 
-    // Fetch invoices
+    // Fetch invoices via Workers/Express API
     const fetchInvoices = async () => {
       try {
         setLoading(true)
-        const { data, error: fetchError } = await supabase
-          .from('invoices')
-          .select('*')
-          .eq('user_id', userId)
-          .order('date', { ascending: false })
 
-        if (fetchError) throw fetchError
+        // Get auth session for JWT token
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session) {
+          throw new Error('No active session')
+        }
+
+        const response = await fetch(`${API_URL}/api/billing/invoices`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+        })
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch invoices: ${response.statusText}`)
+        }
+
+        const result = await response.json()
 
         if (mounted) {
-          setInvoices((data as Invoice[]) || [])
+          setInvoices(result.invoices || [])
           setError(null)
         }
       } catch (err) {
@@ -177,7 +200,7 @@ export function useInvoices() {
 
     fetchInvoices()
 
-    // Set up realtime subscription
+    // Set up realtime subscription for live updates
     const channel = supabase
       .channel('invoices-changes')
       .on(
@@ -211,8 +234,7 @@ export function useInvoices() {
 }
 
 /**
- * Hook to fetch payment methods
- * Table: payment_methods
+ * Hook to fetch payment methods via Workers/Express API
  */
 export function usePaymentMethods() {
   const { user } = useAuth()
@@ -230,20 +252,33 @@ export function usePaymentMethods() {
 
     let mounted = true
 
-    // Fetch payment methods
+    // Fetch payment methods via Workers/Express API
     const fetchPaymentMethods = async () => {
       try {
         setLoading(true)
-        const { data, error: fetchError } = await supabase
-          .from('payment_methods')
-          .select('*')
-          .eq('user_id', userId)
-          .order('added_at', { ascending: false })
 
-        if (fetchError) throw fetchError
+        // Get auth session for JWT token
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session) {
+          throw new Error('No active session')
+        }
+
+        const response = await fetch(`${API_URL}/api/billing/payment-methods`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+        })
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch payment methods: ${response.statusText}`)
+        }
+
+        const result = await response.json()
 
         if (mounted) {
-          setPaymentMethods((data as PaymentMethod[]) || [])
+          setPaymentMethods(result.paymentMethods || [])
           setError(null)
         }
       } catch (err) {
@@ -259,7 +294,7 @@ export function usePaymentMethods() {
 
     fetchPaymentMethods()
 
-    // Set up realtime subscription
+    // Set up realtime subscription for live updates
     const channel = supabase
       .channel('payment-methods-changes')
       .on(
@@ -293,8 +328,7 @@ export function usePaymentMethods() {
 }
 
 /**
- * Hook to fetch usage limits
- * Table: usage_limits
+ * Hook to fetch usage limits via Workers/Express API
  */
 export function useUsageLimits() {
   const { user } = useAuth()
@@ -312,24 +346,33 @@ export function useUsageLimits() {
 
     let mounted = true
 
-    // Fetch usage limits
+    // Fetch usage limits via Workers/Express API
     const fetchUsageLimits = async () => {
       try {
         setLoading(true)
-        const { data, error: fetchError } = await supabase
-          .from('usage_limits')
-          .select('*')
-          .eq('user_id', userId)
-          .single()
 
-        if (fetchError) {
-          if (fetchError.code !== 'PGRST116') { // Not found is ok
-            throw fetchError
-          }
+        // Get auth session for JWT token
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session) {
+          throw new Error('No active session')
         }
 
+        const response = await fetch(`${API_URL}/api/billing/usage-limits`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+        })
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch usage limits: ${response.statusText}`)
+        }
+
+        const result = await response.json()
+
         if (mounted) {
-          setUsageLimits(data as UsageLimits | null)
+          setUsageLimits(result.usageLimits)
           setError(null)
         }
       } catch (err) {
@@ -345,7 +388,7 @@ export function useUsageLimits() {
 
     fetchUsageLimits()
 
-    // Set up realtime subscription
+    // Set up realtime subscription for live updates
     const channel = supabase
       .channel('usage-limits-changes')
       .on(
@@ -371,19 +414,33 @@ export function useUsageLimits() {
   }, [userId])
 
   /**
-   * Update usage limits
+   * Update usage limits via Workers/Express API
    */
   const updateUsageLimits = async (data: Partial<UsageLimits>) => {
     if (!userId) throw new Error('User not authenticated')
 
-    const { error: updateError } = await supabase
-      .from('usage_limits')
-      .upsert({
-        user_id: userId,
-        ...data
-      })
+    // Get auth session for JWT token
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) {
+      throw new Error('No active session')
+    }
 
-    if (updateError) throw updateError
+    const response = await fetch(`${API_URL}/api/billing/usage-limits`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(errorData.message || `Failed to update usage limits: ${response.statusText}`)
+    }
+
+    const result = await response.json()
+    return result.usageLimits
   }
 
   return {

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { JobList } from './components/JobList'
 import { JobSearchForm } from './components/JobSearchForm'
+import { PasteJobDialog } from './components/PasteJobDialog'
 import { useJobs } from '../../hooks/useJobs'
 import { useJobScraping } from '../../hooks/useJobScraping'
 import { toast } from 'sonner'
@@ -16,6 +17,7 @@ export default function JobListPage() {
     showSavedOnly: false
   })
   const [showSearchForm, setShowSearchForm] = useState(false)
+  const [showPasteDialog, setShowPasteDialog] = useState(false)
   const { scrapeJobs, loading: scrapingLoading, error: scrapingError } = useJobScraping()
 
   const handleViewDetails = (jobId: string) => {
@@ -83,6 +85,12 @@ export default function JobListPage() {
     // In a real app, this would filter jobs based on the filters
   }
 
+  const handleJobCreated = (jobId: string) => {
+    // Dialog will navigate to job detail page
+    // We can optionally refresh the jobs list here if needed
+    console.log('Job created:', jobId)
+  }
+
   // Show error toast if jobs fetch fails
   if (error) {
     toast.error('Failed to load jobs', {
@@ -130,6 +138,13 @@ export default function JobListPage() {
         </div>
       )}
 
+      {/* Paste Job Dialog */}
+      <PasteJobDialog
+        open={showPasteDialog}
+        onOpenChange={setShowPasteDialog}
+        onJobCreated={handleJobCreated}
+      />
+
       {/* Job List */}
       <JobList
         jobs={filteredJobs}
@@ -140,6 +155,7 @@ export default function JobListPage() {
         onApply={handleApply}
         onSearch={handleSearch}
         onFilter={handleFilter}
+        onImportFromText={() => setShowPasteDialog(true)}
       />
     </div>
   )

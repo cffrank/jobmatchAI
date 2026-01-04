@@ -133,7 +133,7 @@ async function scrapeLinkedInProfile(profileUrl: string): Promise<LinkedInProfil
         profile.summary = (await summaryText.textContent())?.trim() || ''
         console.log('   Summary length:', profile.summary.length, 'characters')
       }
-    } catch (error) {
+    } catch {
       console.log('   ⚠️  Could not extract summary')
     }
 
@@ -175,7 +175,7 @@ async function scrapeLinkedInProfile(profileUrl: string): Promise<LinkedInProfil
             if (await descElement.count() > 0) {
               description = (await descElement.textContent())?.trim() || ''
             }
-          } catch (e) {
+          } catch {
             // Description not found or couldn't expand
           }
 
@@ -189,11 +189,11 @@ async function scrapeLinkedInProfile(profileUrl: string): Promise<LinkedInProfil
 
           profile.experiences.push(experience)
           console.log(`   ✓ ${experience.title} at ${experience.company}`)
-        } catch (error) {
+        } catch {
           console.log(`   ⚠️  Error parsing experience item ${i + 1}`)
         }
       }
-    } catch (error) {
+    } catch {
       console.log('   ⚠️  Could not extract experience section')
     }
 
@@ -228,11 +228,11 @@ async function scrapeLinkedInProfile(profileUrl: string): Promise<LinkedInProfil
 
           profile.education.push(education)
           console.log(`   ✓ ${education.degree} from ${education.school}`)
-        } catch (error) {
+        } catch {
           console.log(`   ⚠️  Error parsing education item ${i + 1}`)
         }
       }
-    } catch (error) {
+    } catch {
       console.log('   ⚠️  Could not extract education section')
     }
 
@@ -266,11 +266,11 @@ async function scrapeLinkedInProfile(profileUrl: string): Promise<LinkedInProfil
             profile.skills.push(skill.trim())
             console.log(`   ✓ ${skill.trim()}`)
           }
-        } catch (error) {
+        } catch {
           // Skip this skill
         }
       }
-    } catch (error) {
+    } catch {
       console.log('   ⚠️  Could not extract skills section')
     }
 

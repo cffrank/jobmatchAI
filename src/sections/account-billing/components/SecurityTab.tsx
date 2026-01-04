@@ -9,7 +9,8 @@ interface SecurityTabProps {
   onRevokeSession?: (sessionId: string) => void
 }
 
-export function SecurityTab({ security, onEnable2FA, onDisable2FA, onGenerateBackupCodes: _onGenerateBackupCodes, onRevokeSession }: SecurityTabProps) {
+export function SecurityTab({ security, onEnable2FA, onDisable2FA, onRevokeSession }: SecurityTabProps) {
+  // onGenerateBackupCodes functionality not yet implemented
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleString('en-US', {
       month: 'short',

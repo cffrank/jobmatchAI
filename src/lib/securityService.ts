@@ -1,17 +1,15 @@
 import { supabase } from './supabase'
 import { UAParser } from 'ua-parser-js'
 import type { ActiveSession, ActivityLogEntry } from '@/sections/account-billing/types'
-import type { Database } from './database.types'
+import type { Database } from '@/types/supabase'
 
 // Type aliases for database tables
 type SessionRow = Database['public']['Tables']['sessions']['Row']
-type SessionInsert = Database['public']['Tables']['sessions']['Insert']
-type SecurityEventInsert = Database['public']['Tables']['security_events']['Insert']
 
 /**
- * Session expiration time (30 days)
+ * Backend API URL for Workers endpoints
  */
-const SESSION_EXPIRATION_MS = 30 * 24 * 60 * 60 * 1000
+const BACKEND_URL = import.meta.env.VITE_API_URL
 
 /**
  * Parse user agent string to extract device and browser information
@@ -116,7 +114,7 @@ export async function getLocationInfo(): Promise<{
  * Create or update a session in Supabase
  */
 export async function createOrUpdateSession(
-  userId: string,
+  _userId: string,
   sessionId: string
 ): Promise<void> {
   try {
@@ -124,31 +122,33 @@ export async function createOrUpdateSession(
     const { device, browser, os, deviceType } = parseUserAgent(userAgent)
     const { ipAddress, location } = await getLocationInfo()
 
-    const now = new Date()
-    const expiresAt = new Date(now.getTime() + SESSION_EXPIRATION_MS)
+    // Get JWT token for authentication
+    const { data: { session: authSession } } = await supabase.auth.getSession()
 
-    const sessionData: SessionInsert = {
-      user_id: userId,
-      session_id: sessionId,
-      device,
-      browser,
-      os,
-      device_type: deviceType,
-      ip_address: ipAddress,
-      location,
-      user_agent: userAgent,
-      created_at: now.toISOString(),
-      last_active: now.toISOString(),
-      expires_at: expiresAt.toISOString(),
+    if (!authSession?.access_token) {
+      throw new Error('No authentication token available')
     }
 
-    const { error } = await supabase
-      .from('sessions')
-      .upsert(sessionData, {
-        onConflict: 'session_id',
-      })
+    // Call Workers API to create/update session in KV
+    const response = await fetch(`${BACKEND_URL}/api/sessions`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${authSession.access_token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        session_id: sessionId,
+        device_type: deviceType,
+        device_os: os,
+        browser: browser,
+        ip_address: ipAddress,
+        user_agent: userAgent,
+      }),
+    })
 
-    if (error) throw error
+    if (!response.ok) {
+      throw new Error(`Failed to create/update session: ${response.statusText}`)
+    }
 
     console.log('[Security] Session created/updated:', {
       sessionId: sessionId.substring(0, 8) + '...',
@@ -165,19 +165,30 @@ export async function createOrUpdateSession(
  * Update session last active timestamp
  */
 export async function updateSessionActivity(
-  userId: string,
+  _userId: string,
   sessionId: string
 ): Promise<void> {
   try {
-    const { error } = await supabase
-      .from('sessions')
-      .update({
-        last_active: new Date().toISOString(),
-      })
-      .eq('user_id', userId)
-      .eq('session_id', sessionId)
+    // Get JWT token for authentication
+    const { data: { session: authSession } } = await supabase.auth.getSession()
 
-    if (error) throw error
+    if (!authSession?.access_token) {
+      console.warn('[Security] No auth token available for session activity update')
+      return
+    }
+
+    // Call Workers API to update session activity in KV
+    const response = await fetch(`${BACKEND_URL}/api/sessions/${sessionId}`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${authSession.access_token}`,
+        'Content-Type': 'application/json',
+      },
+    })
+
+    if (!response.ok) {
+      throw new Error(`Failed to update session activity: ${response.statusText}`)
+    }
   } catch (error) {
     console.error('[Security] Failed to update session activity:', error)
     // Don't throw - this is a non-critical operation
@@ -188,30 +199,39 @@ export async function updateSessionActivity(
  * Get all active sessions for a user
  */
 export async function getActiveSessions(
-  userId: string,
+  _userId: string,
   currentSessionId: string
 ): Promise<ActiveSession[]> {
   try {
-    const now = new Date()
+    // Get JWT token for authentication
+    const { data: { session: authSession } } = await supabase.auth.getSession()
 
-    // Query sessions that haven't expired
-    const { data, error } = await supabase
-      .from('sessions')
-      .select('*')
-      .eq('user_id', userId)
-      .gt('expires_at', now.toISOString())
-      .order('last_active', { ascending: false })
-      .limit(20)
+    if (!authSession?.access_token) {
+      console.warn('[Security] No auth token available for fetching sessions')
+      return []
+    }
 
-    if (error) throw error
-    if (!data) return []
+    // Call Workers API to get active sessions from KV
+    const response = await fetch(`${BACKEND_URL}/api/sessions?active=true`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${authSession.access_token}`,
+        'Content-Type': 'application/json',
+      },
+    })
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch sessions: ${response.statusText}`)
+    }
+
+    const data = await response.json()
 
     const sessions: ActiveSession[] = data.map((session: SessionRow) => ({
       id: session.session_id,
-      device: session.device,
-      browser: session.browser,
-      location: session.location,
-      ipAddress: session.ip_address,
+      device: session.device_type ?? 'Unknown Device',
+      browser: session.browser ?? 'Unknown Browser',
+      location: session.ip_address ?? 'Unknown Location',
+      ipAddress: String(session.ip_address ?? 'Unknown IP'),
       lastActive: session.last_active,
       current: session.session_id === currentSessionId,
     }))
@@ -231,13 +251,25 @@ export async function revokeSession(
   sessionId: string
 ): Promise<void> {
   try {
-    const { error } = await supabase
-      .from('sessions')
-      .delete()
-      .eq('user_id', userId)
-      .eq('session_id', sessionId)
+    // Get JWT token for authentication
+    const { data: { session: authSession } } = await supabase.auth.getSession()
 
-    if (error) throw error
+    if (!authSession?.access_token) {
+      throw new Error('No authentication token available')
+    }
+
+    // Call Workers API to delete session from KV
+    const response = await fetch(`${BACKEND_URL}/api/sessions/${sessionId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${authSession.access_token}`,
+        'Content-Type': 'application/json',
+      },
+    })
+
+    if (!response.ok) {
+      throw new Error(`Failed to revoke session: ${response.statusText}`)
+    }
 
     // Log the session revocation as a security event
     await logSecurityEvent(userId, 'Session Revoked', 'success', {
@@ -253,35 +285,25 @@ export async function revokeSession(
 
 /**
  * Clean up expired sessions
+ *
+ * NOTE: This function is deprecated. KV storage automatically expires sessions
+ * via TTL (Time To Live), so manual cleanup is no longer needed.
+ *
+ * @deprecated Cloudflare KV handles automatic expiration via TTL
+ * @returns Always returns 0 (no cleanup needed)
  */
-export async function cleanupExpiredSessions(userId: string): Promise<number> {
-  try {
-    const now = new Date()
-
-    // Query and delete expired sessions
-    const { data, error } = await supabase
-      .from('sessions')
-      .delete()
-      .eq('user_id', userId)
-      .lte('expires_at', now.toISOString())
-      .select('id')
-
-    if (error) throw error
-
-    const count = data?.length || 0
-    console.log(`[Security] Cleaned up ${count} expired sessions`)
-    return count
-  } catch (error) {
-    console.error('[Security] Failed to cleanup expired sessions:', error)
-    return 0
-  }
+export async function cleanupExpiredSessions(_userId: string): Promise<number> {
+  // KV storage automatically expires sessions via TTL
+  // No manual cleanup needed
+  console.log('[Security] Session cleanup not needed - KV TTL handles expiration automatically')
+  return 0
 }
 
 /**
- * Log a security event to Supabase
+ * Log a security event via Workers API
  */
 export async function logSecurityEvent(
-  userId: string,
+  _userId: string,
   action: string,
   status: 'success' | 'failed',
   metadata?: Record<string, unknown>
@@ -291,25 +313,37 @@ export async function logSecurityEvent(
     const { device, browser, os } = parseUserAgent(userAgent)
     const { ipAddress, location } = await getLocationInfo()
 
-    const eventData: SecurityEventInsert = {
-      user_id: userId,
-      action,
-      device,
-      browser,
-      os,
-      location,
-      ip_address: ipAddress,
-      user_agent: userAgent,
-      status,
-      metadata: metadata || null,
-      timestamp: new Date().toISOString(),
+    // Get JWT token for authentication
+    const { data: { session: authSession } } = await supabase.auth.getSession()
+
+    if (!authSession?.access_token) {
+      console.warn('[Security] No auth token available for logging security event')
+      return
     }
 
-    const { error } = await supabase
-      .from('security_events')
-      .insert(eventData)
+    // Call Workers API to log event in D1
+    const response = await fetch(`${BACKEND_URL}/api/security-events`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${authSession.access_token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        action,
+        device,
+        browser,
+        os,
+        location,
+        ip_address: ipAddress,
+        user_agent: userAgent,
+        status,
+        metadata: metadata ?? null,
+      }),
+    })
 
-    if (error) throw error
+    if (!response.ok) {
+      throw new Error(`Failed to log security event: ${response.statusText}`)
+    }
 
     console.log('[Security] Event logged:', action, status)
   } catch (error) {
@@ -319,30 +353,43 @@ export async function logSecurityEvent(
 }
 
 /**
- * Get recent security events for a user
+ * Get recent security events for a user via Workers API
  */
 export async function getRecentSecurityEvents(
-  userId: string,
+  _userId: string,
   maxEvents: number = 20
 ): Promise<ActivityLogEntry[]> {
   try {
-    const { data, error } = await supabase
-      .from('security_events')
-      .select('*')
-      .eq('user_id', userId)
-      .order('timestamp', { ascending: false })
-      .limit(maxEvents)
+    // Get JWT token for authentication
+    const { data: { session: authSession } } = await supabase.auth.getSession()
 
-    if (error) throw error
-    if (!data) return []
+    if (!authSession?.access_token) {
+      console.warn('[Security] No auth token available for fetching security events')
+      return []
+    }
 
-    const events: ActivityLogEntry[] = data.map((event) => ({
+    // Call Workers API to get events from D1
+    const response = await fetch(`${BACKEND_URL}/api/security-events?limit=${maxEvents}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${authSession.access_token}`,
+        'Content-Type': 'application/json',
+      },
+    })
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch security events: ${response.statusText}`)
+    }
+
+    const data = await response.json()
+
+    const events: ActivityLogEntry[] = data.map((event: { id: string; timestamp: string; action: string; device: string; location: string; ip_address: string; status: string; metadata?: string }) => ({
       id: event.id,
       date: event.timestamp,
       action: event.action,
-      device: event.device,
-      location: event.location,
-      ipAddress: event.ip_address,
+      device: event.device ?? 'Unknown Device',
+      location: event.location ?? 'Unknown Location',
+      ipAddress: String(event.ip_address ?? 'Unknown IP'),
       status: event.status,
     }))
 
@@ -355,6 +402,7 @@ export async function getRecentSecurityEvents(
 
 /**
  * Get 2FA settings for a user
+ * Note: two_factor_setup_complete and backup_codes_generated columns may not exist in the database yet
  */
 export async function get2FASettings(userId: string): Promise<{
   twoFactorEnabled: boolean
@@ -362,18 +410,36 @@ export async function get2FASettings(userId: string): Promise<{
   backupCodesGenerated: boolean
 }> {
   try {
-    const { data, error } = await supabase
-      .from('users')
-      .select('two_factor_enabled, two_factor_setup_complete, backup_codes_generated')
-      .eq('id', userId)
-      .single()
+    // Get JWT token for authentication
+    const { data: { session: authSession } } = await supabase.auth.getSession()
 
-    if (error) throw error
+    if (!authSession?.access_token) {
+      throw new Error('No authentication token available')
+    }
+
+    // Call Workers API to get 2FA settings from D1
+    const response = await fetch(`${BACKEND_URL}/api/sessions/users/${userId}/2fa-settings`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${authSession.access_token}`,
+        'Content-Type': 'application/json',
+      },
+    })
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch 2FA settings: ${response.statusText}`)
+    }
+
+    const data = await response.json()
+
+    // Only two_factor_enabled exists in the database currently
+    // The other fields are derived: if 2FA is enabled, we assume setup is complete
+    const twoFactorEnabled = data?.two_factor_enabled || false
 
     return {
-      twoFactorEnabled: data?.two_factor_enabled || false,
-      twoFactorSetupComplete: data?.two_factor_setup_complete || false,
-      backupCodesGenerated: data?.backup_codes_generated || false,
+      twoFactorEnabled,
+      twoFactorSetupComplete: twoFactorEnabled, // Assume setup is complete if enabled
+      backupCodesGenerated: twoFactorEnabled, // Assume backup codes exist if enabled
     }
   } catch (error) {
     console.error('[Security] Failed to fetch 2FA settings:', error)

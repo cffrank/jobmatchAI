@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 
+// Get backend URL from environment
+const BACKEND_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
+
 interface UsageMetrics {
   applicationsTracked: number
   resumeVariantsCreated: number
@@ -10,7 +13,10 @@ interface UsageMetrics {
 }
 
 /**
- * Hook to calculate real usage metrics from database
+ * Hook to fetch real usage metrics from backend API
+ *
+ * Metrics are calculated server-side to prevent manipulation and ensure accuracy.
+ * Real-time subscriptions trigger refetches when data changes.
  */
 export function useUsageMetrics() {
   const { user } = useAuth()
@@ -37,41 +43,28 @@ export function useUsageMetrics() {
       try {
         setLoading(true)
 
-        // Fetch tracked applications count
-        const { count: applicationsCount, error: appsError } = await supabase
-          .from('tracked_applications')
-          .select('*', { count: 'exact', head: true })
-          .eq('user_id', userId)
-
-        if (appsError) throw appsError
-
-        // Fetch resume variants count (tailored resumes only)
-        const { count: resumesCount, error: resumesError } = await supabase
-          .from('resumes')
-          .select('*', { count: 'exact', head: true })
-          .eq('user_id', userId)
-          .eq('type', 'tailored')
-
-        if (resumesError) throw resumesError
-
-        // Fetch job searches count from usage_limits table
-        const { data: usageLimits, error: usageError } = await supabase
-          .from('usage_limits')
-          .select('job_searches_used, emails_sent_used')
-          .eq('user_id', userId)
-          .single()
-
-        if (usageError && usageError.code !== 'PGRST116') {
-          throw usageError
+        // Get JWT token for authentication
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session?.access_token) {
+          throw new Error('No authentication token available')
         }
 
+        // Fetch metrics from backend API
+        const response = await fetch(`${BACKEND_URL}/api/usage/metrics`, {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+        })
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch usage metrics: ${response.statusText}`)
+        }
+
+        const { metrics: fetchedMetrics } = await response.json()
+
         if (mounted) {
-          setMetrics({
-            applicationsTracked: applicationsCount || 0,
-            resumeVariantsCreated: resumesCount || 0,
-            jobSearchesPerformed: usageLimits?.job_searches_used || 0,
-            emailsSent: usageLimits?.emails_sent_used || 0,
-          })
+          setMetrics(fetchedMetrics)
           setError(null)
         }
       } catch (err) {
@@ -89,6 +82,7 @@ export function useUsageMetrics() {
     fetchMetrics()
 
     // Set up realtime subscriptions for tracked_applications
+    // These are read-only subscriptions that trigger refetches
     const appsChannel = supabase
       .channel('tracked-apps-metrics')
       .on(

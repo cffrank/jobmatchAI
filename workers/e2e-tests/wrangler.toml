@@ -1,0 +1,20 @@
+#:schema node_modules/wrangler/config-schema.json
+name = "jobmatch-ai-e2e-tests"
+main = "index.ts"
+compatibility_date = "2024-12-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Browser Rendering binding
+browser = { binding = "BROWSER" }
+
+# Environment variables for testing
+[vars]
+APP_URL = "https://jobmatch-ai-dev.pages.dev"
+
+# Secrets (set via: wrangler secret put TEST_USER_EMAIL)
+# TEST_USER_EMAIL - Email for test user
+# TEST_USER_PASSWORD - Password for test user
+
+# Production environment
+[env.production]
+vars = { APP_URL = "https://jobmatch-ai.pages.dev" }

@@ -53,7 +53,7 @@ export function ExperienceTimeline({
               <div className="flex items-start justify-between gap-4 mb-3">
                 <div className="flex-1 min-w-0">
                   <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-1">
-                    {exp.position}
+                    {exp.title}
                   </h3>
                   <p className="text-lg text-blue-600 dark:text-blue-400 font-semibold mb-2">
                     {exp.company}
@@ -103,13 +103,13 @@ export function ExperienceTimeline({
               </p>
 
               {/* Accomplishments */}
-              {exp.accomplishments.length > 0 && (
+              {(exp.accomplishments?.length ?? 0) > 0 && (
                 <div className="space-y-2">
                   <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wide">
                     Key Accomplishments
                   </h4>
                   <ul className="space-y-2">
-                    {exp.accomplishments.map((accomplishment, i) => (
+                    {exp.accomplishments?.map((accomplishment, i) => (
                       <li
                         key={i}
                         className="flex gap-3 text-sm text-slate-600 dark:text-slate-400"

@@ -7,6 +7,7 @@ import {
   Settings,
   HelpCircle,
   Bell,
+  BarChart3,
 } from 'lucide-react'
 import type { NavigationItem } from './AppShell'
 
@@ -15,6 +16,7 @@ export interface MainNavProps {
   onNavigate?: (href: string) => void
   notificationCount?: number
   onNotificationsClick?: () => void
+  isNotificationsActive?: boolean
 }
 
 const iconMap: Record<string, React.ReactNode> = {
@@ -22,6 +24,7 @@ const iconMap: Record<string, React.ReactNode> = {
   'Jobs': <Briefcase className="w-5 h-5" />,
   'Applications': <FileText className="w-5 h-5" />,
   'Tracker': <LayoutDashboard className="w-5 h-5" />,
+  'Analytics': <BarChart3 className="w-5 h-5" />,
   'Settings': <Settings className="w-5 h-5" />,
   'Help': <HelpCircle className="w-5 h-5" />,
 }
@@ -31,6 +34,7 @@ export function MainNav({
   onNavigate,
   notificationCount = 0,
   onNotificationsClick,
+  isNotificationsActive = false,
 }: MainNavProps) {
   return (
     <nav className="flex-1 overflow-y-auto py-4 px-3">
@@ -69,12 +73,15 @@ export function MainNav({
           <li className="pt-2 border-t border-slate-200 dark:border-slate-800">
             <button
               onClick={onNotificationsClick}
-              className="
+              className={`
                 w-full flex items-center gap-3 px-3 py-2.5 rounded-lg
-                text-sm font-medium transition-colors
-                text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800
-                relative
-              "
+                text-sm font-medium transition-colors relative
+                ${
+                  isNotificationsActive
+                    ? 'bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300'
+                    : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                }
+              `}
             >
               <Bell className="w-5 h-5" />
               <span className="flex-1 text-left">Notifications</span>

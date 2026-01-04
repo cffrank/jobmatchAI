@@ -4,7 +4,6 @@ import { ProfileHeader } from './ProfileHeader'
 import { ExperienceTimeline } from './ExperienceTimeline'
 import { SkillsGrid } from './SkillsGrid'
 import { EducationList } from './EducationList'
-import { OptimizationSidebar } from './OptimizationSidebar'
 import { ResumeActions } from './ResumeActions'
 import { FileManager } from '@/components/FileManager'
 
@@ -14,7 +13,6 @@ export function ProfileOverview({
   education,
   skills,
   resume,
-  optimizationSuggestions,
   resumeFiles,
   onEditProfile,
   onEditExperience,
@@ -30,8 +28,6 @@ export function ProfileOverview({
   onUploadResumeFile,
   onDeleteResumeFile,
   onImportResume,
-  onAcceptSuggestion,
-  onDismissSuggestion,
 }: ProfileOverviewProps) {
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
@@ -57,62 +53,50 @@ export function ProfileOverview({
           </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Main content */}
-          <div className="lg:col-span-2 space-y-8">
-            {/* Profile Header */}
-            <ProfileHeader user={user} onEditProfile={onEditProfile} />
+        <div className="space-y-8">
+          {/* Profile Header */}
+          <ProfileHeader user={user} onEditProfile={onEditProfile} />
 
-            {/* Resume Actions - only show if resume exists */}
-            {resume && (
-              <ResumeActions
-                resume={resume}
-                onViewResume={onViewResume}
-                onEditResume={onEditResume}
-                onDownloadResume={onDownloadResume}
+          {/* Resume Actions - only show if resume exists */}
+          {resume && (
+            <ResumeActions
+              resume={resume}
+              onViewResume={onViewResume}
+              onEditResume={onEditResume}
+              onDownloadResume={onDownloadResume}
+            />
+          )}
+
+          {/* Resume Files */}
+          {resume && resumeFiles && resumeFiles.length > 0 && (
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6">
+              <FileManager
+                resumeId={resume.id}
+                files={resumeFiles}
+                onUpload={onUploadResumeFile}
+                onDelete={onDeleteResumeFile}
               />
-            )}
+            </div>
+          )}
 
-            {/* Resume Files */}
-            {resume && resumeFiles && resumeFiles.length > 0 && (
-              <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6">
-                <FileManager
-                  resumeId={resume.id}
-                  files={resumeFiles}
-                  onUpload={onUploadResumeFile}
-                  onDelete={onDeleteResumeFile}
-                />
-              </div>
-            )}
+          {/* Work Experience */}
+          <ExperienceTimeline
+            experiences={workExperience}
+            onEditExperience={onEditExperience}
+            onDeleteExperience={onDeleteExperience}
+            onAddExperience={onAddExperience}
+          />
 
-            {/* Work Experience */}
-            <ExperienceTimeline
-              experiences={workExperience}
-              onEditExperience={onEditExperience}
-              onDeleteExperience={onDeleteExperience}
-              onAddExperience={onAddExperience}
-            />
+          {/* Skills */}
+          <SkillsGrid skills={skills} onEditSkills={onEditSkills} />
 
-            {/* Skills */}
-            <SkillsGrid skills={skills} onEditSkills={onEditSkills} />
-
-            {/* Education */}
-            <EducationList
-              education={education}
-              onEditEducation={onEditEducation}
-              onDeleteEducation={onDeleteEducation}
-              onAddEducation={onAddEducation}
-            />
-          </div>
-
-          {/* Sidebar */}
-          <div className="lg:col-span-1">
-            <OptimizationSidebar
-              suggestions={optimizationSuggestions}
-              onAcceptSuggestion={onAcceptSuggestion}
-              onDismissSuggestion={onDismissSuggestion}
-            />
-          </div>
+          {/* Education */}
+          <EducationList
+            education={education}
+            onEditEducation={onEditEducation}
+            onDeleteEducation={onDeleteEducation}
+            onAddEducation={onAddEducation}
+          />
         </div>
       </div>
     </div>

@@ -1,0 +1,58 @@
+# Cloudflare Pages Configuration for JobMatch AI Frontend
+# Deploys React SPA to Cloudflare Pages edge network
+# https://developers.cloudflare.com/pages/
+
+name = "jobmatch-ai-frontend"
+compatibility_date = "2024-12-01"
+
+[build]
+command = "npm run build"
+output_directory = "dist"
+
+# =============================================================================
+# Production Environment
+# =============================================================================
+
+[env.production.vars]
+# API URL (Cloudflare Workers backend)
+VITE_API_URL = "https://jobmatch-ai-prod.workers.dev"
+
+# Supabase configuration (legacy, being phased out)
+VITE_SUPABASE_URL = "https://lrzhpnsykasqrousgmdh.supabase.co"
+VITE_SUPABASE_ANON_KEY = "your-production-anon-key"
+
+# Feature flags
+VITE_USE_WORKERS_API = "true"
+VITE_CLOUDFLARE_PAGES = "true"
+
+# =============================================================================
+# Staging Environment
+# =============================================================================
+
+[env.staging.vars]
+# API URL (Cloudflare Workers staging)
+VITE_API_URL = "https://jobmatch-ai-staging.workers.dev"
+
+# Supabase configuration (legacy)
+VITE_SUPABASE_URL = "https://lrzhpnsykasqrousgmdh.supabase.co"
+VITE_SUPABASE_ANON_KEY = "your-staging-anon-key"
+
+# Feature flags
+VITE_USE_WORKERS_API = "true"
+VITE_CLOUDFLARE_PAGES = "true"
+
+# =============================================================================
+# Preview Environment (for PR previews)
+# =============================================================================
+
+[env.preview.vars]
+# API URL (Cloudflare Workers development)
+VITE_API_URL = "https://jobmatch-ai-dev.workers.dev"
+
+# Supabase configuration (legacy)
+VITE_SUPABASE_URL = "https://lrzhpnsykasqrousgmdh.supabase.co"
+VITE_SUPABASE_ANON_KEY = "your-dev-anon-key"
+
+# Feature flags
+VITE_USE_WORKERS_API = "true"
+VITE_CLOUDFLARE_PAGES = "true"

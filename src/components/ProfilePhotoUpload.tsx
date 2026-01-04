@@ -8,7 +8,7 @@ interface ProfilePhotoUploadProps {
 }
 
 /**
- * Component for uploading profile photos to Firebase Storage
+ * Component for uploading profile photos to Supabase Storage
  * Shows a preview of the current photo and handles uploads
  */
 export function ProfilePhotoUpload({ currentPhotoUrl, onUploadComplete }: ProfilePhotoUploadProps) {

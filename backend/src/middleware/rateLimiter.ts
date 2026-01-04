@@ -198,7 +198,7 @@ async function checkRateLimit(
 
   if (existingRecord) {
     // Existing record in current window
-    currentCount = existingRecord.request_count;
+    currentCount = existingRecord.count;
     windowStartTime = new Date(existingRecord.window_start);
   }
 
@@ -221,7 +221,7 @@ async function checkRateLimit(
     const { error: updateError } = await supabaseAdmin
       .from(TABLES.RATE_LIMITS)
       .update({
-        request_count: currentCount + 1,
+        count: currentCount + 1,
         updated_at: now.toISOString(),
       })
       .eq('id', existingRecord.id);
@@ -235,7 +235,7 @@ async function checkRateLimit(
     const { error: insertError } = await supabaseAdmin.from(TABLES.RATE_LIMITS).insert({
       user_id: userId,
       endpoint,
-      request_count: 1,
+      count: 1,
       window_start: now.toISOString(),
       window_end: resetTime.toISOString(),
     });

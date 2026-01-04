@@ -129,18 +129,19 @@ test.describe('Live CORS Validation', () => {
 });
 
 test.describe('Production CORS Configuration', () => {
-  test.skip(({ }, testInfo) => {
-    // Only run in production or staging environments
-    const isProduction =
-      BACKEND_URL.includes('railway.app') ||
-      BACKEND_URL.includes('vercel.app') ||
+  test.skip(() => {
+    // Only run against Cloudflare deployments
+    const isCloudflare =
+      BACKEND_URL.includes('workers.dev') ||
+      BACKEND_URL.includes('pages.dev') ||
       process.env.NODE_ENV === 'production';
 
-    return !isProduction;
+    return !isCloudflare;
   });
 
   test('Production backend allows production frontend', async ({ request }) => {
-    const prodFrontendUrl = 'https://jobmatchai-production.up.railway.app';
+    // Use Cloudflare Pages production URL (not Railway)
+    const prodFrontendUrl = process.env.FRONTEND_URL || 'https://jobmatch-ai-production.pages.dev';
 
     const response = await request.get(`${BACKEND_URL}/health`, {
       headers: {
@@ -154,7 +155,8 @@ test.describe('Production CORS Configuration', () => {
     expect(headers['access-control-allow-origin']).toBeTruthy();
   });
 
-  test('Production backend uses HTTPS', async ({ request }) => {
+  test('Production backend uses HTTPS', async () => {
+    // request parameter reserved for future use
     if (process.env.NODE_ENV === 'production') {
       expect(BACKEND_URL).toMatch(/^https:/);
     }

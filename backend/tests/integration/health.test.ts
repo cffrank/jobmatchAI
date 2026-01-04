@@ -74,7 +74,7 @@ describe('Health Check Endpoint', () => {
   it('should handle CORS for health checks', async () => {
     const response = await request(app)
       .get('/health')
-      .set('Origin', 'https://jobmatchai-production.up.railway.app');
+      .set('Origin', 'https://jobmatch-ai-prod.pages.dev');
 
     expect(response.headers['access-control-allow-origin']).toBeTruthy();
   });

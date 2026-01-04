@@ -141,7 +141,7 @@ export function ResumePreview({
                         <div className="flex justify-between items-start mb-2">
                           <div>
                             <h4 className="text-base font-bold text-slate-900">
-                              {exp.position}
+                              {exp.title}
                             </h4>
                             <p className="text-sm font-semibold text-blue-600">
                               {exp.company}
@@ -158,7 +158,7 @@ export function ResumePreview({
                           {exp.description}
                         </p>
                         <ul className="space-y-1.5">
-                          {exp.accomplishments.map((accomplishment, i) => (
+                          {exp.accomplishments?.map((accomplishment, i) => (
                             <li
                               key={i}
                               className="text-sm text-slate-700 flex gap-2 leading-relaxed"
@@ -166,7 +166,7 @@ export function ResumePreview({
                               <span className="mt-1.5 flex-shrink-0 w-1 h-1 rounded-full bg-blue-500" />
                               <span className="flex-1">{accomplishment}</span>
                             </li>
-                          ))}
+                          )) ?? []}
                         </ul>
                       </div>
                     )
@@ -204,7 +204,7 @@ export function ResumePreview({
                             )}
                           </div>
                         </div>
-                        {edu.highlights.length > 0 && (
+                        {(edu.highlights?.length ?? 0) > 0 && (
                           <ul className="mt-2 space-y-1">
                             {edu.highlights.map((highlight, i) => (
                               <li
