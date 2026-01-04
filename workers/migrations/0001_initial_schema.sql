@@ -691,7 +691,7 @@ END;
 
 -- Work Experience Full-Text Search
 CREATE VIRTUAL TABLE IF NOT EXISTS work_experience_fts USING fts5(
-    work_id UNINDEXED,
+    id UNINDEXED,          -- Column name matches work_experience.id (not work_id)
     user_id UNINDEXED,
     company,
     title,
@@ -701,7 +701,7 @@ CREATE VIRTUAL TABLE IF NOT EXISTS work_experience_fts USING fts5(
 );
 
 CREATE TRIGGER IF NOT EXISTS work_fts_insert AFTER INSERT ON work_experience BEGIN
-    INSERT INTO work_experience_fts(rowid, work_id, user_id, company, title, description)
+    INSERT INTO work_experience_fts(rowid, id, user_id, company, title, description)
     VALUES (new.rowid, new.id, new.user_id, new.company, new.title, new.description);
 END;
 
@@ -711,7 +711,7 @@ END;
 
 CREATE TRIGGER IF NOT EXISTS work_fts_update AFTER UPDATE ON work_experience BEGIN
     DELETE FROM work_experience_fts WHERE rowid = old.rowid;
-    INSERT INTO work_experience_fts(rowid, work_id, user_id, company, title, description)
+    INSERT INTO work_experience_fts(rowid, id, user_id, company, title, description)
     VALUES (new.rowid, new.id, new.user_id, new.company, new.title, new.description);
 END;
 

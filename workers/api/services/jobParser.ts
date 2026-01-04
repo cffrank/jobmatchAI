@@ -251,10 +251,21 @@ async function parseWithOpenAI(
     ? `https://gateway.ai.cloudflare.com/v1/${env.CLOUDFLARE_ACCOUNT_ID}/${env.AI_GATEWAY_SLUG}/openai`
     : undefined;
 
-  const openai = new OpenAI({
+  // Initialize OpenAI client with AI Gateway support
+  const openaiConfig: ConstructorParameters<typeof OpenAI>[0] = {
     apiKey: env.OPENAI_API_KEY,
     baseURL,
-  });
+  };
+
+  // Add AI Gateway authentication token if configured
+  if (baseURL && env.CF_AIG_TOKEN) {
+    console.log('[JobParser] Using AI Gateway with authentication token');
+    openaiConfig.defaultHeaders = {
+      'cf-aig-authorization': `Bearer ${env.CF_AIG_TOKEN}`,
+    };
+  }
+
+  const openai = new OpenAI(openaiConfig);
 
   let lastError: Error | null = null;
 
