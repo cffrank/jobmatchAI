@@ -125,7 +125,7 @@ app.post('/generate', authenticateUser, rateLimiter(), async (c) => {
 
   // Fetch skills from D1
   const { results: skills } = await c.env.DB.prepare(
-    'SELECT * FROM skills WHERE user_id = ? ORDER BY endorsements DESC'
+    'SELECT * FROM skills WHERE user_id = ? ORDER BY endorsed_count DESC'
   )
     .bind(userId)
     .all();
@@ -557,7 +557,7 @@ function mapDatabaseSkill(record: any): Skill {
     userId: record.user_id,
     name: record.name,
     level: record.level,
-    endorsements: record.endorsements,
+    endorsements: record.endorsed_count,
     yearsOfExperience: record.years_of_experience,
     createdAt: record.created_at,
     updatedAt: record.updated_at,

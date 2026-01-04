@@ -162,7 +162,7 @@ export async function generateAndSaveJobEmbedding(
 app.get('/', authenticateUser, async (c) => {
   const userId = getUserId(c);
 
-  const parseResult = listJobsSchema.safeParse({
+  const queryParams = {
     page: c.req.query('page'),
     limit: c.req.query('limit'),
     archived: c.req.query('archived'),
@@ -171,9 +171,14 @@ app.get('/', authenticateUser, async (c) => {
     minMatchScore: c.req.query('minMatchScore'),
     search: c.req.query('search'),
     workArrangement: c.req.query('workArrangement'),
-  });
+  };
+
+  console.log('[Jobs GET] Query params:', queryParams);
+
+  const parseResult = listJobsSchema.safeParse(queryParams);
 
   if (!parseResult.success) {
+    console.log('[Jobs GET] Validation failed:', parseResult.error.errors);
     throw createValidationError(
       'Invalid query parameters',
       Object.fromEntries(
@@ -761,7 +766,7 @@ app.post('/:id/analyze', authenticateUser, rateLimiter(), async (c) => {
 
   // Fetch skills
   const { results: skills } = await c.env.DB.prepare(
-    'SELECT * FROM skills WHERE user_id = ? ORDER BY endorsements DESC'
+    'SELECT * FROM skills WHERE user_id = ? ORDER BY endorsed_count DESC'
   )
     .bind(userId)
     .all();
@@ -1078,7 +1083,7 @@ function mapDatabaseSkill(record: any): Skill {
     userId: record.user_id,
     name: record.name,
     level: record.level,
-    endorsements: record.endorsements,
+    endorsements: record.endorsed_count,
     yearsOfExperience: record.years_of_experience,
     createdAt: record.created_at,
     updatedAt: record.updated_at,
