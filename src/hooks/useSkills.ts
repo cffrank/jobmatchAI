@@ -202,11 +202,48 @@ export function useSkills() {
     }
   }
 
+  /**
+   * Add multiple skills in a single batch request via Workers API
+   * This avoids rate limiting issues when importing many skills from resume parsing
+   */
+  const addSkillsBatch = async (skillsData: Omit<Skill, 'id'>[]) => {
+    if (!userId) throw new Error('User not authenticated')
+
+    const { data: { session } } = await supabase.auth.getSession()
+
+    if (!session?.access_token) {
+      throw new Error('No authentication token available')
+    }
+
+    const response = await fetch(`${API_URL}/api/skills/batch`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        skills: skillsData.map(skill => ({
+          name: skill.name,
+          level: skill.level,
+        })),
+      }),
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: 'Failed to add skills in batch' }))
+      throw new Error(errorData.error || 'Failed to add skills in batch')
+    }
+
+    const result = await response.json()
+    return result.skills
+  }
+
   return {
     skills,
     loading,
     error,
     addSkill,
+    addSkillsBatch,
     updateSkill,
     deleteSkill,
   }

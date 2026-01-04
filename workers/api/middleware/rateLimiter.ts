@@ -42,6 +42,9 @@ export const ENDPOINT_LIMITS: Record<string, RateLimitConfig> = {
   // Resume parsing: 20 per hour (API costs)
   'POST:/api/resume/parse': { maxRequests: 20, windowMs: 60 * 60 * 1000 },
 
+  // Batch skills import: 10 per hour (allows importing up to 1000 skills total: 10 requests × 100 max per request)
+  'POST:/api/skills/batch': { maxRequests: 10, windowMs: 60 * 60 * 1000 },
+
   // Export generation: 30 per hour
   'POST:/api/exports/pdf': { maxRequests: 30, windowMs: 60 * 60 * 1000 },
   'POST:/api/exports/docx': { maxRequests: 30, windowMs: 60 * 60 * 1000 },

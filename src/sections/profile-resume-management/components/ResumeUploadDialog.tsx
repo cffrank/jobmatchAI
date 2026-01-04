@@ -143,62 +143,80 @@ export function ResumeUploadDialog({ isOpen, onClose, onSuccess }: ResumeUploadD
     setStep('preview')
   }
 
+  /**
+   * TODO: Implement gap analysis storage in D1 database
+   *
+   * Gap analysis feature is currently disabled because:
+   * 1. Supabase gap_analyses table doesn't exist
+   * 2. Migration to D1 is in progress
+   * 3. This feature needs a backend endpoint: POST /api/gap-analyses
+   *
+   * To re-enable:
+   * 1. Create D1 migration for gap_analyses and gap_analysis_answers tables
+   * 2. Create backend route: workers/api/routes/gapAnalyses.ts
+   * 3. Create frontend hook: useGapAnalysis.ts
+   * 4. Uncomment this function and the call in handleApply()
+   */
   const saveGapAnalysisData = async () => {
     if (!user || !gapAnalysis) return null
 
-    try {
-      // Save gap analysis
-      const { data: gapAnalysisRecord, error: gapError } = await supabase
-        .from('gap_analyses')
-        .insert({
-          user_id: user.id,
-          overall_assessment: gapAnalysis.resume_analysis.overall_assessment,
-          gap_count: gapAnalysis.resume_analysis.gap_count,
-          red_flag_count: gapAnalysis.resume_analysis.red_flag_count,
-          urgency: gapAnalysis.resume_analysis.urgency,
-          identified_gaps_and_flags: gapAnalysis.identified_gaps_and_flags,
-          next_steps: gapAnalysis.next_steps,
-        })
-        .select()
-        .single()
+    console.warn('[ResumeUpload] Gap analysis storage is temporarily disabled - feature under migration to D1')
+    return null
 
-      if (gapError) {
-        console.error('Error saving gap analysis:', gapError)
-        return null
-      }
+    // COMMENTED OUT - Re-enable after D1 migration
+    // try {
+    //   // Save gap analysis
+    //   const { data: gapAnalysisRecord, error: gapError } = await supabase
+    //     .from('gap_analyses')
+    //     .insert({
+    //       user_id: user.id,
+    //       overall_assessment: gapAnalysis.resume_analysis.overall_assessment,
+    //       gap_count: gapAnalysis.resume_analysis.gap_count,
+    //       red_flag_count: gapAnalysis.resume_analysis.red_flag_count,
+    //       urgency: gapAnalysis.resume_analysis.urgency,
+    //       identified_gaps_and_flags: gapAnalysis.identified_gaps_and_flags,
+    //       next_steps: gapAnalysis.next_steps,
+    //     })
+    //     .select()
+    //     .single()
 
-      // Save answers if any
-      if (Object.keys(questionAnswers).length > 0) {
-        const answersToInsert = gapAnalysis.clarification_questions
-          .filter((q) => questionAnswers[q.question_id])
-          .map((q) => ({
-            gap_analysis_id: gapAnalysisRecord.id,
-            user_id: user.id,
-            question_id: q.question_id,
-            priority: q.priority,
-            gap_addressed: q.gap_addressed,
-            question: q.question,
-            context: q.context,
-            expected_outcome: q.expected_outcome,
-            answer: questionAnswers[q.question_id],
-          }))
+    //   if (gapError) {
+    //     console.error('Error saving gap analysis:', gapError)
+    //     return null
+    //   }
 
-        if (answersToInsert.length > 0) {
-          const { error: answersError } = await supabase
-            .from('gap_analysis_answers')
-            .insert(answersToInsert)
+    //   // Save answers if any
+    //   if (Object.keys(questionAnswers).length > 0) {
+    //     const answersToInsert = gapAnalysis.clarification_questions
+    //       .filter((q) => questionAnswers[q.question_id])
+    //       .map((q) => ({
+    //         gap_analysis_id: gapAnalysisRecord.id,
+    //         user_id: user.id,
+    //         question_id: q.question_id,
+    //         priority: q.priority,
+    //         gap_addressed: q.gap_addressed,
+    //         question: q.question,
+    //         context: q.context,
+    //         expected_outcome: q.expected_outcome,
+    //         answer: questionAnswers[q.question_id],
+    //       }))
 
-          if (answersError) {
-            console.error('Error saving gap analysis answers:', answersError)
-          }
-        }
-      }
+    //     if (answersToInsert.length > 0) {
+    //       const { error: answersError } = await supabase
+    //         .from('gap_analysis_answers')
+    //         .insert(answersToInsert)
 
-      return gapAnalysisRecord.id
-    } catch (err) {
-      console.error('Error saving gap analysis data:', err)
-      return null
-    }
+    //       if (answersError) {
+    //         console.error('Error saving gap analysis answers:', answersError)
+    //       }
+    //     }
+    //   }
+
+    //   return gapAnalysisRecord.id
+    // } catch (err) {
+    //   console.error('Error saving gap analysis data:', err)
+    //   return null
+    // }
   }
 
   const handleApplyData = async () => {

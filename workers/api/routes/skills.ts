@@ -53,6 +53,10 @@ const skillSchema = z.object({
   level: z.enum(['beginner', 'intermediate', 'advanced', 'expert']).optional(),
 });
 
+const batchSkillsSchema = z.object({
+  skills: z.array(skillSchema).min(1, 'At least one skill is required').max(100, 'Maximum 100 skills allowed'),
+});
+
 // =============================================================================
 // Skills Routes
 // =============================================================================
@@ -142,6 +146,86 @@ app.post('/', authenticateUser, async (c) => {
     return c.json(
       {
         error: 'Failed to add skill',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      },
+      500
+    );
+  }
+});
+
+/**
+ * POST /api/skills/batch
+ * Add multiple skills in a single request
+ *
+ * This endpoint is rate-limited separately to allow bulk imports (e.g., resume parsing)
+ * without hitting standard rate limits.
+ */
+app.post('/batch', authenticateUser, async (c) => {
+  const userId = getUserId(c);
+  const body = await c.req.json();
+
+  const parseResult = batchSkillsSchema.safeParse(body);
+  if (!parseResult.success) {
+    return c.json(
+      { error: 'Invalid batch skills data', details: parseResult.error.errors },
+      400
+    );
+  }
+
+  const { skills } = parseResult.data;
+
+  try {
+    const timestamp = new Date().toISOString();
+    const insertedSkills: unknown[] = [];
+
+    console.log(`[Skills] Batch adding ${skills.length} skills for user ${userId}`);
+
+    // Use D1's batch API for efficient bulk inserts
+    const statements = skills.map((skill) => {
+      const skillId = crypto.randomUUID();
+      return c.env.DB.prepare(
+        `INSERT INTO skills (id, user_id, name, proficiency_level, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?)`
+      ).bind(
+        skillId,
+        userId,
+        skill.name,
+        skill.level || null,
+        timestamp,
+        timestamp
+      );
+    });
+
+    // Execute all inserts in a single batch
+    await c.env.DB.batch(statements);
+
+    // Fetch all newly inserted skills
+    const { results } = await c.env.DB.prepare(
+      `SELECT * FROM skills
+       WHERE user_id = ? AND created_at = ?
+       ORDER BY created_at DESC`
+    )
+      .bind(userId, timestamp)
+      .all();
+
+    insertedSkills.push(...(results || []));
+
+    // Trigger background updates only once for the batch
+    triggerSkillsChangeBackgroundUpdates(c, c.env, userId);
+    console.log(
+      `[Skills] Batch added ${insertedSkills.length} skills for user ${userId}, background updates queued`
+    );
+
+    return c.json({
+      message: `Successfully added ${insertedSkills.length} skills`,
+      skills: insertedSkills,
+      count: insertedSkills.length,
+    });
+  } catch (error) {
+    console.error('[Skills] Error in batch adding skills:', error);
+    return c.json(
+      {
+        error: 'Failed to add skills in batch',
         message: error instanceof Error ? error.message : 'Unknown error',
       },
       500

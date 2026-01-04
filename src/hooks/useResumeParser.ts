@@ -60,7 +60,7 @@ export function useResumeParser() {
   const { updateProfile } = useProfile()
   const { workExperience, addWorkExperience, deleteWorkExperience } = useWorkExperience()
   const { education, addEducation, deleteEducation } = useEducation()
-  const { skills, addSkill, deleteSkill } = useSkills()
+  const { skills, addSkill, addSkillsBatch, deleteSkill } = useSkills()
 
   const [parsing, setParsing] = useState(false)
   const [uploading, setUploading] = useState(false)
@@ -267,20 +267,25 @@ export function useResumeParser() {
       }
       setProgress(80)
 
-      // Step 5: Add skills (deduplicate first)
+      // Step 5: Add skills (deduplicate first, then batch import)
       const uniqueSkills = Array.from(
         new Map(data.skills.map(skill => [skill.name.toLowerCase(), skill])).values()
       )
-      console.log(`[applyParsedData] Adding ${uniqueSkills.length} unique skills (${data.skills.length} total)...`)
-      for (const skill of uniqueSkills) {
+      console.log(`[applyParsedData] Batch adding ${uniqueSkills.length} unique skills (${data.skills.length} total)...`)
+
+      if (uniqueSkills.length > 0) {
         try {
-          await addSkill({
-            name: skill.name,
-            endorsements: skill.endorsements,
-          })
+          // Use batch endpoint to avoid rate limiting (1 request instead of 55+)
+          await addSkillsBatch(
+            uniqueSkills.map(skill => ({
+              name: skill.name,
+              endorsements: skill.endorsements,
+            }))
+          )
+          console.log(`[applyParsedData] ✅ All ${uniqueSkills.length} skills added in batch`)
         } catch (err) {
           const error = err as Error
-          const msg = `Skill "${skill.name}" failed: ${error.message}`
+          const msg = `Batch skills import failed: ${error.message}`
           console.error('[applyParsedData] ❌', msg, err)
           errors.push(msg)
         }
