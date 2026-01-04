@@ -61,6 +61,11 @@ const profileUpdateSchema = z.object({
   last_name: z.string().optional(),
   phone: z.string().optional(),
   location: z.string().optional(),
+  street_address: z.string().optional(),
+  city: z.string().optional(),
+  state: z.string().optional(),
+  postal_code: z.string().optional(),
+  country: z.string().optional(),
   linkedin_url: z.string().optional(),
   photo_url: z.string().optional().nullable(),
   current_title: z.string().optional(), // headline
