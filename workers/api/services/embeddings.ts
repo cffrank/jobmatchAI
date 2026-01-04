@@ -220,9 +220,9 @@ export async function generateResumeEmbedding(
 // =============================================================================
 
 /**
- * Generate and store user resume embedding
+ * Generate and store user resume embedding (D1 version)
  *
- * Fetches user profile, work experience, and skills from the database,
+ * Fetches user profile, work experience, and skills from D1 database,
  * generates an embedding, and updates the users table.
  *
  * This function is called automatically when:
@@ -230,79 +230,69 @@ export async function generateResumeEmbedding(
  * - User adds/updates work experience
  * - User adds/updates skills
  *
- * @param env - Environment bindings
- * @param supabase - Supabase client instance
+ * @param env - Environment bindings (includes D1 database)
  * @param userId - User ID to update embedding for
  * @throws Error if user not found or embedding generation fails
  */
 export async function updateUserResumeEmbedding(
   env: Env,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  supabase: any, // SupabaseClient type - avoid circular dependency
   userId: string
 ): Promise<void> {
   const startTime = Date.now();
   console.log(`[Embeddings] Starting resume embedding update for user ${userId}`);
 
   try {
-    // Fetch user profile
-    const { data: profile, error: profileError } = await supabase
-      .from('users')
-      .select('id, current_title, professional_summary')
-      .eq('id', userId)
-      .single();
-
-    if (profileError) {
-      throw new Error(`Failed to fetch user profile: ${profileError.message}`);
-    }
+    // Fetch user profile from D1
+    const profile = await env.DB.prepare(
+      'SELECT id, current_title, professional_summary FROM users WHERE id = ?'
+    )
+      .bind(userId)
+      .first();
 
     if (!profile) {
       throw new Error(`User not found: ${userId}`);
     }
 
-    // Fetch work experience
-    const { data: workExperience, error: workError } = await supabase
-      .from('work_experience')
-      .select('position, company, description, start_date')
-      .eq('user_id', userId)
-      .order('start_date', { ascending: false });
+    // Fetch work experience from D1
+    const { results: workExperience } = await env.DB.prepare(
+      'SELECT title, company, description, start_date FROM work_experience WHERE user_id = ? ORDER BY start_date DESC'
+    )
+      .bind(userId)
+      .all();
 
-    if (workError) {
-      console.error(`[Embeddings] Warning: Failed to fetch work experience: ${workError.message}`);
-    }
-
-    // Fetch skills
-    const { data: skills, error: skillsError } = await supabase
-      .from('skills')
-      .select('name')
-      .eq('user_id', userId);
-
-    if (skillsError) {
-      console.error(`[Embeddings] Warning: Failed to fetch skills: ${skillsError.message}`);
-    }
+    // Fetch skills from D1
+    const { results: skills } = await env.DB.prepare(
+      'SELECT name FROM skills WHERE user_id = ?'
+    )
+      .bind(userId)
+      .all();
 
     // Generate embedding
     const embedding = await generateResumeEmbedding(
       env,
       {
-        id: profile.id,
-        headline: profile.current_title,
-        summary: profile.professional_summary,
+        id: profile.id as string,
+        headline: profile.current_title as string,
+        summary: profile.professional_summary as string,
       } as UserProfile,
-      workExperience || [],
-      skills || []
+      (workExperience || []) as unknown as WorkExperience[],
+      (skills || []) as unknown as Skill[]
     );
 
     console.log(`[Embeddings] Generated embedding with ${embedding.length} dimensions`);
 
-    // Update database with new embedding
-    const { error: updateError } = await supabase
-      .from('users')
-      .update({ resume_embedding: embedding })
-      .eq('id', userId);
+    // Convert embedding array to JSON string for D1 storage
+    const embeddingJson = JSON.stringify(embedding);
 
-    if (updateError) {
-      throw new Error(`Failed to update resume embedding: ${updateError.message}`);
+    // Update database with new embedding
+    const { meta } = await env.DB.prepare(
+      'UPDATE users SET resume_embedding = ? WHERE id = ?'
+    )
+      .bind(embeddingJson, userId)
+      .run();
+
+    if (meta.changes === 0) {
+      throw new Error('Failed to update resume embedding - user not found');
     }
 
     const duration = Date.now() - startTime;
