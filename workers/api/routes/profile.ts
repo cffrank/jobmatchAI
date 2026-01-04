@@ -78,7 +78,7 @@ const workExperienceSchema = z.object({
   location: z.string().optional().nullable(),
   employment_type: z.string().optional().nullable(),
   description: z.string().optional().nullable(),
-  accomplishments: z.string().optional().nullable(),
+  accomplishments: z.array(z.string()).optional().nullable(),
   start_date: z.string(),
   end_date: z.string().optional().nullable(),
   is_current: z.boolean().optional(),
@@ -379,18 +379,26 @@ app.post('/work-experience', authenticateUser, async (c) => {
     const experienceId = crypto.randomUUID();
     const timestamp = new Date().toISOString();
 
+    // Convert accomplishments array to JSON string if provided
+    const accomplishmentsJson = parseResult.data.accomplishments
+      ? JSON.stringify(parseResult.data.accomplishments)
+      : null;
+
     await c.env.DB.prepare(
       `INSERT INTO work_experience (
-        id, user_id, title, company, description, start_date, end_date,
-        is_current, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        id, user_id, title, company, location, employment_type, description,
+        accomplishments, start_date, end_date, is_current, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
       .bind(
         experienceId,
         userId,
         parseResult.data.title,
         parseResult.data.company,
+        parseResult.data.location || null,
+        parseResult.data.employment_type || null,
         parseResult.data.description || null,
+        accomplishmentsJson,
         parseResult.data.start_date,
         parseResult.data.end_date || null,
         parseResult.data.is_current || false,
@@ -453,11 +461,17 @@ app.patch('/work-experience/:id', authenticateUser, async (c) => {
   try {
     const timestamp = new Date().toISOString();
 
+    // Convert accomplishments array to JSON string for storage
+    const dataToUpdate = { ...parseResult.data };
+    if (dataToUpdate.accomplishments !== undefined && dataToUpdate.accomplishments !== null) {
+      dataToUpdate.accomplishments = JSON.stringify(dataToUpdate.accomplishments) as any;
+    }
+
     // Build dynamic UPDATE query
     const updateFields: string[] = [];
     const values: unknown[] = [];
 
-    Object.entries(parseResult.data).forEach(([key, value]) => {
+    Object.entries(dataToUpdate).forEach(([key, value]) => {
       updateFields.push(`${key} = ?`);
       values.push(value);
     });
