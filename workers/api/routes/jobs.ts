@@ -71,6 +71,19 @@ const updateJobSchema = z.object({
   isArchived: z.boolean().optional(),
 });
 
+const createJobSchema = z.object({
+  title: z.string().min(1, 'Job title is required').max(200),
+  company: z.string().min(1, 'Company name is required').max(200),
+  location: z.string().max(200).optional(),
+  description: z.string().max(10000).optional(),
+  url: z.string().url().max(500).optional().or(z.literal('')),
+  jobType: z.enum(['full-time', 'part-time', 'contract', 'internship', 'temporary', 'remote']).optional(),
+  experienceLevel: z.enum(['entry', 'mid', 'senior', 'lead', 'executive']).optional(),
+  salaryMin: z.number().int().min(0).optional(),
+  salaryMax: z.number().int().min(0).optional(),
+  source: z.enum(['linkedin', 'indeed', 'manual']).default('manual'),
+});
+
 const searchJobsSchema = z.object({
   query: z.string().min(1, 'Search query is required').max(500),
   limit: z.coerce.number().int().positive().max(50).default(20),
@@ -254,6 +267,63 @@ app.get('/:id', authenticateUser, async (c) => {
   }
 
   return c.json(job);
+});
+
+/**
+ * POST /api/jobs
+ * Create a new job (manual entry or from scraping)
+ */
+app.post('/', authenticateUser, rateLimiter(), async (c) => {
+  const userId = getUserId(c);
+  const body = await c.req.json();
+
+  // Validate input
+  const parseResult = createJobSchema.safeParse(body);
+  if (!parseResult.success) {
+    throw createValidationError(
+      'Invalid request body',
+      Object.fromEntries(
+        parseResult.error.errors.map((e) => [e.path.join('.'), e.message])
+      )
+    );
+  }
+
+  const data = parseResult.data;
+  const jobId = crypto.randomUUID();
+  const timestamp = new Date().toISOString();
+
+  // Insert job into D1
+  await c.env.DB.prepare(
+    `INSERT INTO jobs (
+      id, user_id, title, company, location, description, url,
+      job_type, experience_level, salary_min, salary_max,
+      source, saved, archived, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  )
+    .bind(
+      jobId,
+      userId,
+      data.title,
+      data.company,
+      data.location || null,
+      data.description || null,
+      data.url || null,
+      data.jobType || null,
+      data.experienceLevel || null,
+      data.salaryMin || null,
+      data.salaryMax || null,
+      data.source,
+      false, // saved
+      false, // archived
+      timestamp,
+      timestamp
+    )
+    .run();
+
+  console.log(`[Jobs] Created job ${jobId} for user ${userId}: ${data.title} at ${data.company}`);
+
+  // Return the created job
+  return c.json({ id: jobId }, 201);
 });
 
 /**

@@ -298,9 +298,17 @@ interface ValidationResult {
  * If validation fails, we fallback to OpenAI for better quality.
  */
 function validateAnalysisQuality(analysis: JobCompatibilityAnalysis): ValidationResult {
-  // Check overall score is present and in valid range
-  if (typeof analysis.overallScore !== 'number' || analysis.overallScore < 0 || analysis.overallScore > 100) {
-    return { isValid: false, reason: 'Invalid overall score' };
+  // Check overall score is present, is a valid number (not NaN), and in valid range
+  if (
+    typeof analysis.overallScore !== 'number' ||
+    Number.isNaN(analysis.overallScore) ||
+    analysis.overallScore < 0 ||
+    analysis.overallScore > 100
+  ) {
+    return {
+      isValid: false,
+      reason: `Invalid overall score: ${analysis.overallScore} (type: ${typeof analysis.overallScore})`,
+    };
   }
 
   // Check recommendation is valid

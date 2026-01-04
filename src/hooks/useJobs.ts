@@ -476,7 +476,7 @@ export function useJob(jobId: string | undefined) {
 }
 
 /**
- * Create a new job manually
+ * Create a new job manually via Workers API
  */
 export async function createJob(jobData: {
   title: string
@@ -490,28 +490,42 @@ export async function createJob(jobData: {
   salaryMax?: number
   userId: string
 }): Promise<string> {
-  const { data, error } = await supabase
-    .from('jobs')
-    .insert({
-      user_id: jobData.userId,
+  // Get auth token
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) {
+    throw new Error('No active session')
+  }
+
+  // Call Workers API to create job in D1 database
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8787'
+  const response = await fetch(`${API_URL}/api/jobs`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${session.access_token}`,
+    },
+    body: JSON.stringify({
       title: jobData.title,
       company: jobData.company,
       location: jobData.location,
       description: jobData.description,
       url: jobData.url,
+      jobType: jobData.jobType,
+      experienceLevel: jobData.experienceLevel,
+      salaryMin: jobData.salaryMin,
+      salaryMax: jobData.salaryMax,
       source: 'manual',
-      job_type: jobData.jobType,
-      experience_level: jobData.experienceLevel,
-      salary_min: jobData.salaryMin,
-      salary_max: jobData.salaryMax,
-      saved: false,
-      archived: false,
-    })
-    .select('id')
-    .single()
+    }),
+  })
 
-  if (error) throw error
-  return data.id
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ message: 'Failed to create job' }))
+    throw new Error(errorData.message || `HTTP ${response.status}`)
+  }
+
+  const { id } = await response.json()
+  console.log('[useJobs] Created job via Workers API:', id)
+  return id
 }
 
 /**
