@@ -15,6 +15,23 @@ export function useWorkExperience() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
 
+  // Convert snake_case API response to camelCase for frontend
+  const convertToCamelCase = (exp: Record<string, unknown>): WorkExperience => {
+    return {
+      id: exp.id as string,
+      company: exp.company as string,
+      title: exp.title as string,
+      location: exp.location as string || '',
+      startDate: exp.start_date as string,
+      endDate: exp.end_date as string || '',
+      current: Boolean(exp.is_current),
+      description: exp.description as string || '',
+      accomplishments: typeof exp.accomplishments === 'string'
+        ? JSON.parse(exp.accomplishments)
+        : (exp.accomplishments as string[] || []),
+    }
+  }
+
   // Fetch and subscribe to work experience
   useEffect(() => {
     if (!userId) {
@@ -32,7 +49,11 @@ export function useWorkExperience() {
         const response = await workersApi.getWorkExperience()
 
         if (subscribed) {
-          setWorkExperience(response.workExperience as WorkExperience[] || [])
+          // Convert snake_case to camelCase
+          const converted = (response.workExperience as Record<string, unknown>[] || [])
+            .map(convertToCamelCase)
+
+          setWorkExperience(converted)
           setError(null)
         }
       } catch (err) {
@@ -61,10 +82,10 @@ export function useWorkExperience() {
         },
         (payload) => {
           if (payload.eventType === 'INSERT') {
-            const newExp = payload.new as WorkExperience
+            const newExp = convertToCamelCase(payload.new as Record<string, unknown>)
             setWorkExperience((current) => [newExp, ...current])
           } else if (payload.eventType === 'UPDATE') {
-            const updatedExp = payload.new as WorkExperience
+            const updatedExp = convertToCamelCase(payload.new as Record<string, unknown>)
             setWorkExperience((current) =>
               current.map((exp) => (exp.id === updatedExp.id ? updatedExp : exp))
             )
