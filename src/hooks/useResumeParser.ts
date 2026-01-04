@@ -60,7 +60,7 @@ export function useResumeParser() {
   const { updateProfile } = useProfile()
   const { workExperience, addWorkExperience, deleteWorkExperience } = useWorkExperience()
   const { education, addEducation, deleteEducation } = useEducation()
-  const { skills, addSkill, addSkillsBatch, deleteSkill } = useSkills()
+  const { skills, addSkillsBatch, deleteSkill } = useSkills()
 
   const [parsing, setParsing] = useState(false)
   const [uploading, setUploading] = useState(false)
