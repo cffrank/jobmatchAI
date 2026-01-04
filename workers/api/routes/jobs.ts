@@ -187,11 +187,11 @@ app.get('/', authenticateUser, async (c) => {
   const offset = (page - 1) * limit;
 
   // Build dynamic query
-  const conditions: string[] = ['user_id = ?', 'is_archived = ?'];
+  const conditions: string[] = ['user_id = ?', 'archived = ?'];
   const params: (string | number)[] = [userId, archived ? 1 : 0];
 
   if (saved !== undefined) {
-    conditions.push('is_saved = ?');
+    conditions.push('saved = ?');
     params.push(saved ? 1 : 0);
   }
 
@@ -574,12 +574,12 @@ app.patch('/:id', authenticateUser, async (c) => {
   const values: (string | number | null)[] = [];
 
   if (updates.isSaved !== undefined) {
-    updateFields.push('is_saved = ?');
+    updateFields.push('saved = ?');
     values.push(updates.isSaved ? 1 : 0);
   }
 
   if (updates.isArchived !== undefined) {
-    updateFields.push('is_archived = ?');
+    updateFields.push('archived = ?');
     values.push(updates.isArchived ? 1 : 0);
   }
 
@@ -970,8 +970,8 @@ app.post('/cleanup', authenticateUser, requireAdmin, async (c) => {
   // Archive jobs older than cutoff
   const { meta } = await c.env.DB.prepare(
     `UPDATE jobs
-     SET is_archived = 1, updated_at = ?
-     WHERE created_at < ? AND is_archived = 0`
+     SET archived = 1, updated_at = ?
+     WHERE created_at < ? AND archived = 0`
   )
     .bind(timestamp, cutoffDate.toISOString())
     .run();
@@ -1011,8 +1011,8 @@ function mapDatabaseJob(record: any): Job {
     preferredSkills: record.preferred_skills,
     experienceLevel: record.experience_level,
     matchScore: record.match_score,
-    isSaved: record.is_saved,
-    isArchived: record.is_archived,
+    isSaved: record.saved,
+    isArchived: record.archived,
     createdAt: record.created_at,
     updatedAt: record.updated_at,
   };
